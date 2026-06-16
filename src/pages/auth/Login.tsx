@@ -1,51 +1,76 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import axiosClient from "../../api/axiosClient";
 
-const Login = () => {
+function LoginPage() {
+  const navigate = useNavigate();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
 
-  const handleLogin = (event: any) => {
-    event.preventDefault();
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
 
-    console.log("Email:", email);
-    console.log("Mật khẩu:", password);
-  };
+    try {
+      const res = await axiosClient.post("/api/auth/login", {
+        email,
+        password,
+      });
+
+      console.log("LOGIN RESPONSE:", res.data);
+
+      const token = res.data?.data?.token || res.data?.token;
+      const user = res.data?.data?.user || res.data?.user;
+
+      if (!token) {
+        setMessage("Không tìm thấy token từ server");
+        return;
+      }
+
+      localStorage.setItem("token", token);
+
+      if (user) {
+        localStorage.setItem("user", JSON.stringify(user));
+      }
+
+      setMessage("Đăng nhập thành công");
+
+      navigate("/home");
+    } catch (error) {
+      console.log(error);
+      setMessage("Đăng nhập thất bại");
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
-        <div className="mb-8 text-center">
-          <Link to="/" className="text-3xl font-bold text-sky-600">
-            Auto Wash Pro
-          </Link>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
+        <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">
+          Đăng nhập
+        </h1>
 
-          <h1 className="mt-6 text-2xl font-bold text-slate-800">
-            Đăng nhập
-          </h1>
+        <p className="text-center text-gray-500 mb-6">
+          Chào mừng bạn quay trở lại
+        </p>
 
-          <p className="mt-2 text-sm text-slate-500">
-            Chào mừng bạn quay lại hệ thống
-          </p>
-        </div>
-
-        <form onSubmit={handleLogin} className="space-y-5">
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Email
             </label>
 
             <input
               type="email"
-              placeholder="Nhập email của bạn"
+              placeholder="Nhập email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Mật khẩu
             </label>
 
@@ -53,45 +78,35 @@ const Login = () => {
               type="password"
               placeholder="Nhập mật khẩu"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
-          </div>
-
-          <div className="flex items-center justify-between text-sm">
-            <label className="flex items-center gap-2 text-slate-600">
-              <input type="checkbox" className="h-4 w-4" />
-              Ghi nhớ đăng nhập
-            </label>
-
-            <Link
-              to="/forgot-password"
-              className="font-medium text-sky-600 hover:underline"
-            >
-              Quên mật khẩu?
-            </Link>
           </div>
 
           <button
             type="submit"
-            className="w-full rounded-lg bg-sky-600 py-3 font-semibold text-white transition hover:bg-sky-700"
+            className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition duration-200"
           >
             Đăng nhập
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-slate-600">
+        {message && (
+          <p className="text-center mt-4 text-sm text-red-500">{message}</p>
+        )}
+
+        <p className="text-center text-sm text-gray-600 mt-6">
           Chưa có tài khoản?{" "}
           <Link
             to="/register"
-            className="font-semibold text-sky-600 hover:underline"
+            className="text-blue-600 font-medium hover:underline"
           >
-Đăng ký ngay
+            Đăng ký
           </Link>
         </p>
       </div>
     </div>
   );
-};
+}
 
-export default Login;
+export default LoginPage;
