@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 const Register = () => {
@@ -8,7 +8,7 @@ const Register = () => {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
 
-  const handleRegister = (event: FormEvent<HTMLFormElement>) => {
+  const handleRegister = (event: any) => {
     event.preventDefault();
 
     if (password !== confirmPassword) {
