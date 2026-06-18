@@ -10,6 +10,7 @@ import Register from "../pages/auth/Register";
 import LoginedHomePage from "../pages/customer/LoginedHomePage";
 import RegisterCar from "../pages/customer/RegisterCar";
 import ProtectedRoute from "./ProtectedRoute";
+import Profile from "../pages/customer/Profile";
 
 const AppRoutes = () => {
   return (
@@ -43,7 +44,15 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-      </Routes>
+        <Route
+          path="/customer/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        </Routes>
     </BrowserRouter>
   );
 };
