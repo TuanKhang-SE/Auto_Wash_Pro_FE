@@ -49,22 +49,28 @@ const Navbar = () => {
               <p className="text-xs text-sky-600">Hạng: Thành viên</p>
             </button>
             {showMenu && (
-              <div className="absolute right-0 mt-3 w-80 rounded-2xl bg-white p-3 shadow-2xl border border-gray-100">
-                <div className="rounded-xl bg-gray-50 p-4">
-                  <p className="font-semibold text-slate-800">
-                    {user.fullName || "Người dùng"} 
-                  </p>
+              <div className="absolute right-0 mt-3 w-80 rounded-2xl border border-gray-100 bg-white p-3 shadow-2xl">
+                <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sky-200 text-lg font-bold text-sky-700">
+                    {(user.fullName || user.email || "N").charAt(0).toUpperCase()}
+                  </div>
 
-                  <p className="text-sm text-slate-500">
-                    {user.email}
-                  </p>
+                  <div>
+                    <p className="font-semibold text-slate-800">
+                      {user.fullName || "Người dùng"}
+                    </p>
+
+                    <p className="text-sm text-slate-500">
+                      {user.email}
+                    </p>
+                  </div>
                 </div>
 
                 <hr className="my-2" />
 
                 <Link
-                to="/customer/profile"
-                className="block rounded-lg px-4 py-3 font-medium text-slate-700 hover:bg-gray-100"
+                  to="/customer/profile"
+                  className="block rounded-lg px-4 py-3 font-medium text-slate-700 hover:bg-gray-100"
                 >
                   Thông tin cá nhân
                 </Link>
