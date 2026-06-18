@@ -13,7 +13,7 @@ function RegisterCar() {
   const [mauXe, setMauXe] = useState("");
   const [message, setMessage] = useState("");
 
-  async function handleRegister(e: React.FormEvent) {
+  async function handleRegister(e: { preventDefault: () => void }) {
     e.preventDefault();
 
     try {

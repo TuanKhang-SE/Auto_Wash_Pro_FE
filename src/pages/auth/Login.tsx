@@ -10,7 +10,7 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  async function handleLogin(e: React.FormEvent) {
+async function handleLogin(e: { preventDefault: () => void }) {
     e.preventDefault();
 
     try {
@@ -38,10 +38,13 @@ function LoginPage() {
       setMessage("Đăng nhập thành công");
 
       navigate("/home");
-    } catch (error) {
-      console.log(error);
-      setMessage("Đăng nhập thất bại");
-    }
+   } catch (error: any) {
+  console.log(error.response?.data || error);
+
+  setMessage(
+    error.response?.data?.message || "Đăng nhập thất bại"
+  );
+}
   }
 
  return (
