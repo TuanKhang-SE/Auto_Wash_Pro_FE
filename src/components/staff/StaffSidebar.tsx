@@ -1,15 +1,28 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Car, LogOut, User } from "lucide-react";
 import { staffMenu } from "../../constants/staffMenu";
 
 const StaffSidebar: React.FC = () => {
   const navigate = useNavigate();
+  const [staffName, setStaffName] = useState("Nhân viên");
+
+  useEffect(() => {
+    const getUserFromStorage = () => {
+      try {
+        const userStr = localStorage.getItem("user");
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          setStaffName(user?.fullName || user?.email || "Nhân viên");
+        }
+      } catch {}
+    };
+    getUserFromStorage();
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("userRole");
-
     navigate("/login");
   };
 
@@ -65,7 +78,7 @@ const StaffSidebar: React.FC = () => {
 
           <div className="overflow-hidden">
             <p className="truncate text-sm font-semibold">
-              Nguyễn Văn Staff
+              {staffName}
             </p>
 
             <p className="flex items-center gap-1 text-xs text-emerald-400">
