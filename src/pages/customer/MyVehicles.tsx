@@ -14,6 +14,14 @@ type Vehicle = {
   CreatedAt?: string | null;
 };
 
+type EditForm = {
+  LicensePlate: string;
+  VehicleType: string;
+  Brand: string;
+  Model: string;
+  Color: string;
+};
+
 function MyVehicles() {
   const navigate = useNavigate();
 
@@ -21,77 +29,25 @@ function MyVehicles() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const [editingVehicleId, setEditingVehicleId] = useState<number | null>(null);
+  // Xe nào đang được sửa
+  const [editingId, setEditingId] = useState<number | null>(null);
 
-  const [editLicensePlate, setEditLicensePlate] = useState("");
-  const [editVehicleType, setEditVehicleType] = useState("");
-  const [editBrand, setEditBrand] = useState("");
-  const [editModel, setEditModel] = useState("");
-  const [editColor, setEditColor] = useState("");
+  // Form sửa xe
+  const [editForm, setEditForm] = useState<EditForm>({
+    LicensePlate: "",
+    VehicleType: "",
+    Brand: "",
+    Model: "",
+    Color: "",
+  });
 
   useEffect(() => {
-    async function fetchVehicles() {
-      try {
-        setLoading(true);
-        setMessage("");
+    loadVehicles();
+  }, []);
 
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-          navigate("/login");
-          return;
-        }
-
-        const res = await axiosClient.get("/api/vehicles", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        setVehicles(res.data.data || []);
-      } catch (error) {
-        console.log(error);
-        setMessage("Không thể tải danh sách xe");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchVehicles();
-  }, [navigate]);
-
-  function formatDate(date?: string | null) {
-    if (!date) return "Chưa có";
-
-    return new Date(date).toLocaleDateString("vi-VN");
-  }
-
-  function handleStartEdit(vehicle: Vehicle) {
-    setEditingVehicleId(vehicle.VehicleID);
-
-    setEditLicensePlate(vehicle.LicensePlate || "");
-    setEditVehicleType(vehicle.VehicleType || "");
-    setEditBrand(vehicle.Brand || "");
-    setEditModel(vehicle.Model || "");
-    setEditColor(vehicle.Color || "");
-
-    setMessage("");
-  }
-
-  function handleCancelEdit() {
-    setEditingVehicleId(null);
-
-    setEditLicensePlate("");
-    setEditVehicleType("");
-    setEditBrand("");
-    setEditModel("");
-    setEditColor("");
-
-    setMessage("");
-  }
-
-  async function handleUpdateVehicle(vehicleId: number) {
+  async function loadVehicles() {
     try {
+      setLoading(true);
       setMessage("");
 
       const token = localStorage.getItem("token");
@@ -101,45 +57,100 @@ function MyVehicles() {
         return;
       }
 
-      if (!editLicensePlate.trim()) {
-        setMessage("Biển số xe không được để trống");
-        return;
-      }
-
-      const updatedData = {
-        LicensePlate: editLicensePlate.trim().toUpperCase(),
-        VehicleType: editVehicleType.trim(),
-        Brand: editBrand.trim(),
-        Model: editModel.trim(),
-        Color: editColor.trim(),
-      };
-
-      await axiosClient.put(`/api/vehicles/${vehicleId}`, updatedData, {
+      const res = await axiosClient.get("/api/vehicles", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      setVehicles((oldVehicles) =>
-        oldVehicles.map((vehicle) =>
-          vehicle.VehicleID === vehicleId
-            ? {
-                ...vehicle,
-                ...updatedData,
-              }
-            : vehicle
-        )
-      );
-
-      setEditingVehicleId(null);
-      setMessage("Cập nhật thông tin xe thành công");
+      setVehicles(res.data.data || []);
     } catch (error) {
       console.log(error);
-      setMessage("Cập nhật thông tin xe thất bại");
+      setMessage("Không thể tải danh sách xe");
+    } finally {
+      setLoading(false);
     }
   }
 
-  async function handleDeleteVehicle(vehicleId: number) {
+  function formatDate(date?: string | null) {
+    if (!date) {
+      return "Chưa có";
+    }
+
+    return new Date(date).toLocaleDateString("vi-VN");
+  }
+
+  function startEdit(vehicle: Vehicle) {
+    // Lưu id xe đang sửa
+    setEditingId(vehicle.VehicleID);
+
+    // Đổ dữ liệu xe vào form sửa
+    setEditForm({
+      LicensePlate: vehicle.LicensePlate || "",
+      VehicleType: vehicle.VehicleType || "",
+      Brand: vehicle.Brand || "",
+      Model: vehicle.Model || "",
+      Color: vehicle.Color || "",
+    });
+
+    setMessage("");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+
+    setEditForm({
+      LicensePlate: "",
+      VehicleType: "",
+      Brand: "",
+      Model: "",
+      Color: "",
+    });
+
+    setMessage("");
+  }
+
+  async function saveEdit(vehicleId: number) {
+  try {
+    setMessage("");
+
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    if (!editForm.LicensePlate.trim()) {
+      setMessage("Biển số xe không được để trống");
+      return;
+    }
+
+    const dataToUpdate = {
+      LicensePlate: editForm.LicensePlate.trim().toUpperCase(),
+      VehicleType: editForm.VehicleType.trim(),
+      Brand: editForm.Brand.trim(),
+      Model: editForm.Model.trim(),
+      Color: editForm.Color.trim(),
+    };
+
+    await axiosClient.put(`/api/vehicles/${vehicleId}`, dataToUpdate, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    await loadVehicles();
+
+    setEditingId(null);
+    setMessage("Cập nhật thông tin xe thành công");
+  } catch (error) {
+    console.log(error);
+    setMessage("Cập nhật thông tin xe thất bại");
+  }
+}
+
+  async function deleteVehicle(vehicleId: number) {
     const confirmDelete = window.confirm("Bạn có chắc muốn xóa xe này không?");
 
     if (!confirmDelete) {
@@ -162,10 +173,12 @@ function MyVehicles() {
         },
       });
 
-      setVehicles((oldVehicles) =>
-        oldVehicles.filter((vehicle) => vehicle.VehicleID !== vehicleId)
-      );
+      // Tạo danh sách mới, bỏ xe vừa xóa ra
+      const newVehicles = vehicles.filter((vehicle) => {
+        return vehicle.VehicleID !== vehicleId;
+      });
 
+      setVehicles(newVehicles);
       setMessage("Xóa xe thành công");
     } catch (error) {
       console.log(error);
@@ -192,7 +205,7 @@ function MyVehicles() {
 
             <Link
               to="/register-car"
-              className="rounded-lg bg-sky-600 px-4 py-2 font-semibold text-white transition hover:bg-sky-700"
+              className="rounded-lg bg-sky-600 px-4 py-2 font-semibold text-white hover:bg-sky-700"
             >
               Đăng ký xe mới
             </Link>
@@ -204,30 +217,34 @@ function MyVehicles() {
             </div>
           )}
 
-          {loading ? (
+          {loading && (
             <div className="rounded-2xl bg-white p-8 text-center shadow">
               <p className="text-slate-500">Đang tải danh sách xe...</p>
             </div>
-          ) : vehicles.length === 0 ? (
+          )}
+
+          {!loading && vehicles.length === 0 && (
             <div className="rounded-2xl bg-white p-8 text-center shadow">
               <p className="text-slate-500">Bạn chưa đăng ký xe nào.</p>
 
               <Link
                 to="/register-car"
-                className="mt-5 inline-block rounded-lg bg-sky-600 px-5 py-2.5 font-semibold text-white transition hover:bg-sky-700"
+                className="mt-5 inline-block rounded-lg bg-sky-600 px-5 py-2.5 font-semibold text-white hover:bg-sky-700"
               >
                 Đăng ký xe ngay
               </Link>
             </div>
-          ) : (
+          )}
+
+          {!loading && vehicles.length > 0 && (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {vehicles.map((vehicle) => {
-                const isEditing = editingVehicleId === vehicle.VehicleID;
+                const isEditing = editingId === vehicle.VehicleID;
 
                 return (
                   <div
                     key={vehicle.VehicleID}
-                    className="rounded-2xl bg-white p-6 shadow transition hover:-translate-y-1 hover:shadow-lg"
+                    className="rounded-2xl bg-white p-6 shadow"
                   >
                     <div className="mb-4 flex items-start justify-between">
                       <div className="flex-1">
@@ -235,11 +252,14 @@ function MyVehicles() {
 
                         {isEditing ? (
                           <input
-                            value={editLicensePlate}
+                            value={editForm.LicensePlate}
                             onChange={(e) =>
-                              setEditLicensePlate(e.target.value)
+                              setEditForm({
+                                ...editForm,
+                                LicensePlate: e.target.value,
+                              })
                             }
-                            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-bold text-sky-700 outline-none focus:ring-2 focus:ring-sky-500"
+                            className="mt-1 w-full rounded-lg border px-3 py-2 font-bold text-sky-700"
                           />
                         ) : (
                           <h2 className="mt-1 text-2xl font-bold text-sky-700">
@@ -259,11 +279,14 @@ function MyVehicles() {
 
                         {isEditing ? (
                           <input
-                            value={editVehicleType}
+                            value={editForm.VehicleType}
                             onChange={(e) =>
-                              setEditVehicleType(e.target.value)
+                              setEditForm({
+                                ...editForm,
+                                VehicleType: e.target.value,
+                              })
                             }
-                            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-sky-500"
+                            className="mt-1 w-full rounded-lg border px-3 py-2"
                           />
                         ) : (
                           <p className="font-semibold text-slate-800">
@@ -277,9 +300,14 @@ function MyVehicles() {
 
                         {isEditing ? (
                           <input
-                            value={editBrand}
-                            onChange={(e) => setEditBrand(e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-sky-500"
+                            value={editForm.Brand}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                Brand: e.target.value,
+                              })
+                            }
+                            className="mt-1 w-full rounded-lg border px-3 py-2"
                           />
                         ) : (
                           <p className="font-semibold text-slate-800">
@@ -293,9 +321,14 @@ function MyVehicles() {
 
                         {isEditing ? (
                           <input
-                            value={editModel}
-                            onChange={(e) => setEditModel(e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-sky-500"
+                            value={editForm.Model}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                Model: e.target.value,
+                              })
+                            }
+                            className="mt-1 w-full rounded-lg border px-3 py-2"
                           />
                         ) : (
                           <p className="font-semibold text-slate-800">
@@ -309,9 +342,14 @@ function MyVehicles() {
 
                         {isEditing ? (
                           <input
-                            value={editColor}
-                            onChange={(e) => setEditColor(e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-sky-500"
+                            value={editForm.Color}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                Color: e.target.value,
+                              })
+                            }
+                            className="mt-1 w-full rounded-lg border px-3 py-2"
                           />
                         ) : (
                           <p className="font-semibold text-slate-800">
@@ -332,17 +370,15 @@ function MyVehicles() {
                       {isEditing ? (
                         <>
                           <button
-                            onClick={() =>
-                              handleUpdateVehicle(vehicle.VehicleID)
-                            }
-                            className="flex-1 rounded-lg bg-green-600 py-2 font-semibold text-white transition hover:bg-green-700"
+                            onClick={() => saveEdit(vehicle.VehicleID)}
+                            className="flex-1 rounded-lg bg-green-600 py-2 font-semibold text-white hover:bg-green-700"
                           >
                             Lưu
                           </button>
 
                           <button
-                            onClick={handleCancelEdit}
-                            className="flex-1 rounded-lg bg-gray-200 py-2 font-semibold text-slate-700 transition hover:bg-gray-300"
+                            onClick={cancelEdit}
+                            className="flex-1 rounded-lg bg-gray-200 py-2 font-semibold text-slate-700 hover:bg-gray-300"
                           >
                             Hủy
                           </button>
@@ -350,17 +386,15 @@ function MyVehicles() {
                       ) : (
                         <>
                           <button
-                            onClick={() => handleStartEdit(vehicle)}
-                            className="flex-1 rounded-lg bg-yellow-500 py-2 font-semibold text-white transition hover:bg-yellow-600"
+                            onClick={() => startEdit(vehicle)}
+                            className="flex-1 rounded-lg bg-yellow-500 py-2 font-semibold text-white hover:bg-yellow-600"
                           >
                             Chỉnh sửa
                           </button>
 
                           <button
-                            onClick={() =>
-                              handleDeleteVehicle(vehicle.VehicleID)
-                            }
-                            className="flex-1 rounded-lg bg-red-600 py-2 font-semibold text-white transition hover:bg-red-700"
+                            onClick={() => deleteVehicle(vehicle.VehicleID)}
+                            className="flex-1 rounded-lg bg-red-600 py-2 font-semibold text-white hover:bg-red-700"
                           >
                             Xóa xe
                           </button>
