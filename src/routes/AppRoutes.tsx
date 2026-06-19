@@ -5,12 +5,32 @@ import HomePage from "../pages/HomePage";
 import StaffLayout from "../layouts/StaffLayout";
 import StaffDashboard from "../pages/staff/StaffDashboard";
 
+import ManagerLayout from "../layouts/ManagerLayout";
+import ManagerDashboard from "../pages/manager/ManagerDashboard";
+import ManagerStaffManagement from "../pages/manager/ManagerStaffManagement";
+import ManagerBookings from "../pages/manager/ManagerBookings";
+import ManagerStatistics from "../pages/manager/ManagerStatistics";
+import ManagerBranchInfo from "../pages/manager/ManagerBranchInfo";
+
+import AdminLayout from "../layouts/AdminLayout";
+import AdminDashboard from "../pages/admin/AdminDashboard";
+import AdminManagerManagement from "../pages/admin/AdminManagerManagement";
+import AdminStaffManagement from "../pages/admin/AdminStaffManagement";
+import AdminBranches from "../pages/admin/AdminBranches";
+import AdminStatistics from "../pages/admin/AdminStatistics";
+
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 import LoginedHomePage from "../pages/customer/LoginedHomePage";
 import RegisterCar from "../pages/customer/RegisterCar";
-import ProtectedRoute from "./ProtectedRoute";
+
+import ProtectedRoute, { ManagerRoute, AdminRoute } from "./ProtectedRoute";
+
+
+
 import Profile from "../pages/customer/Profile";
+import MyVehicles from "../pages/customer/MyVehicles";
+
 
 const AppRoutes = () => {
   return (
@@ -24,6 +44,38 @@ const AppRoutes = () => {
         {/* Staff */}
         <Route path="/staff" element={<StaffLayout />}>
           <Route index element={<StaffDashboard />} />
+        </Route>
+
+        {/* Manager - Protected Route */}
+        <Route
+          path="/manager"
+          element={
+            <ManagerRoute>
+              <ManagerLayout />
+            </ManagerRoute>
+          }
+        >
+          <Route index element={<ManagerDashboard />} />
+          <Route path="staff" element={<ManagerStaffManagement />} />
+          <Route path="bookings" element={<ManagerBookings />} />
+          <Route path="statistics" element={<ManagerStatistics />} />
+          <Route path="branch" element={<ManagerBranchInfo />} />
+        </Route>
+
+        {/* Admin - Protected Route */}
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminLayout />
+            </AdminRoute>
+          }
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="managers" element={<AdminManagerManagement />} />
+          <Route path="staff" element={<AdminStaffManagement />} />
+          <Route path="branches" element={<AdminBranches />} />
+          <Route path="statistics" element={<AdminStatistics />} />
         </Route>
 
         {/* Trang cần đăng nhập */}
@@ -52,6 +104,15 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+
+        <Route
+  path="/customer/vehicles"
+  element={
+    <ProtectedRoute>
+      <MyVehicles />
+    </ProtectedRoute>
+  }
+/>
         </Routes>
     </BrowserRouter>
   );

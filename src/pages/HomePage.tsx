@@ -23,7 +23,6 @@ const HomePage = () => {
                 </Link>
             </section>
 
-
             {/* Dịch vụ */}
             <section className="bg-white py-5">
                 <div className="flex flex-col items-center justify-center w-full gap-6">
