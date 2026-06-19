@@ -11,6 +11,7 @@ import LoginedHomePage from "../pages/customer/LoginedHomePage";
 import RegisterCar from "../pages/customer/RegisterCar";
 import ProtectedRoute from "./ProtectedRoute";
 import Profile from "../pages/customer/Profile";
+import MyVehicles from "../pages/customer/MyVehicles";
 
 const AppRoutes = () => {
   return (
@@ -52,6 +53,15 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+
+        <Route
+  path="/customer/vehicles"
+  element={
+    <ProtectedRoute>
+      <MyVehicles />
+    </ProtectedRoute>
+  }
+/>
         </Routes>
     </BrowserRouter>
   );

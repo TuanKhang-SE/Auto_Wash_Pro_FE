@@ -83,6 +83,13 @@ const Navbar = () => {
                   Đăng ký xe
                 </Link>
 
+                <Link
+  to="/customer/vehicles"
+  className="block rounded-lg px-4 py-3 font-medium text-slate-700 hover:bg-gray-100"
+>
+  Thông tin xe
+</Link>
+
                 <button
                   onClick={handleLogout}
                   className="w-full rounded-lg px-4 py-3 text-left font-medium text-red-600 hover:bg-red-50"
