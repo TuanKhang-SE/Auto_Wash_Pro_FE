@@ -8,9 +8,25 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  function getRedirectPath(role) {
+    switch (role) {
+      case "Admin":
+        return "/admin";
+      case "Manager":
+        return "/manager";
+      case "Staff":
+        return "/staff";
+      default:
+        return "/home";
+    }
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+    setMessage("");
+    setLoading(true);
 
     try {
       const res = await axiosClient.post("/api/auth/login", {
@@ -20,26 +36,34 @@ function LoginPage() {
 
       console.log("LOGIN RESPONSE:", res.data);
 
-      const token = res.data?.data?.token || res.data?.token;
-      const user = res.data?.data?.user || res.data?.user;
+      const payload = res.data?.data as
+        | { token?: string; user?: { role?: string; [k: string]: unknown } }
+        | undefined;
+      const token = payload?.token;
+      const user = payload?.user;
 
-      if (!token) {
-        setMessage("Không tìm thấy token từ server");
+      if (!token || !user) {
+        setMessage(res.data?.message || "Không tìm thấy token từ server");
+        setLoading(false);
         return;
       }
 
       localStorage.setItem("token", token);
-
-      if (user) {
-        localStorage.setItem("user", JSON.stringify(user));
-      }
+      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("userRole", (user.role as string) ?? "");
 
       setMessage("Đăng nhập thành công");
-
-      navigate("/home");
-    } catch (error) {
+      navigate(getRedirectPath(user.role as string), { replace: true });
+    } catch (error: unknown) {
       console.log(error);
-      setMessage("Đăng nhập thất bại");
+      const axiosErr = error as {
+        response?: { data?: { message?: string } };
+      };
+      const errMsg =
+        axiosErr?.response?.data?.message ||
+        "Đăng nhập thất bại. Vui lòng kiểm tra lại email/mật khẩu.";
+      setMessage(errMsg);
+      setLoading(false);
     }
   }
 
@@ -85,9 +109,10 @@ function LoginPage() {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition duration-200"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 disabled:bg-blue-400 disabled:cursor-not-allowed"
           >
-            Đăng nhập
+            {loading ? "Đang đăng nhập..." : "Đăng nhập"}
           </button>
         </form>
 
