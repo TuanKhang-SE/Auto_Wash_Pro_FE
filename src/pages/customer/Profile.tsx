@@ -1,10 +1,78 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../../components/Navbar";
+import axiosClient from "../../api/axiosClient";
 import avatarImg from "../../assets/avatar.png";
+type ProfileUser = {
+    UserID?: number;
+    FullName?: string;
+    Phone?: string;
+    Email?: string;
+    Role?: string;
+    Status?: string;
+    CreatedAt?: string;
+    UpdatedAt?: string;
+
+    userId?: number;
+    fullName?: string;
+    phone?: string;
+    email?: string;
+    role?: string;
+    status?: string;
+};
+
+
 
 const Profile = () => {
+
     const userString = localStorage.getItem("user");
-    const user = userString ? JSON.parse(userString) : null;
+    const localUser: ProfileUser | null = userString
+        ? JSON.parse(userString)
+        : null;
+
+    const [user, setUser] = useState<ProfileUser | null>(localUser);
+    const [loading, setLoading] = useState(true);
+    const [errorMessage, setErrorMessage] = useState("");
+    const userId = localUser?.userId || localUser?.UserID;
+
+    const fullName = user?.fullName || user?.FullName || "Người dùng";
+    const email = user?.email || user?.Email || "Chưa có email";
+    const phone = user?.phone || user?.Phone || "Chưa cập nhật";
+    const role = user?.role || user?.Role || "Customer";
+    const status = user?.status || user?.Status || "Active";
+
+    useEffect(() => {
+        async function fetchProfile() {
+            try {
+                if (!userId) {
+                    setErrorMessage("Không tìm thấy ID người dùng");
+                    return;
+                }
+
+                const token = localStorage.getItem("token");
+
+                const res = await axiosClient.get(`/api/users/${userId}`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                const apiUser = res.data?.data || res.data;
+
+                setUser(apiUser);
+            } catch (error: any) {
+                console.log(error.response?.data || error);
+
+                setErrorMessage(
+                    error.response?.data?.message || "Không thể tải thông tin cá nhân"
+                );
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        fetchProfile();
+    }, [userId]);
 
     return (
         <>
@@ -15,6 +83,17 @@ const Profile = () => {
                     <h1 className="mb-8 text-3xl font-bold text-slate-800">
                         Trang cá nhân
                     </h1>
+                    {loading && (
+                        <p className="mb-4 text-sm text-slate-500">
+                            Đang tải thông tin cá nhân...
+                        </p>
+                    )}
+
+                    {errorMessage && (
+                        <p className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+                            {errorMessage}
+                        </p>
+                    )}
 
                     <div className="grid gap-6 lg:grid-cols-3">
                         <section className="rounded-2xl bg-white p-6 shadow">
@@ -26,11 +105,11 @@ const Profile = () => {
                                 />
 
                                 <h2 className="mt-4 text-2xl font-bold text-slate-800">
-                                    {user?.fullName || "Người dùng"}
+                                    {fullName}
                                 </h2>
 
                                 <p className="mt-1 text-sm text-slate-500">
-                                    {user?.email || "Chưa có email"}
+                                    {email}
                                 </p>
 
                                 <span className="mt-4 rounded-full bg-sky-100 px-4 py-1 text-sm font-medium text-sky-700">
@@ -48,28 +127,34 @@ const Profile = () => {
                                 <div className="rounded-xl border border-gray-100 p-4">
                                     <p className="text-sm text-slate-500">Họ và tên</p>
                                     <p className="mt-1 font-semibold text-slate-800">
-                                        {user?.fullName || "Chưa cập nhật"}
+                                        {fullName}
                                     </p>
                                 </div>
 
                                 <div className="rounded-xl border border-gray-100 p-4">
                                     <p className="text-sm text-slate-500">Email</p>
                                     <p className="mt-1 font-semibold text-slate-800">
-                                        {user?.email || "Chưa cập nhật"}
+                                        {email}
                                     </p>
                                 </div>
 
                                 <div className="rounded-xl border border-gray-100 p-4">
                                     <p className="text-sm text-slate-500">Số điện thoại</p>
                                     <p className="mt-1 font-semibold text-slate-800">
-                                        Chưa cập nhật
+                                        {phone}
                                     </p>
                                 </div>
 
                                 <div className="rounded-xl border border-gray-100 p-4">
                                     <p className="text-sm text-slate-500">Vai trò</p>
                                     <p className="mt-1 font-semibold text-slate-800">
-                                        {user?.role || "Customer"}
+                                        {role}
+                                    </p>
+                                </div>
+                                <div className="rounded-xl border border-gray-100 p-4">
+                                    <p className="text-sm text-slate-500">Trạng thái</p>
+                                    <p className="mt-1 font-semibold text-slate-800">
+                                        {status}
                                     </p>
                                 </div>
                             </div>
