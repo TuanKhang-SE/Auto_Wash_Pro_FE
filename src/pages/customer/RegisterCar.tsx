@@ -1,6 +1,45 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { z } from "zod";
 import axiosClient from "../../api/axiosClient";
+
+const registerCarSchema = z.object({
+  LicensePlate: z
+    .string()
+    .trim()
+    .min(1, "Vui lòng nhập biển số xe")
+    .min(5, "Biển số xe quá ngắn")
+    .max(20, "Biển số xe quá dài")
+    .regex(
+      /^[A-Za-z0-9.\-\s]+$/,
+      "Biển số chỉ được gồm chữ, số, dấu - hoặc dấu ."
+    )
+    .transform((value) => value.toUpperCase()),
+
+  VehicleType: z
+    .string()
+    .trim()
+    .min(1, "Vui lòng nhập loại xe")
+    .max(50, "Loại xe quá dài"),
+
+  Brand: z
+    .string()
+    .trim()
+    .min(1, "Vui lòng nhập hãng xe")
+    .max(50, "Hãng xe quá dài"),
+
+  Model: z
+    .string()
+    .trim()
+    .min(1, "Vui lòng nhập model xe")
+    .max(50, "Model quá dài"),
+
+  Color: z
+    .string()
+    .trim()
+    .min(1, "Vui lòng nhập màu xe")
+    .max(30, "Màu xe quá dài"),
+});
 
 function RegisterCar() {
   const navigate = useNavigate();
@@ -15,6 +54,23 @@ function RegisterCar() {
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
 
+    setMessage("");
+
+    const formData = {
+      LicensePlate: bienSoXe,
+      VehicleType: loaiXe,
+      Brand: hangXe,
+      Model: model,
+      Color: mauXe,
+    };
+
+    const result = registerCarSchema.safeParse(formData);
+
+    if (!result.success) {
+      setMessage(result.error.issues[0].message);
+      return;
+    }
+
     try {
       const token = localStorage.getItem("token");
 
@@ -23,21 +79,11 @@ function RegisterCar() {
         return;
       }
 
-      await axiosClient.post(
-        "/api/vehicles",
-        {
-          LicensePlate: bienSoXe,
-          VehicleType: loaiXe,
-          Brand: hangXe,
-          Model: model,
-          Color: mauXe,
+      await axiosClient.post("/api/vehicles", result.data, {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      });
 
       setMessage("Đăng ký xe thành công");
       navigate("/home");
@@ -94,6 +140,10 @@ function RegisterCar() {
             className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
           />
 
+          {message && (
+            <p className="text-center text-sm text-red-500">{message}</p>
+          )}
+
           <button
             type="submit"
             className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition"
@@ -101,10 +151,6 @@ function RegisterCar() {
             Đăng ký xe
           </button>
         </form>
-
-        {message && (
-          <p className="text-center mt-4 text-sm text-red-500">{message}</p>
-        )}
       </div>
     </div>
   );

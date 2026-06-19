@@ -23,10 +23,14 @@ import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 import LoginedHomePage from "../pages/customer/LoginedHomePage";
 import RegisterCar from "../pages/customer/RegisterCar";
+
 import ProtectedRoute, { ManagerRoute, AdminRoute } from "./ProtectedRoute";
 
-// DEV MODE - Xem trực tiếp các trang
-const DEV_MODE = true;
+
+
+import Profile from "../pages/customer/Profile";
+import MyVehicles from "../pages/customer/MyVehicles";
+
 
 const AppRoutes = () => {
   return (
@@ -92,7 +96,24 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-      </Routes>
+        <Route
+          path="/customer/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+  path="/customer/vehicles"
+  element={
+    <ProtectedRoute>
+      <MyVehicles />
+    </ProtectedRoute>
+  }
+/>
+        </Routes>
     </BrowserRouter>
   );
 };
