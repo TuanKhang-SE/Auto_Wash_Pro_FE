@@ -31,6 +31,7 @@ import ProtectedRoute, { ManagerRoute, AdminRoute } from "./ProtectedRoute";
 import Profile from "../pages/customer/Profile";
 import MyVehicles from "../pages/customer/MyVehicles";
 
+import Booking from "../pages/customer/Booking";
 
 const AppRoutes = () => {
   return (
@@ -104,16 +105,23 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-
         <Route
-  path="/customer/vehicles"
-  element={
-    <ProtectedRoute>
-      <MyVehicles />
-    </ProtectedRoute>
-  }
-/>
-        </Routes>
+          path="/booking"
+          element={
+            <ProtectedRoute>
+              <Booking />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/customer/vehicles"
+          element={
+            <ProtectedRoute>
+              <MyVehicles />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
     </BrowserRouter>
   );
 };
