@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../../components/Navbar";
+import axiosClient from "../../api/axiosClient";
 
 type Branch = {
     id: number;
@@ -17,6 +18,7 @@ type Service = {
     price: number;
     duration: number;
 };
+
 type Reward = {
     id: number;
     name: string;
@@ -78,6 +80,7 @@ const services: Service[] = [
         duration: 90,
     },
 ];
+
 const currentPoints = 300;
 
 const rewards: Reward[] = [
@@ -98,21 +101,6 @@ const rewards: Reward[] = [
         name: "Giảm 50.000đ",
         requiredPoints: 500,
         discountValue: 50000,
-    },
-];
-
-const vehicles: Vehicle[] = [
-    {
-        id: 1,
-        licensePlate: "59A-12345",
-        brand: "Toyota",
-        model: "Vios",
-    },
-    {
-        id: 2,
-        licensePlate: "51G-67890",
-        brand: "Honda",
-        model: "City",
     },
 ];
 
@@ -154,6 +142,9 @@ function Booking() {
         localUser?.phone || localUser?.Phone || ""
     );
 
+    const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+    const [loadingVehicles, setLoadingVehicles] = useState(false);
+
     const [branchId, setBranchId] = useState("");
     const [vehicleId, setVehicleId] = useState("");
     const [serviceId, setServiceId] = useState("");
@@ -162,9 +153,56 @@ function Booking() {
     const [startTime, setStartTime] = useState("");
     const [note, setNote] = useState("");
     const [message, setMessage] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const today = useMemo(() => {
         return new Date().toISOString().split("T")[0];
+    }, []);
+
+    useEffect(() => {
+        async function fetchVehicles() {
+            try {
+                setLoadingVehicles(true);
+
+                const token = localStorage.getItem("token");
+
+                if (!token) {
+                    setMessage("Bạn cần đăng nhập để tải danh sách xe");
+                    return;
+                }
+
+                const res = await axiosClient.get("/api/vehicles", {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                const apiVehicles = res.data?.data || res.data || [];
+                const vehicleList = Array.isArray(apiVehicles)
+                    ? apiVehicles
+                    : apiVehicles?.vehicles || [];
+
+                const mappedVehicles: Vehicle[] = vehicleList.map((vehicle: any) => ({
+                    id: vehicle.VehicleID || vehicle.vehicleId || vehicle.id,
+                    licensePlate:
+                        vehicle.LicensePlate ||
+                        vehicle.licensePlate ||
+                        vehicle.license_plate ||
+                        "",
+                    brand: vehicle.Brand || vehicle.brand || "",
+                    model: vehicle.Model || vehicle.model || "",
+                }));
+
+                setVehicles(mappedVehicles);
+            } catch (error: any) {
+                console.log(error.response?.data || error);
+                setMessage("Không thể tải danh sách xe");
+            } finally {
+                setLoadingVehicles(false);
+            }
+        }
+
+        fetchVehicles();
     }, []);
 
     const selectedBranch = branches.find(
@@ -178,6 +216,7 @@ function Booking() {
     const selectedService = services.find(
         (service) => String(service.id) === serviceId
     );
+
     const selectedReward = rewards.find(
         (reward) => String(reward.id) === rewardId
     );
@@ -199,7 +238,7 @@ function Booking() {
         return value.toLocaleString("vi-VN") + "đ";
     }
 
-    function handleSubmit(e: React.FormEvent) {
+    async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
 
         setMessage("");
@@ -239,24 +278,52 @@ function Booking() {
             return;
         }
 
-        const bookingData = {
-            fullName,
-            phone,
-            branchId,
-            vehicleId,
-            serviceId,
-            rewardId,
-            bookingDate,
-            startTime,
-            note,
-            originalPrice: servicePrice,
-            discountAmount,
-            finalPrice,
-        };
+        try {
+            setIsSubmitting(true);
 
-        console.log("Thông tin đặt lịch:", bookingData);
+            const token = localStorage.getItem("token");
 
-        setMessage("Đặt lịch thành công! Đây là giao diện FE demo, chưa lưu vào database.");
+            if (!token) {
+                setMessage("Bạn cần đăng nhập để đặt lịch");
+                return;
+            }
+
+            const bookingPayload = {
+                BranchID: Number(branchId),
+                BookingDate: bookingDate,
+                StartTime: startTime,
+                Items: [
+                    {
+                        VehicleID: Number(vehicleId),
+                        Services: [
+                            {
+                                ServiceID: Number(serviceId),
+                            },
+                        ],
+                    },
+                ],
+            };
+
+            console.log("Dữ liệu gửi lên API:", bookingPayload);
+
+            const res = await axiosClient.post("/api/bookings", bookingPayload, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            console.log("Kết quả API booking:", res.data);
+
+            setMessage("Đặt lịch thành công! Lịch hẹn đã được lưu vào hệ thống.");
+        } catch (error: any) {
+            console.log(error.response?.data || error);
+
+            setMessage(
+                error.response?.data?.message || "Đặt lịch thất bại, vui lòng thử lại"
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
     return (
@@ -363,7 +430,13 @@ function Booking() {
                                         onChange={(e) => setVehicleId(e.target.value)}
                                         className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                                     >
-                                        <option value="">Chọn xe của bạn</option>
+                                        <option value="">
+                                            {loadingVehicles
+                                                ? "Đang tải danh sách xe..."
+                                                : vehicles.length === 0
+                                                    ? "Bạn chưa có xe nào"
+                                                    : "Chọn xe của bạn"}
+                                        </option>
 
                                         {vehicles.map((vehicle) => (
                                             <option key={vehicle.id} value={vehicle.id}>
@@ -406,40 +479,43 @@ function Booking() {
                                         ))}
                                     </select>
                                 </div>
-                            </div>
-                           
 
-                            <div className="md:col-span-2">
-                                <label className="mb-2 block font-semibold text-slate-700">
-                                    Ưu đãi / Đổi điểm giảm giá
-                                </label>
+                                <div className="md:col-span-2">
+                                    <label className="mb-2 block font-semibold text-slate-700">
+                                        Ưu đãi / Đổi điểm giảm giá
+                                    </label>
 
-                                <select
-                                    value={rewardId}
-                                    onChange={(e) => setRewardId(e.target.value)}
-                                    className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                                >
-                                    <option value="">Không sử dụng ưu đãi</option>
+                                    <select
+                                        value={rewardId}
+                                        onChange={(e) => setRewardId(e.target.value)}
+                                        className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                                    >
+                                        <option value="">Không sử dụng ưu đãi</option>
 
-                                    {rewards.map((reward) => (
-                                        <option
-                                            key={reward.id}
-                                            value={reward.id}
-                                            disabled={currentPoints < reward.requiredPoints}
-                                        >
-                                            {reward.name} - Cần {reward.requiredPoints} điểm
-                                            {currentPoints < reward.requiredPoints ? " - Không đủ điểm" : ""}
-                                        </option>
-                                    ))}
-                                </select>
+                                        {rewards.map((reward) => (
+                                            <option
+                                                key={reward.id}
+                                                value={reward.id}
+                                                disabled={currentPoints < reward.requiredPoints}
+                                            >
+                                                {reward.name} - Cần {reward.requiredPoints} điểm
+                                                {currentPoints < reward.requiredPoints
+                                                    ? " - Không đủ điểm"
+                                                    : ""}
+                                            </option>
+                                        ))}
+                                    </select>
 
-                                <p className="mt-2 text-sm text-slate-500">
-                                    Điểm hiện có:{" "}
-                                    <span className="font-semibold text-sky-700">{currentPoints}</span> điểm
-                                </p>
+                                    <p className="mt-2 text-sm text-slate-500">
+                                        Điểm hiện có:{" "}
+                                        <span className="font-semibold text-sky-700">
+                                            {currentPoints}
+                                        </span>{" "}
+                                        điểm
+                                    </p>
+                                </div>
                             </div>
                         </div>
-
 
                         <div className="mt-8">
                             <label className="mb-3 block font-semibold text-slate-700">
@@ -456,8 +532,8 @@ function Booking() {
                                             type="button"
                                             onClick={() => setStartTime(time)}
                                             className={`rounded-xl border px-4 py-3 font-semibold transition ${isSelected
-                                                ? "border-sky-600 bg-sky-600 text-white"
-                                                : "border-gray-300 bg-white text-slate-600 hover:border-sky-500 hover:text-sky-600"
+                                                    ? "border-sky-600 bg-sky-600 text-white"
+                                                    : "border-gray-300 bg-white text-slate-600 hover:border-sky-500 hover:text-sky-600"
                                                 }`}
                                         >
                                             {time}
@@ -484,9 +560,10 @@ function Booking() {
                         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                             <button
                                 type="submit"
-                                className="rounded-lg bg-sky-600 px-6 py-3 font-semibold text-white transition hover:bg-sky-700"
+                                disabled={isSubmitting}
+                                className="rounded-lg bg-sky-600 px-6 py-3 font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-gray-400"
                             >
-                                Đặt lịch
+                                {isSubmitting ? "Đang đặt lịch..." : "Đặt lịch"}
                             </button>
 
                             <Link
@@ -499,7 +576,7 @@ function Booking() {
                     </form>
 
                     <aside className="space-y-6">
-                        <section className="rounded-2xl bg-white p-6 shadow">
+                        <section className="rounded-2xl border border-sky-100 bg-sky-50 p-6 shadow">
                             <h2 className="text-xl font-bold text-slate-800">
                                 Auto Wash Pro
                             </h2>
@@ -540,7 +617,7 @@ function Booking() {
                             </div>
                         </section>
 
-                        <section className="rounded-2xl bg-white p-6 shadow">
+                        <section className="rounded-2xl border border-sky-100 bg-sky-50 p-6 shadow">
                             <h2 className="text-xl font-bold text-slate-800">
                                 Tóm tắt lịch hẹn
                             </h2>
@@ -625,7 +702,9 @@ function Booking() {
                                     </div>
 
                                     <div className="mt-3 flex justify-between gap-4 border-t pt-3">
-                                        <span className="font-semibold text-slate-700">Thanh toán</span>
+                                        <span className="font-semibold text-slate-700">
+                                            Thanh toán
+                                        </span>
                                         <span className="text-xl font-bold text-sky-700">
                                             {formatMoney(finalPrice)}
                                         </span>
