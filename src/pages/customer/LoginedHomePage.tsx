@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import Navbar from "../../components/Navbar";
 import heroBg from "../../assets/hero-bg.jpg";
 
+
 const LoginedHomePage = () => {
   return (
     <>
@@ -19,7 +20,7 @@ const LoginedHomePage = () => {
         </p>
 
         <Link
-          to="/"
+          to="/booking"
           className="rounded-xl mt-10 bg-white px-5 py-3 font-semibold text-black transition hover:scale-105"
         >
           Đặt lịch ngay
