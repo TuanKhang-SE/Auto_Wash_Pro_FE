@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import HomePage from "../pages/HomePage";
+import AboutPage from "../pages/AboutPage";
 
 import StaffLayout from "../layouts/StaffLayout";
 import StaffDashboard from "../pages/staff/StaffDashboard";
@@ -21,17 +22,14 @@ import AdminStatistics from "../pages/admin/AdminStatistics";
 
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
+
 import LoginedHomePage from "../pages/customer/LoginedHomePage";
 import RegisterCar from "../pages/customer/RegisterCar";
-
-import ProtectedRoute, { ManagerRoute, AdminRoute } from "./ProtectedRoute";
-
-
-
 import Profile from "../pages/customer/Profile";
 import MyVehicles from "../pages/customer/MyVehicles";
-
 import Booking from "../pages/customer/Booking";
+
+import ProtectedRoute, { ManagerRoute, AdminRoute } from "./ProtectedRoute";
 
 const AppRoutes = () => {
   return (
@@ -39,6 +37,7 @@ const AppRoutes = () => {
       <Routes>
         {/* Trang public */}
         <Route path="/" element={<HomePage />} />
+        <Route path="/about" element={<AboutPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
@@ -47,7 +46,7 @@ const AppRoutes = () => {
           <Route index element={<StaffDashboard />} />
         </Route>
 
-        {/* Manager - Protected Route */}
+        {/* Manager */}
         <Route
           path="/manager"
           element={
@@ -63,7 +62,7 @@ const AppRoutes = () => {
           <Route path="branch" element={<ManagerBranchInfo />} />
         </Route>
 
-        {/* Admin - Protected Route */}
+        {/* Admin */}
         <Route
           path="/admin"
           element={
@@ -79,7 +78,7 @@ const AppRoutes = () => {
           <Route path="statistics" element={<AdminStatistics />} />
         </Route>
 
-        {/* Trang cần đăng nhập */}
+        {/* Customer cần đăng nhập */}
         <Route
           path="/home"
           element={
@@ -97,6 +96,7 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/customer/profile"
           element={
@@ -105,6 +105,7 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/booking"
           element={
@@ -113,6 +114,7 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/customer/vehicles"
           element={
