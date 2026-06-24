@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../../components/Navbar";
 import axiosClient from "../../api/axiosClient";
@@ -32,54 +32,6 @@ type Vehicle = {
     brand: string;
     model: string;
 };
-
-const branches: Branch[] = [
-    {
-        id: 1,
-        name: "Auto Wash Pro - Chi nhánh Bình Thạnh",
-        address: "643/40 Đường Xô Viết Nghệ Tĩnh, Bình Thạnh, TP. Hồ Chí Minh",
-        phone: "1900 xxxx",
-        openTime: "08:00",
-        closeTime: "21:00",
-    },
-    {
-        id: 2,
-        name: "Auto Wash Pro - Chi nhánh Tăng Nhơn Phú",
-        address: "Số 7 Đường D1, Phường Tăng Nhơn Phú, TP. Hồ Chí Minh",
-        phone: "1900 xxxx",
-        openTime: "08:00",
-        closeTime: "21:00",
-    },
-    {
-        id: 3,
-        name: "Auto Wash Pro - Chi nhánh Đông Hòa",
-        address: "Số 1 Đường Lưu Hữu Phước, Phường Đông Hòa, TP. Hồ Chí Minh",
-        phone: "1900 xxxx",
-        openTime: "08:00",
-        closeTime: "21:00",
-    },
-];
-
-const services: Service[] = [
-    {
-        id: 1,
-        name: "Rửa xe cơ bản",
-        price: 50000,
-        duration: 30,
-    },
-    {
-        id: 2,
-        name: "Rửa xe cao cấp",
-        price: 100000,
-        duration: 45,
-    },
-    {
-        id: 3,
-        name: "Rửa xe và vệ sinh nội thất",
-        price: 200000,
-        duration: 90,
-    },
-];
 
 const currentPoints = 300;
 
@@ -130,6 +82,32 @@ const timeSlots = [
     "20:00",
 ];
 
+function getArrayData(responseData: any, key: string) {
+    const data = responseData?.data || responseData;
+
+    if (Array.isArray(data)) {
+        return data;
+    }
+
+    if (Array.isArray(data?.[key])) {
+        return data[key];
+    }
+
+    if (Array.isArray(data?.data)) {
+        return data.data;
+    }
+
+    return [];
+}
+
+function formatTime(value?: string | null) {
+    if (!value) {
+        return "--:--";
+    }
+
+    return String(value).slice(0, 5);
+}
+
 function Booking() {
     const userString = localStorage.getItem("user");
     const localUser = userString ? JSON.parse(userString) : null;
@@ -142,7 +120,12 @@ function Booking() {
         localUser?.phone || localUser?.Phone || ""
     );
 
+    const [branches, setBranches] = useState<Branch[]>([]);
+    const [services, setServices] = useState<Service[]>([]);
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+
+    const [loadingBranches, setLoadingBranches] = useState(false);
+    const [loadingServices, setLoadingServices] = useState(false);
     const [loadingVehicles, setLoadingVehicles] = useState(false);
 
     const [branchId, setBranchId] = useState("");
@@ -160,30 +143,84 @@ function Booking() {
     }, []);
 
     useEffect(() => {
-        async function fetchVehicles() {
+        async function fetchBookingData() {
             try {
+                setLoadingBranches(true);
+                setLoadingServices(true);
                 setLoadingVehicles(true);
+                setMessage("");
 
                 const token = localStorage.getItem("token");
 
                 if (!token) {
-                    setMessage("Bạn cần đăng nhập để tải danh sách xe");
+                    setMessage("Bạn cần đăng nhập để tải dữ liệu đặt lịch");
                     return;
                 }
 
-                const res = await axiosClient.get("/api/vehicles", {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
+                const [branchRes, serviceRes, vehicleRes] = await Promise.all([
+                    axiosClient.get("/api/branches", {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    }),
+                    axiosClient.get("/api/services", {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    }),
+                    axiosClient.get("/api/vehicles", {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    }),
+                ]);
 
-                const apiVehicles = res.data?.data || res.data || [];
-                const vehicleList = Array.isArray(apiVehicles)
-                    ? apiVehicles
-                    : apiVehicles?.vehicles || [];
+                const branchList = getArrayData(branchRes.data, "branches");
+                const serviceList = getArrayData(serviceRes.data, "services");
+                const vehicleList = getArrayData(vehicleRes.data, "vehicles");
+
+                const mappedBranches: Branch[] = branchList.map((branch: any) => ({
+                    id: Number(branch.BranchID || branch.branchId || branch.id),
+                    name:
+                        branch.BranchName ||
+                        branch.branchName ||
+                        branch.name ||
+                        "Chi nhánh chưa có tên",
+                    address: branch.Address || branch.address || "",
+                    phone: branch.Phone || branch.phone || "1900 xxxx",
+                    openTime: formatTime(
+                        branch.OpenTime || branch.openTime || branch.OpeningTime
+                    ),
+                    closeTime: formatTime(
+                        branch.CloseTime || branch.closeTime || branch.ClosingTime
+                    ),
+                }));
+
+                const mappedServices: Service[] = serviceList.map((service: any) => ({
+                    id: Number(service.ServiceID || service.serviceId || service.id),
+                    name:
+                        service.ServiceName ||
+                        service.serviceName ||
+                        service.name ||
+                        "Dịch vụ chưa có tên",
+                    price: Number(
+                        service.BasePrice ||
+                        service.basePrice ||
+                        service.Price ||
+                        service.price ||
+                        0
+                    ),
+                    duration: Number(
+                        service.DurationMinutes ||
+                        service.durationMinutes ||
+                        service.Duration ||
+                        service.duration ||
+                        0
+                    ),
+                }));
 
                 const mappedVehicles: Vehicle[] = vehicleList.map((vehicle: any) => ({
-                    id: vehicle.VehicleID || vehicle.vehicleId || vehicle.id,
+                    id: Number(vehicle.VehicleID || vehicle.vehicleId || vehicle.id),
                     licensePlate:
                         vehicle.LicensePlate ||
                         vehicle.licensePlate ||
@@ -193,16 +230,20 @@ function Booking() {
                     model: vehicle.Model || vehicle.model || "",
                 }));
 
+                setBranches(mappedBranches);
+                setServices(mappedServices);
                 setVehicles(mappedVehicles);
             } catch (error: any) {
                 console.log(error.response?.data || error);
-                setMessage("Không thể tải danh sách xe");
+                setMessage("Không thể tải dữ liệu đặt lịch");
             } finally {
+                setLoadingBranches(false);
+                setLoadingServices(false);
                 setLoadingVehicles(false);
             }
         }
 
-        fetchVehicles();
+        fetchBookingData();
     }, []);
 
     const selectedBranch = branches.find(
@@ -238,7 +279,7 @@ function Booking() {
         return value.toLocaleString("vi-VN") + "đ";
     }
 
-    async function handleSubmit(e: React.FormEvent) {
+    async function handleSubmit(e: FormEvent) {
         e.preventDefault();
 
         setMessage("");
@@ -410,7 +451,13 @@ function Booking() {
                                         onChange={(e) => setBranchId(e.target.value)}
                                         className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                                     >
-                                        <option value="">Chọn chi nhánh</option>
+                                        <option value="">
+                                            {loadingBranches
+                                                ? "Đang tải chi nhánh..."
+                                                : branches.length === 0
+                                                    ? "Chưa có chi nhánh"
+                                                    : "Chọn chi nhánh"}
+                                        </option>
 
                                         {branches.map((branch) => (
                                             <option key={branch.id} value={branch.id}>
@@ -470,7 +517,13 @@ function Booking() {
                                         onChange={(e) => setServiceId(e.target.value)}
                                         className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                                     >
-                                        <option value="">Chọn dịch vụ</option>
+                                        <option value="">
+                                            {loadingServices
+                                                ? "Đang tải dịch vụ..."
+                                                : services.length === 0
+                                                    ? "Chưa có dịch vụ"
+                                                    : "Chọn dịch vụ"}
+                                        </option>
 
                                         {services.map((service) => (
                                             <option key={service.id} value={service.id}>
