@@ -83,18 +83,36 @@ const timeSlots = [
 ];
 
 function getArrayData(responseData: any, key: string) {
-    const data = responseData?.data || responseData;
-
-    if (Array.isArray(data)) {
-        return data;
+    if (Array.isArray(responseData)) {
+        return responseData;
     }
 
-    if (Array.isArray(data?.[key])) {
-        return data[key];
+    if (Array.isArray(responseData?.data)) {
+        return responseData.data;
     }
 
-    if (Array.isArray(data?.data)) {
-        return data.data;
+    if (Array.isArray(responseData?.data?.[key])) {
+        return responseData.data[key];
+    }
+
+    if (Array.isArray(responseData?.[key])) {
+        return responseData[key];
+    }
+
+    if (Array.isArray(responseData?.result)) {
+        return responseData.result;
+    }
+
+    if (Array.isArray(responseData?.data?.result)) {
+        return responseData.data.result;
+    }
+
+    if (Array.isArray(responseData?.rows)) {
+        return responseData.rows;
+    }
+
+    if (Array.isArray(responseData?.data?.rows)) {
+        return responseData.data.rows;
     }
 
     return [];
@@ -157,50 +175,76 @@ function Booking() {
                     return;
                 }
 
+                const headers = {
+                    Authorization: `Bearer ${token}`,
+                };
+
                 const [branchRes, serviceRes, vehicleRes] = await Promise.all([
-                    axiosClient.get("/api/branches", {
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
-                    }),
-                    axiosClient.get("/api/services", {
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
-                    }),
-                    axiosClient.get("/api/vehicles", {
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
-                    }),
+                    axiosClient.get("/api/branches", { headers }),
+                    axiosClient.get("/api/services", { headers }),
+                    axiosClient.get("/api/vehicles", { headers }),
                 ]);
+
+                console.log("Branch API response:", branchRes.data);
+                console.log("Service API response:", serviceRes.data);
+                console.log("Vehicle API response:", vehicleRes.data);
 
                 const branchList = getArrayData(branchRes.data, "branches");
                 const serviceList = getArrayData(serviceRes.data, "services");
                 const vehicleList = getArrayData(vehicleRes.data, "vehicles");
 
                 const mappedBranches: Branch[] = branchList.map((branch: any) => ({
-                    id: Number(branch.BranchID || branch.branchId || branch.id),
+                    id: Number(
+                        branch.BranchID ||
+                        branch.BranchId ||
+                        branch.branchId ||
+                        branch.id
+                    ),
                     name:
                         branch.BranchName ||
                         branch.branchName ||
+                        branch.Name ||
                         branch.name ||
                         "Chi nhánh chưa có tên",
-                    address: branch.Address || branch.address || "",
-                    phone: branch.Phone || branch.phone || "1900 xxxx",
+                    address:
+                        branch.Address ||
+                        branch.address ||
+                        branch.BranchAddress ||
+                        branch.branchAddress ||
+                        "",
+                    phone:
+                        branch.Phone ||
+                        branch.phone ||
+                        branch.Hotline ||
+                        branch.hotline ||
+                        "1900 xxxx",
                     openTime: formatTime(
-                        branch.OpenTime || branch.openTime || branch.OpeningTime
+                        branch.OpenTime ||
+                        branch.openTime ||
+                        branch.OpeningTime ||
+                        branch.openingTime ||
+                        "08:00"
                     ),
                     closeTime: formatTime(
-                        branch.CloseTime || branch.closeTime || branch.ClosingTime
+                        branch.CloseTime ||
+                        branch.closeTime ||
+                        branch.ClosingTime ||
+                        branch.closingTime ||
+                        "21:00"
                     ),
                 }));
 
                 const mappedServices: Service[] = serviceList.map((service: any) => ({
-                    id: Number(service.ServiceID || service.serviceId || service.id),
+                    id: Number(
+                        service.ServiceID ||
+                        service.ServiceId ||
+                        service.serviceId ||
+                        service.id
+                    ),
                     name:
                         service.ServiceName ||
                         service.serviceName ||
+                        service.Name ||
                         service.name ||
                         "Dịch vụ chưa có tên",
                     price: Number(
@@ -220,7 +264,12 @@ function Booking() {
                 }));
 
                 const mappedVehicles: Vehicle[] = vehicleList.map((vehicle: any) => ({
-                    id: Number(vehicle.VehicleID || vehicle.vehicleId || vehicle.id),
+                    id: Number(
+                        vehicle.VehicleID ||
+                        vehicle.VehicleId ||
+                        vehicle.vehicleId ||
+                        vehicle.id
+                    ),
                     licensePlate:
                         vehicle.LicensePlate ||
                         vehicle.licensePlate ||
@@ -585,8 +634,8 @@ function Booking() {
                                             type="button"
                                             onClick={() => setStartTime(time)}
                                             className={`rounded-xl border px-4 py-3 font-semibold transition ${isSelected
-                                                    ? "border-sky-600 bg-sky-600 text-white"
-                                                    : "border-gray-300 bg-white text-slate-600 hover:border-sky-500 hover:text-sky-600"
+                                                ? "border-sky-600 bg-sky-600 text-white"
+                                                : "border-gray-300 bg-white text-slate-600 hover:border-sky-500 hover:text-sky-600"
                                                 }`}
                                         >
                                             {time}
