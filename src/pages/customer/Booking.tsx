@@ -17,6 +17,12 @@ type Service = {
     price: number;
     duration: number;
 };
+type Reward = {
+    id: number;
+    name: string;
+    requiredPoints: number;
+    discountValue: number;
+};
 
 type Vehicle = {
     id: number;
@@ -26,30 +32,30 @@ type Vehicle = {
 };
 
 const branches: Branch[] = [
-  {
-    id: 1,
-    name: "Auto Wash Pro - Chi nhánh Bình Thạnh",
-    address: "643/40 Đường Xô Viết Nghệ Tĩnh, Bình Thạnh, TP. Hồ Chí Minh",
-    phone: "1900 xxxx",
-    openTime: "08:00",
-    closeTime: "21:00",
-  },
-  {
-    id: 2,
-    name: "Auto Wash Pro - Chi nhánh Tăng Nhơn Phú",
-    address: "Số 7 Đường D1, Phường Tăng Nhơn Phú, TP. Hồ Chí Minh",
-    phone: "1900 xxxx",
-    openTime: "08:00",
-    closeTime: "21:00",
-  },
-  {
-    id: 3,
-    name: "Auto Wash Pro - Chi nhánh Đông Hòa",
-    address: "Số 1 Đường Lưu Hữu Phước, Phường Đông Hòa, TP. Hồ Chí Minh",
-    phone: "1900 xxxx",
-    openTime: "08:00",
-    closeTime: "21:00",
-  },
+    {
+        id: 1,
+        name: "Auto Wash Pro - Chi nhánh Bình Thạnh",
+        address: "643/40 Đường Xô Viết Nghệ Tĩnh, Bình Thạnh, TP. Hồ Chí Minh",
+        phone: "1900 xxxx",
+        openTime: "08:00",
+        closeTime: "21:00",
+    },
+    {
+        id: 2,
+        name: "Auto Wash Pro - Chi nhánh Tăng Nhơn Phú",
+        address: "Số 7 Đường D1, Phường Tăng Nhơn Phú, TP. Hồ Chí Minh",
+        phone: "1900 xxxx",
+        openTime: "08:00",
+        closeTime: "21:00",
+    },
+    {
+        id: 3,
+        name: "Auto Wash Pro - Chi nhánh Đông Hòa",
+        address: "Số 1 Đường Lưu Hữu Phước, Phường Đông Hòa, TP. Hồ Chí Minh",
+        phone: "1900 xxxx",
+        openTime: "08:00",
+        closeTime: "21:00",
+    },
 ];
 
 const services: Service[] = [
@@ -70,6 +76,28 @@ const services: Service[] = [
         name: "Rửa xe và vệ sinh nội thất",
         price: 200000,
         duration: 90,
+    },
+];
+const currentPoints = 300;
+
+const rewards: Reward[] = [
+    {
+        id: 1,
+        name: "Giảm 10.000đ",
+        requiredPoints: 100,
+        discountValue: 10000,
+    },
+    {
+        id: 2,
+        name: "Giảm 20.000đ",
+        requiredPoints: 200,
+        discountValue: 20000,
+    },
+    {
+        id: 3,
+        name: "Giảm 50.000đ",
+        requiredPoints: 500,
+        discountValue: 50000,
     },
 ];
 
@@ -129,6 +157,7 @@ function Booking() {
     const [branchId, setBranchId] = useState("");
     const [vehicleId, setVehicleId] = useState("");
     const [serviceId, setServiceId] = useState("");
+    const [rewardId, setRewardId] = useState("");
     const [bookingDate, setBookingDate] = useState("");
     const [startTime, setStartTime] = useState("");
     const [note, setNote] = useState("");
@@ -149,6 +178,18 @@ function Booking() {
     const selectedService = services.find(
         (service) => String(service.id) === serviceId
     );
+    const selectedReward = rewards.find(
+        (reward) => String(reward.id) === rewardId
+    );
+
+    const servicePrice = selectedService?.price || 0;
+
+    const discountAmount =
+        selectedReward && currentPoints >= selectedReward.requiredPoints
+            ? selectedReward.discountValue
+            : 0;
+
+    const finalPrice = Math.max(servicePrice - discountAmount, 0);
 
     function formatMoney(value?: number) {
         if (!value) {
@@ -204,9 +245,13 @@ function Booking() {
             branchId,
             vehicleId,
             serviceId,
+            rewardId,
             bookingDate,
             startTime,
             note,
+            originalPrice: servicePrice,
+            discountAmount,
+            finalPrice,
         };
 
         console.log("Thông tin đặt lịch:", bookingData);
@@ -362,7 +407,57 @@ function Booking() {
                                     </select>
                                 </div>
                             </div>
+                            <div>
+                                <label className="mb-2 block font-semibold text-slate-700">
+                                    Chọn dịch vụ <span className="text-red-500">*</span>
+                                </label>
+
+                                <select
+                                    value={serviceId}
+                                    onChange={(e) => setServiceId(e.target.value)}
+                                    className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                                >
+                                    <option value="">Chọn dịch vụ</option>
+
+                                    {services.map((service) => (
+                                        <option key={service.id} value={service.id}>
+                                            {service.name} - {formatMoney(service.price)}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="md:col-span-2">
+                                <label className="mb-2 block font-semibold text-slate-700">
+                                    Ưu đãi / Đổi điểm giảm giá
+                                </label>
+
+                                <select
+                                    value={rewardId}
+                                    onChange={(e) => setRewardId(e.target.value)}
+                                    className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                                >
+                                    <option value="">Không sử dụng ưu đãi</option>
+
+                                    {rewards.map((reward) => (
+                                        <option
+                                            key={reward.id}
+                                            value={reward.id}
+                                            disabled={currentPoints < reward.requiredPoints}
+                                        >
+                                            {reward.name} - Cần {reward.requiredPoints} điểm
+                                            {currentPoints < reward.requiredPoints ? " - Không đủ điểm" : ""}
+                                        </option>
+                                    ))}
+                                </select>
+
+                                <p className="mt-2 text-sm text-slate-500">
+                                    Điểm hiện có:{" "}
+                                    <span className="font-semibold text-sky-700">{currentPoints}</span> điểm
+                                </p>
+                            </div>
                         </div>
+
 
                         <div className="mt-8">
                             <label className="mb-3 block font-semibold text-slate-700">
@@ -379,8 +474,8 @@ function Booking() {
                                             type="button"
                                             onClick={() => setStartTime(time)}
                                             className={`rounded-xl border px-4 py-3 font-semibold transition ${isSelected
-                                                    ? "border-sky-600 bg-sky-600 text-white"
-                                                    : "border-gray-300 bg-white text-slate-600 hover:border-sky-500 hover:text-sky-600"
+                                                ? "border-sky-600 bg-sky-600 text-white"
+                                                : "border-gray-300 bg-white text-slate-600 hover:border-sky-500 hover:text-sky-600"
                                                 }`}
                                         >
                                             {time}
@@ -520,9 +615,37 @@ function Booking() {
 
                                 <div className="border-t pt-3">
                                     <div className="flex justify-between gap-4">
-                                        <span className="text-slate-500">Tạm tính</span>
-                                        <span className="text-lg font-bold text-sky-700">
-                                            {formatMoney(selectedService?.price)}
+                                        <span className="text-slate-500">Giá dịch vụ</span>
+                                        <span className="font-semibold text-slate-800">
+                                            {formatMoney(servicePrice)}
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-2 flex justify-between gap-4">
+                                        <span className="text-slate-500">Ưu đãi</span>
+                                        <span className="text-right font-semibold text-slate-800">
+                                            {selectedReward ? selectedReward.name : "Không sử dụng"}
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-2 flex justify-between gap-4">
+                                        <span className="text-slate-500">Điểm sử dụng</span>
+                                        <span className="font-semibold text-slate-800">
+                                            {selectedReward ? selectedReward.requiredPoints : 0} điểm
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-2 flex justify-between gap-4">
+                                        <span className="text-slate-500">Giảm giá</span>
+                                        <span className="font-semibold text-red-600">
+                                            -{formatMoney(discountAmount)}
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-3 flex justify-between gap-4 border-t pt-3">
+                                        <span className="font-semibold text-slate-700">Thanh toán</span>
+                                        <span className="text-xl font-bold text-sky-700">
+                                            {formatMoney(finalPrice)}
                                         </span>
                                     </div>
                                 </div>
