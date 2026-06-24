@@ -407,25 +407,7 @@ function Booking() {
                                     </select>
                                 </div>
                             </div>
-                            <div>
-                                <label className="mb-2 block font-semibold text-slate-700">
-                                    Chọn dịch vụ <span className="text-red-500">*</span>
-                                </label>
-
-                                <select
-                                    value={serviceId}
-                                    onChange={(e) => setServiceId(e.target.value)}
-                                    className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                                >
-                                    <option value="">Chọn dịch vụ</option>
-
-                                    {services.map((service) => (
-                                        <option key={service.id} value={service.id}>
-                                            {service.name} - {formatMoney(service.price)}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                           
 
                             <div className="md:col-span-2">
                                 <label className="mb-2 block font-semibold text-slate-700">
