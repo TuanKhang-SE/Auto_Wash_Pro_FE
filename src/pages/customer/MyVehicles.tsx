@@ -81,10 +81,7 @@ function MyVehicles() {
   }
 
   function startEdit(vehicle: Vehicle) {
-    // Lưu id xe đang sửa
     setEditingId(vehicle.VehicleID);
-
-    // Đổ dữ liệu xe vào form sửa
     setEditForm({
       LicensePlate: vehicle.LicensePlate || "",
       VehicleType: vehicle.VehicleType || "",
@@ -191,6 +188,13 @@ function MyVehicles() {
       <Navbar />
 
       <main className="min-h-screen bg-gray-100 px-6 py-10">
+        <button
+  type="button"
+  onClick={() => navigate(-1)}
+  className="mb-4 text-sm font-medium text-gray-600 hover:text-blue-600"
+>
+  ← Quay lại
+</button>
         <div className="mx-auto max-w-6xl">
           <div className="mb-8 flex items-center justify-between">
             <div>

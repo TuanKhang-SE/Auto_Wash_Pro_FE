@@ -89,15 +89,25 @@ function RegisterCar() {
 
       setMessage("Đăng ký xe thành công");
       navigate("/home");
-    } catch (error) {
-      console.log(error);
-      setMessage("Đăng ký xe thất bại");
-    }
+    } catch (error: any) {
+  console.log(error.response?.data || error);
+
+  setMessage(error.response?.data?.message || "Đăng ký xe thất bại");
+}
   }
 
   return (
+    
+    
     <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
+        <button
+    type="button"
+    onClick={() => navigate(-1)}
+    className="mb-4 text-sm font-medium text-gray-600 hover:text-blue-600"
+  >
+    ← Quay lại
+  </button>
         <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">
           Đăng ký xe
         </h1>
