@@ -62,7 +62,7 @@ const AdminManagerManagement = () => {
   const fetchManagers = async () => {
     setIsLoading(true);
     try {
-      const data = await userService.getAllUsers({ Role: "Manager" });
+      const data = await userService.getAllUsers({ Role: "Manager" }); // GET /api/users?Role=Manager
       setManagers(data);
     } catch (err) {
       console.error("Error fetching managers:", err);
@@ -137,7 +137,7 @@ const AdminManagerManagement = () => {
     setSuccess("");
 
     try {
-      await userService.createUser({
+      await userService.createUser({ // POST /api/users
         FullName: formData.fullName,
         Password: formData.password,
         Role: "Manager",
@@ -197,7 +197,7 @@ const AdminManagerManagement = () => {
     setSuccess("");
 
     try {
-      await userService.updateUser(editingManager.UserID, {
+      await userService.updateUser(editingManager.UserID, { // PUT /api/users/:id
         FullName: editFormData.fullName,
         Email: editFormData.email,
         Phone: editFormData.phone,
@@ -222,7 +222,7 @@ const AdminManagerManagement = () => {
 
     setIsLoading(true);
     try {
-      await userService.deleteUser(manager.UserID);
+      await userService.deleteUser(manager.UserID); // DELETE /api/users/:id
       fetchManagers();
     } catch (err: unknown) {
       alert(getErrorMessage(err));

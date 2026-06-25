@@ -45,7 +45,7 @@ const ManagerDashboard = () => {
       if (user?.branchId) {
         try {
           const token = localStorage.getItem("token");
-          const res = await axiosClient.get(`/api/branches/${user.branchId}`, {
+          const res = await axiosClient.get(`/api/branches/${user.branchId}`, { // GET /api/branches/:id
             headers: { Authorization: `Bearer ${token}` },
           });
           if (res.data?.success) {

@@ -42,7 +42,7 @@ const ManagerStatistics = () => {
   }, [period]);
 
   const fetchStatistics = async () => {
-    // Dữ liệu sẽ được load từ API thực tế
+    // TODO: API call will be implemented here
   };
 
   const formatCurrency = (value: number) => {

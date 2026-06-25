@@ -53,7 +53,7 @@ const getAuthHeader = () => {
 
 const userService = {
   async getAllUsers(params: UserListParams = {}): Promise<User[]> {
-    const response = await axiosClient.get("/api/users", {
+    const response = await axiosClient.get("/api/users", {   //GET /api/users - Lấy danh sách người dùng (AdminStaffManagement, ManagerStaffManagement)
       params,
       headers: getAuthHeader(),
     });
@@ -64,7 +64,7 @@ const userService = {
   },
 
   async getUserById(id: number): Promise<User | null> {
-    const response = await axiosClient.get(`/api/users/${id}`, {
+    const response = await axiosClient.get(`/api/users/${id}`, {   //GET /api/users/:id - Lấy thông tin người dùng theo id (AdminStaffManagement, ManagerStaffManagement)
       headers: getAuthHeader(),
     });
     if (response.data?.success) {

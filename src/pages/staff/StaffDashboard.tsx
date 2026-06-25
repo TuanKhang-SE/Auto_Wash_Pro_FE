@@ -55,7 +55,7 @@ const StaffDashboard = () => {
       const headers = { Authorization: `Bearer ${token}` };
 
       const [vehiclesRes] = await Promise.allSettled([
-        axiosClient.get("/api/vehicles", { headers }),
+        axiosClient.get("/api/vehicles", { headers }), // GET /api/vehicles
       ]);
 
       if (vehiclesRes.status === "fulfilled" && vehiclesRes.value.data?.success) {

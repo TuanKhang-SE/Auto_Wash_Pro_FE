@@ -48,7 +48,7 @@ const ManagerBranchInfo = () => {
       const user = userStr ? JSON.parse(userStr) : null;
 
       if (user?.BranchID) {
-        const response = await axiosClient.get(
+        const response = await axiosClient.get( // GET /api/branches/:id
           `/api/branches/${user.BranchID}`,
           {
             headers: { Authorization: `Bearer ${token}` },
@@ -89,7 +89,7 @@ const ManagerBranchInfo = () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem("token");
-      await axiosClient.put(
+      await axiosClient.put( // PUT /api/branches/:id
         `/api/branches/${branchInfo?.branchID}`,
         editForm,
         {

@@ -46,8 +46,8 @@ const AdminDashboard = () => {
       setIsLoading(true);
       try {
         const [managersData, staffData] = await Promise.all([
-          userService.getAllUsers({ Role: "Manager" }),
-          userService.getAllUsers({ Role: "Staff" }),
+          userService.getAllUsers({ Role: "Manager" }), // GET /api/users?Role=Manager
+          userService.getAllUsers({ Role: "Staff" }), // GET /api/users?Role=Staff
         ]);
 
         const activeStaff = staffData.filter((s) => s.Status === "Active");

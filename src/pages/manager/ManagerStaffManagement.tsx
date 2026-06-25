@@ -52,7 +52,7 @@ const ManagerStaffManagement = () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const response = await axiosClient.get("/api/users", {
+      const response = await axiosClient.get("/api/users", { // GET /api/users?Role=Staff
         params: { Role: "Staff" },
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -114,7 +114,7 @@ const ManagerStaffManagement = () => {
     try {
       const token = localStorage.getItem("token");
 
-      const response = await axiosClient.post(
+      const response = await axiosClient.post( // POST /api/users
         "/api/users",
         {
           FullName: formData.FullName,

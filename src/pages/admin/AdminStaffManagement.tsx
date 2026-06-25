@@ -67,7 +67,7 @@ const AdminStaffManagement = () => {
   const fetchStaff = async () => {
     setIsLoading(true);
     try {
-      const data = await userService.getAllUsers({ Role: "Staff" });
+      const data = await userService.getAllUsers({ Role: "Staff" }); // GET /api/users?Role=Staff
       setStaffList(data);
     } catch (err) {
       console.error("Error fetching staff:", err);
@@ -78,7 +78,7 @@ const AdminStaffManagement = () => {
 
   const fetchManagers = async () => {
     try {
-      const data = await userService.getAllUsers({ Role: "Manager" });
+      const data = await userService.getAllUsers({ Role: "Manager" }); // GET /api/users?Role=Manager
       setManagers(
         data.map((m) => ({
           branchID: m.BranchID || 0,
@@ -161,7 +161,7 @@ const AdminStaffManagement = () => {
     setSuccess("");
 
     try {
-      await userService.createUser({
+      await userService.createUser({ // POST /api/users
         FullName: formData.fullName,
         Password: formData.password,
         Role: "Staff",
@@ -222,7 +222,7 @@ const AdminStaffManagement = () => {
     setSuccess("");
 
     try {
-      await userService.updateUser(editingStaff.UserID, {
+      await userService.updateUser(editingStaff.UserID, { // PUT /api/users/:id
         FullName: editFormData.fullName,
         Email: editFormData.email,
         Phone: editFormData.phone,
@@ -248,7 +248,7 @@ const AdminStaffManagement = () => {
 
     setIsLoading(true);
     try {
-      await userService.deleteUser(staff.UserID);
+      await userService.deleteUser(staff.UserID); // DELETE /api/users/:id
       fetchStaff();
     } catch (err: unknown) {
       alert(getErrorMessage(err));

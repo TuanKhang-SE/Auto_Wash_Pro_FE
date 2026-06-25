@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
-import heroBg from "../../assets/hero-bg.jpg";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -11,7 +10,7 @@ function LoginPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function getRedirectPath(role: string) {
+  function getRedirectPath(role) {
     switch (role) {
       case "Admin":
         return "/admin";
@@ -24,7 +23,7 @@ function LoginPage() {
     }
   }
 
-  async function handleLogin(e: { preventDefault: () => void }) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setMessage("");
     setLoading(true);
@@ -57,27 +56,20 @@ function LoginPage() {
       navigate(getRedirectPath(user.role as string), { replace: true });
     } catch (error: unknown) {
       console.log(error);
-
       const axiosErr = error as {
         response?: { data?: { message?: string } };
       };
-
       const errMsg =
         axiosErr?.response?.data?.message ||
         "Đăng nhập thất bại. Vui lòng kiểm tra lại email/mật khẩu.";
-
       setMessage(errMsg);
-    } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div
-      className="min-h-screen bg-cover bg-center bg-no-repeat flex items-center justify-center px-4"
-      style={{ backgroundImage: `url(${heroBg})` }}
-    >
-      <div className="w-full max-w-md rounded-2xl bg-white/95 p-8 shadow-lg backdrop-blur-sm">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
         <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">
           Đăng nhập
         </h1>
@@ -117,16 +109,15 @@ function LoginPage() {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition duration-200"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 disabled:bg-blue-400 disabled:cursor-not-allowed"
           >
-            Đăng nhập
+            {loading ? "Đang đăng nhập..." : "Đăng nhập"}
           </button>
         </form>
 
         {message && (
-          <p className="text-center mt-4 text-sm text-red-500">
-            {message}
-          </p>
+          <p className="text-center mt-4 text-sm text-red-500">{message}</p>
         )}
 
         <p className="text-center text-sm text-gray-600 mt-6">

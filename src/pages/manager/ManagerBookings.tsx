@@ -41,7 +41,7 @@ const ManagerBookings = () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const response = await axiosClient.get("/api/bookings", {
+      const response = await axiosClient.get("/api/bookings", { // GET /api/bookings
         headers: { Authorization: `Bearer ${token}` },
       });
 
