@@ -28,6 +28,7 @@ import RegisterCar from "../pages/customer/RegisterCar";
 import Profile from "../pages/customer/Profile";
 import MyVehicles from "../pages/customer/MyVehicles";
 import Booking from "../pages/customer/Booking";
+import ForgotPassword from "../pages/auth/ForgotPassword";
 
 import ProtectedRoute, { ManagerRoute, AdminRoute } from "./ProtectedRoute";
 
@@ -40,6 +41,7 @@ const AppRoutes = () => {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* Staff */}
         <Route path="/staff" element={<StaffLayout />}>

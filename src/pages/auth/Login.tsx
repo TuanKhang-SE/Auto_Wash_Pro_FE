@@ -10,7 +10,7 @@ function LoginPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function getRedirectPath(role) {
+  function getRedirectPath(role: String) {
     switch (role) {
       case "Admin":
         return "/admin";
@@ -113,6 +113,15 @@ function LoginPage() {
               className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
+
+<div className="text-right">
+  <Link
+    to="/forgot-password"
+    className="text-sm font-medium text-blue-600 hover:underline"
+  >
+    Quên mật khẩu?
+  </Link>
+</div>
 
           <button
             type="submit"
