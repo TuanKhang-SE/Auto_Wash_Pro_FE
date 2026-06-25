@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Building2,
   MapPin,
@@ -10,8 +10,14 @@ import {
   TrendingUp,
   DollarSign,
   ChevronRight,
+  AlertCircle,
+  Plus,
+  X,
+  Check,
 } from "lucide-react";
-import { BRANCHES } from "../../constants/branches";
+import branchService, { type CreateBranchPayload } from "../../services/branchService";
+import userService, { type User } from "../../services/userService";
+import { getErrorMessage } from "../../api/axiosClient";
 
 interface BranchDetail {
   branchID: number;
@@ -30,35 +36,106 @@ interface BranchDetail {
   rating: number;
 }
 
+interface CreateBranchForm {
+  BranchName: string;
+  Address: string;
+  Phone: string;
+  OpenTime: string;
+  CloseTime: string;
+  BankAccount: string;
+  Status: "Active" | "Inactive";
+}
+
+const emptyForm: CreateBranchForm = {
+  BranchName: "",
+  Address: "",
+  Phone: "",
+  OpenTime: "07:00",
+  CloseTime: "20:00",
+  BankAccount: "",
+  Status: "Active",
+};
+
 const AdminBranches = () => {
   const [branches, setBranches] = useState<BranchDetail[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<BranchDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateBranchForm>(emptyForm);
+  const [createError, setCreateError] = useState("");
+  const [createSuccess, setCreateSuccess] = useState("");
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [branchList, userList] = await Promise.all([
+        branchService.getAllBranches(),
+        userService.getAllUsers(),
+      ]);
+
+      const enriched: BranchDetail[] = branchList.map((b) => {
+        const branchUsers = userList.filter(
+          (u: User) => u.BranchID === b.BranchID
+        );
+        const manager = branchUsers.find((u: User) => u.Role === "Manager");
+        const staff = branchUsers.filter(
+          (u: User) => u.Role === "Staff" && u.Status === "Active"
+        );
+
+        return {
+          branchID: b.BranchID,
+          branchName: b.BranchName,
+          address: b.Address ?? "Chưa cập nhật",
+          phone: b.Phone ?? "Chưa cập nhật",
+          openTime: b.OpenTime
+            ? new Date(`1970-01-01T${b.OpenTime}`).toLocaleTimeString("vi-VN", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              })
+            : "07:00",
+          closeTime: b.CloseTime
+            ? new Date(`1970-01-01T${b.CloseTime}`).toLocaleTimeString("vi-VN", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              })
+            : "20:00",
+          status: b.Status as "Active" | "Inactive",
+          manager: manager
+            ? {
+                fullName: manager.FullName,
+                email: manager.Email ?? "Chưa cập nhật",
+                phone: manager.Phone ?? "Chưa cập nhật",
+              }
+            : null,
+          totalStaff: staff.length,
+          todayBookings: 0,
+          monthBookings: 0,
+          revenue: 0,
+          occupancy: 0,
+          rating: 0,
+        };
+      });
+
+      setBranches(enriched);
+      if (enriched.length > 0) {
+        setSelectedBranch(enriched[0]);
+      }
+    } catch (err) {
+      setError(getErrorMessage(err));
+      console.error("Error fetching branches:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    setTimeout(() => {
-      const mock: BranchDetail[] = BRANCHES.map((b) => ({
-        ...b,
-        openTime: "07:00",
-        closeTime: "20:00",
-        manager:
-          b.branchID === 1
-            ? { fullName: "Nguyễn Văn An", email: "manager01@autowash.com", phone: "0901111111" }
-            : b.branchID === 2
-            ? { fullName: "Trần Thị Bình", email: "manager02@autowash.com", phone: "0902222222" }
-            : { fullName: "Lê Văn Cường", email: "manager03@autowash.com", phone: "0903333333" },
-        totalStaff: b.branchID === 1 ? 9 : b.branchID === 2 ? 8 : 7,
-        todayBookings: b.branchID === 1 ? 32 : b.branchID === 2 ? 27 : 22,
-        monthBookings: b.branchID === 1 ? 487 : b.branchID === 2 ? 412 : 388,
-        revenue: b.branchID === 1 ? 58400000 : b.branchID === 2 ? 49600000 : 48800000,
-        occupancy: b.branchID === 1 ? 85 : b.branchID === 2 ? 72 : 68,
-        rating: b.branchID === 1 ? 4.8 : b.branchID === 2 ? 4.6 : 4.5,
-      }));
-      setBranches(mock);
-      setSelectedBranch(mock[0]);
-      setIsLoading(false);
-    }, 500);
-  }, []);
+    fetchData();
+  }, [fetchData]);
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("vi-VN", {
@@ -67,20 +144,126 @@ const AdminBranches = () => {
       maximumFractionDigits: 0,
     }).format(value);
 
+  const handleCreateInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setCreateForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    setCreateError("");
+  };
+
+  const validateCreateForm = (): boolean => {
+    if (!createForm.BranchName.trim()) {
+      setCreateError("Tên chi nhánh không được để trống");
+      return false;
+    }
+    if (createForm.Phone && !/^[0-9]{9,11}$/.test(createForm.Phone)) {
+      setCreateError("Số điện thoại phải có 9-11 chữ số");
+      return false;
+    }
+    if (createForm.OpenTime && createForm.CloseTime) {
+      if (createForm.OpenTime >= createForm.CloseTime) {
+        setCreateError("Giờ đóng cửa phải sau giờ mở cửa");
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleCreateBranch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateCreateForm()) return;
+
+    setIsCreating(true);
+    setCreateError("");
+    setCreateSuccess("");
+
+    try {
+      const payload: CreateBranchPayload = {
+        BranchName: createForm.BranchName.trim(),
+        Status: createForm.Status,
+      };
+      if (createForm.Address.trim()) payload.Address = createForm.Address.trim();
+      if (createForm.Phone.trim()) payload.Phone = createForm.Phone.trim();
+      if (createForm.BankAccount.trim()) payload.BankAccount = createForm.BankAccount.trim();
+      if (createForm.OpenTime) payload.OpenTime = createForm.OpenTime;
+      if (createForm.CloseTime) payload.CloseTime = createForm.CloseTime;
+
+      await branchService.createBranch(payload);
+
+      setCreateSuccess("Tạo chi nhánh thành công!");
+      setTimeout(() => {
+        setIsCreateModalOpen(false);
+        setCreateForm(emptyForm);
+        setCreateSuccess("");
+        fetchData();
+      }, 1500);
+    } catch (err) {
+      setCreateError(getErrorMessage(err));
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">
-          Dữ liệu các Chi nhánh
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Xem và so sánh dữ liệu hoạt động của toàn bộ {branches.length} chi nhánh
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">
+            Dữ liệu các Chi nhánh
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Xem và so sánh dữ liệu hoạt động của toàn bộ {branches.length} chi
+            nhánh
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={fetchData}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition"
+          >
+            <TrendingUp size={16} />
+            Làm mới
+          </button>
+          <button
+            onClick={() => {
+              setCreateForm(emptyForm);
+              setCreateError("");
+              setCreateSuccess("");
+              setIsCreateModalOpen(true);
+            }}
+            className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-rose-500/30 hover:bg-rose-700 transition"
+          >
+            <Plus size={18} />
+            Thêm chi nhánh
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center h-64">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-rose-500 border-t-transparent"></div>
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-red-200 bg-red-50 p-8 text-center">
+          <AlertCircle size={32} className="text-red-500" />
+          <p className="text-sm font-medium text-red-700">{error}</p>
+          <button
+            onClick={fetchData}
+            className="rounded-lg bg-rose-500 px-4 py-2 text-sm font-medium text-white hover:bg-rose-600 transition"
+          >
+            Thử lại
+          </button>
+        </div>
+      ) : branches.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 p-8 text-center">
+          <Building2 size={32} className="text-slate-400" />
+          <p className="text-sm font-medium text-slate-600">
+            Chưa có chi nhánh nào
+          </p>
         </div>
       ) : (
         <>
@@ -111,7 +294,9 @@ const AdminBranches = () => {
                       <p className="font-semibold text-slate-800">
                         {b.branchName}
                       </p>
-                      <p className="text-xs text-slate-500">Mã CN: #{b.branchID}</p>
+                      <p className="text-xs text-slate-500">
+                        Mã CN: #{b.branchID}
+                      </p>
                     </div>
                   </div>
                   <ChevronRight
@@ -198,7 +383,10 @@ const AdminBranches = () => {
 
                   <div className="space-y-3">
                     <div className="flex items-start gap-3 rounded-lg bg-slate-50 p-3">
-                      <MapPin size={18} className="text-slate-400 mt-0.5 flex-shrink-0" />
+                      <MapPin
+                        size={18}
+                        className="text-slate-400 mt-0.5 flex-shrink-0"
+                      />
                       <div>
                         <p className="text-xs text-slate-500">Địa chỉ</p>
                         <p className="text-sm font-medium text-slate-800">
@@ -208,9 +396,14 @@ const AdminBranches = () => {
                     </div>
 
                     <div className="flex items-start gap-3 rounded-lg bg-slate-50 p-3">
-                      <Phone size={18} className="text-slate-400 mt-0.5 flex-shrink-0" />
+                      <Phone
+                        size={18}
+                        className="text-slate-400 mt-0.5 flex-shrink-0"
+                      />
                       <div>
-                        <p className="text-xs text-slate-500">Số điện thoại</p>
+                        <p className="text-xs text-slate-500">
+                          Số điện thoại
+                        </p>
                         <p className="text-sm font-medium text-slate-800">
                           {selectedBranch.phone}
                         </p>
@@ -218,11 +411,17 @@ const AdminBranches = () => {
                     </div>
 
                     <div className="flex items-start gap-3 rounded-lg bg-slate-50 p-3">
-                      <Clock size={18} className="text-slate-400 mt-0.5 flex-shrink-0" />
+                      <Clock
+                        size={18}
+                        className="text-slate-400 mt-0.5 flex-shrink-0"
+                      />
                       <div>
-                        <p className="text-xs text-slate-500">Giờ hoạt động</p>
+                        <p className="text-xs text-slate-500">
+                          Giờ hoạt động
+                        </p>
                         <p className="text-sm font-medium text-slate-800">
-                          {selectedBranch.openTime} - {selectedBranch.closeTime}
+                          {selectedBranch.openTime} -{" "}
+                          {selectedBranch.closeTime}
                         </p>
                       </div>
                     </div>
@@ -264,7 +463,7 @@ const AdminBranches = () => {
                         href="/admin/managers"
                         className="mt-2 inline-block text-xs font-medium text-amber-700 underline"
                       >
-                        Tạo Manager →
+                        Tạo Manager
                       </a>
                     </div>
                   )}
@@ -285,7 +484,9 @@ const AdminBranches = () => {
                         <p className="text-xs text-slate-500">Đánh giá</p>
                       </div>
                       <p className="text-2xl font-bold text-slate-800">
-                        {selectedBranch.rating}
+                        {selectedBranch.rating > 0
+                          ? selectedBranch.rating.toFixed(1)
+                          : "-"}
                       </p>
                     </div>
                   </div>
@@ -326,7 +527,21 @@ const AdminBranches = () => {
                       <p className="text-xs text-slate-600">Doanh thu tháng</p>
                     </div>
                     <p className="text-lg font-bold text-emerald-600">
-                      {formatCurrency(selectedBranch.revenue)}
+                      {selectedBranch.revenue > 0
+                        ? formatCurrency(selectedBranch.revenue)
+                        : "-"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-amber-50 to-white p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp size={16} className="text-amber-600" />
+                      <p className="text-xs text-slate-600">Công suất</p>
+                    </div>
+                    <p className="text-2xl font-bold text-amber-600">
+                      {selectedBranch.occupancy > 0
+                        ? `${selectedBranch.occupancy}%`
+                        : "-"}
                     </p>
                   </div>
                 </div>
@@ -334,6 +549,175 @@ const AdminBranches = () => {
             </div>
           )}
         </>
+      )}
+
+      {/* Create Branch Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 flex items-center justify-between border-b border-slate-100 bg-white p-5">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-rose-100 p-2">
+                  <Building2 size={20} className="text-rose-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-800">
+                    Thêm chi nhánh mới
+                  </h2>
+                  <p className="mt-0.5 text-sm text-slate-500">
+                    Tạo một chi nhánh rửa xe mới
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateBranch} className="p-5 space-y-4">
+              {createError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+                  {createError}
+                </div>
+              )}
+              {createSuccess && (
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-600">
+                  <Check size={16} />
+                  {createSuccess}
+                </div>
+              )}
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Tên chi nhánh <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="BranchName"
+                  value={createForm.BranchName}
+                  onChange={handleCreateInputChange}
+                  placeholder="VD: Chi nhánh Quận 3"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <MapPin size={14} className="inline mr-1" />
+                  Địa chỉ
+                </label>
+                <input
+                  type="text"
+                  name="Address"
+                  value={createForm.Address}
+                  onChange={handleCreateInputChange}
+                  placeholder="VD: 123 Lê Lợi, Q1, TP.HCM"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <Phone size={14} className="inline mr-1" />
+                  Số điện thoại
+                </label>
+                <input
+                  type="tel"
+                  name="Phone"
+                  value={createForm.Phone}
+                  onChange={handleCreateInputChange}
+                  placeholder="VD: 0901234567"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                    <Clock size={14} className="inline mr-1" />
+                    Giờ mở cửa
+                  </label>
+                  <input
+                    type="time"
+                    name="OpenTime"
+                    value={createForm.OpenTime}
+                    onChange={handleCreateInputChange}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                    <Clock size={14} className="inline mr-1" />
+                    Giờ đóng cửa
+                  </label>
+                  <input
+                    type="time"
+                    name="CloseTime"
+                    value={createForm.CloseTime}
+                    onChange={handleCreateInputChange}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Số tài khoản ngân hàng
+                </label>
+                <input
+                  type="text"
+                  name="BankAccount"
+                  value={createForm.BankAccount}
+                  onChange={handleCreateInputChange}
+                  placeholder="VD: 123456789 - Ngân hàng Vietcombank"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Trạng thái
+                </label>
+                <select
+                  name="Status"
+                  value={createForm.Status}
+                  onChange={handleCreateInputChange}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                >
+                  <option value="Active">Hoạt động</option>
+                  <option value="Inactive">Ngừng hoạt động</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreating}
+                  className="flex-1 rounded-lg bg-rose-600 py-2.5 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50 transition"
+                >
+                  {isCreating ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                      Đang xử lý...
+                    </span>
+                  ) : (
+                    "Tạo chi nhánh"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

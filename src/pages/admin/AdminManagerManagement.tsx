@@ -13,8 +13,8 @@ import {
   Trash2,
 } from "lucide-react";
 import userService, { type User } from "../../services/userService";
+import branchService, { type Branch } from "../../services/branchService";
 import { getErrorMessage } from "../../api/axiosClient";
-import { BRANCHES, getBranchName } from "../../constants/branches";
 
 interface RegisterFormData {
   password: string;
@@ -33,6 +33,7 @@ interface EditFormData {
 
 const AdminManagerManagement = () => {
   const [managers, setManagers] = useState<User[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -62,10 +63,14 @@ const AdminManagerManagement = () => {
   const fetchManagers = async () => {
     setIsLoading(true);
     try {
-      const data = await userService.getAllUsers({ Role: "Manager" }); // GET /api/users?Role=Manager
+      const [data, branchList] = await Promise.all([
+        userService.getAllUsers({ Role: "Manager" }),
+        branchService.getAllBranches(),
+      ]);
       setManagers(data);
+      setBranches(branchList);
     } catch (err) {
-      console.error("Error fetching managers:", err);
+      console.error("Error fetching data:", err);
     } finally {
       setIsLoading(false);
     }
@@ -118,9 +123,7 @@ const AdminManagerManagement = () => {
     const existing = managers.find((m) => m.BranchID === formData.branchID);
     if (existing) {
       setError(
-        `Chi nhánh ${getBranchName(
-          formData.branchID
-        )} đã có Manager: ${existing.FullName}. Vui lòng chọn chi nhánh khác.`
+        `Chi nhánh ${branches.find(b => b.BranchID === formData.branchID)?.BranchName || formData.branchID} đã có Manager: ${existing.FullName}. Vui lòng chọn chi nhánh khác.`
       );
       return false;
     }
@@ -270,16 +273,16 @@ const AdminManagerManagement = () => {
             {managers.length}
           </p>
         </div>
-        {BRANCHES.map((branch) => {
-          const manager = managers.find((m) => m.BranchID === branch.branchID);
+        {branches.map((branch) => {
+          const manager = managers.find((m) => m.BranchID === branch.BranchID);
           return (
             <div
-              key={branch.branchID}
+              key={branch.BranchID}
               className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
             >
               <div className="flex items-center justify-between">
                 <p className="text-xs text-slate-500 truncate">
-                  {branch.branchName}
+                  {branch.BranchName}
                 </p>
                 {manager ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
@@ -327,9 +330,9 @@ const AdminManagerManagement = () => {
           className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
         >
           <option value="all">Tất cả chi nhánh</option>
-          {BRANCHES.map((b) => (
-            <option key={b.branchID} value={b.branchID}>
-              {b.branchName}
+          {branches.map((b) => (
+            <option key={b.BranchID} value={b.BranchID}>
+              {b.BranchName}
             </option>
           ))}
         </select>
@@ -400,7 +403,7 @@ const AdminManagerManagement = () => {
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-700">
                         <Building2 size={12} />
-                        {m.branches?.BranchName || getBranchName(m.BranchID || 0)}
+                        {m.branches?.BranchName || branches.find(b => b.BranchID === m.BranchID)?.BranchName || `Chi nhánh ${m.BranchID}`}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -501,17 +504,17 @@ const AdminManagerManagement = () => {
                   onChange={handleInputChange}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
                 >
-                  {BRANCHES.map((b) => {
+                  {branches.map((b) => {
                     const taken = managers.some(
-                      (m) => m.BranchID === b.branchID
+                      (m) => m.BranchID === b.BranchID
                     );
                     return (
                       <option
-                        key={b.branchID}
-                        value={b.branchID}
+                        key={b.BranchID}
+                        value={b.BranchID}
                         disabled={taken}
                       >
-                        {b.branchName} {taken ? "(đã có Manager)" : ""}
+                        {b.BranchName} {taken ? "(đã có Manager)" : ""}
                       </option>
                     );
                   })}
