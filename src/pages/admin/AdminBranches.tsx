@@ -46,6 +46,14 @@ interface CreateBranchForm {
   Status: "Active" | "Inactive";
 }
 
+const parseTime = (value: string | null | undefined): string => {
+  if (!value) return "—";
+  const match = value.match(/T(\d{2}):(\d{2})/);
+  if (match) return `${match[1]}:${match[2]}`;
+  if (/^\d{2}:\d{2}$/.test(value)) return value;
+  return "—";
+};
+
 const emptyForm: CreateBranchForm = {
   BranchName: "",
   Address: "",
@@ -90,20 +98,8 @@ const AdminBranches = () => {
           branchName: b.BranchName,
           address: b.Address ?? "Chưa cập nhật",
           phone: b.Phone ?? "Chưa cập nhật",
-          openTime: b.OpenTime
-            ? new Date(`1970-01-01T${b.OpenTime}`).toLocaleTimeString("vi-VN", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: false,
-              })
-            : "07:00",
-          closeTime: b.CloseTime
-            ? new Date(`1970-01-01T${b.CloseTime}`).toLocaleTimeString("vi-VN", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: false,
-              })
-            : "20:00",
+          openTime: parseTime(b.OpenTime),
+          closeTime: parseTime(b.CloseTime),
           status: b.Status as "Active" | "Inactive",
           manager: manager
             ? {
