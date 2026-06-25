@@ -9,16 +9,52 @@ function Register() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword]  = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
+
+  const [code, setCode] = useState("");
+  const [isCodeSent, setIsCodeSent] = useState(false);
+
+  async function handleSendCode() {
+    if (!email) {
+      setMessage("Vui lòng nhập email trước");
+      return;
+    }
+
+    try {
+      await axiosClient.post("/api/auth/send-register-code", {
+        email,
+      });
+
+      setIsCodeSent(true);
+      setMessage("Mã xác minh đã được gửi đến email");
+    } catch (error: any) {
+      setMessage(error.response?.data?.message || "Gửi mã xác minh thất bại");
+    }
+  }
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
 
- if (password != confirmPassword) {
-  setMessage("Mật khẩu xác nhận không khớp");
-  return;
- }
+    if (password !== confirmPassword) {
+      setMessage("Mật khẩu xác nhận không khớp");
+      return;
+    }
+
+    if (!isCodeSent) {
+      setMessage("Vui lòng bấm gửi mã xác minh trước");
+      return;
+    }
+
+    if (!code) {
+      setMessage("Vui lòng nhập mã xác minh");
+      return;
+    }
+
+    if (code.length !== 6) {
+      setMessage("Mã xác minh phải có 6 số");
+      return;
+    }
 
     try {
       await axiosClient.post("/api/auth/register", {
@@ -26,13 +62,15 @@ function Register() {
         phone,
         email,
         password,
+        code,
       });
 
       setMessage("Đăng ký thành công");
-
-      navigate("/login");
-    } catch (error) {
-      setMessage("Đăng ký thất bại");
+      setTimeout(() => {
+        navigate("/login");
+      }, 1500);
+    } catch (error: any) {
+      setMessage(error.response?.data?.message || "Đăng ký thất bại");
     }
   }
 
@@ -85,7 +123,37 @@ function Register() {
               type="email"
               placeholder="Nhập email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setIsCodeSent(false);
+                setCode("");
+              }}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSendCode}
+            className="w-full bg-gray-700 text-white py-2 rounded-lg font-semibold hover:bg-gray-800 transition"
+          >
+            {isCodeSent ? "Gửi lại mã xác minh" : "Gửi mã xác minh"}
+          </button>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Mã xác minh
+            </label>
+
+            <input
+              type="text"
+              placeholder="Nhập mã 6 số"
+              value={code}
+              maxLength={6}
+              onChange={(e) => {
+                const onlyNumber = e.target.value.replace(/\D/g, "");
+                setCode(onlyNumber);
+              }}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -94,7 +162,8 @@ function Register() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Mật khẩu
             </label>
-              <input
+
+            <input
               type="password"
               placeholder="Nhập mật khẩu"
               value={password}
@@ -105,8 +174,9 @@ function Register() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nhập Lại Mật khẩu
+              Nhập lại mật khẩu
             </label>
+
             <input
               type="password"
               placeholder="Nhập lại mật khẩu"

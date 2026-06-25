@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import axiosClient from "../../api/axiosClient";
 
+
+
 const registerCarSchema = z.object({
   LicensePlate: z
     .string()

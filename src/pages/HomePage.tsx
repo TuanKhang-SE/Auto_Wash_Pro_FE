@@ -17,7 +17,7 @@ const HomePage = () => {
                 </p>
 
                 <Link
-                    to="/pricing"
+                    to="/booking"
                     className="rounded-xl mt-10 mb-15 bg-white px-5 py-3 font-semibold text-black transition hover:scale-105">
                     Đặt lịch ngay
                 </Link>
