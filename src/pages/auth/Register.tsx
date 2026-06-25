@@ -81,6 +81,14 @@ function Register() {
           Đăng ký
         </h1>
 
+<button
+  type="button"
+  onClick={() => navigate(-1)}
+  className="mb-4 text-sm font-medium text-gray-600 hover:text-blue-600"
+>
+  ← Quay lại
+</button>
+
         <p className="text-center text-gray-500 mb-6">
           Tạo tài khoản để sử dụng hệ thống
         </p>

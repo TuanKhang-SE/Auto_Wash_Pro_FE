@@ -2,163 +2,308 @@ import { Link } from "react-router-dom";
 import Navbar from "../../components/Navbar";
 import heroBg from "../../assets/hero-bg.jpg";
 
+function getUserName() {
+  const userString = localStorage.getItem("user");
+
+  if (!userString) {
+    return "Khách hàng";
+  }
+
+  try {
+    const user = JSON.parse(userString);
+    return user.fullName || user.email || "Khách hàng";
+  } catch {
+    return "Khách hàng";
+  }
+}
 
 const LoginedHomePage = () => {
+  const userName = getUserName();
+
   return (
     <>
       <Navbar />
 
-      {/* Hero */}
       <section
-        className="min-h-screen bg-cover bg-center bg-no-repeat flex flex-col items-center justify-center text-white"
+        className="relative bg-cover bg-center bg-no-repeat px-6 py-24 text-white"
         style={{ backgroundImage: `url(${heroBg})` }}
       >
-        <h1 className="text-7xl font-bold">Auto Wash Pro</h1>
+        <div className="absolute inset-0 bg-black/60"></div>
 
-        <p className="mt-3 text-lg">
-          Hệ thống đặt lịch và quản lý rửa xe tự động
-        </p>
+        <div className="relative z-10 mx-auto max-w-6xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-sky-300">
+            Xin chào
+          </p>
 
-        <Link
-          to="/booking"
-          className="rounded-xl mt-10 bg-white px-5 py-3 font-semibold text-black transition hover:scale-105"
-        >
-          Đặt lịch ngay
-        </Link>
-      </section>
+          <h1 className="mt-4 text-4xl font-bold md:text-6xl">
+            {userName}
+          </h1>
 
-      {/* Dịch vụ */}
-      <section className="bg-white py-10">
-        <div className="flex flex-col items-center justify-center w-full gap-6">
-          <h2 className="text-center text-3xl font-bold">
-            Dịch vụ nổi bật
-          </h2>
+          <p className="mt-5 max-w-2xl text-lg text-slate-200">
+            Bạn có thể đặt lịch rửa xe, quản lý xe đã đăng ký và xem thông tin
+            cá nhân ngay trong hệ thống Auto Wash Pro.
+          </p>
 
-          <div className="flex flex-row justify-center items-center gap-8 w-full max-w-2xl px-4">
-            <div className="flex-1 min-w-[150px] max-w-[250px] text-center bg-white py-6 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition">
-              Rửa xe máy
-            </div>
+          <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+            <Link
+              to="/booking"
+              className="rounded-xl bg-sky-600 px-6 py-3 text-center font-semibold text-white transition hover:bg-sky-700"
+            >
+              Đặt lịch rửa xe
+            </Link>
 
-            <div className="flex-1 min-w-[150px] max-w-[250px] text-center bg-white py-6 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition">
-              Chăm sóc xe
-            </div>
+            <Link
+              to="/customer/vehicles"
+              className="rounded-xl bg-white px-6 py-3 text-center font-semibold text-slate-900 transition hover:bg-slate-100"
+            >
+              Xem xe của tôi
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* Giới thiệu */}
-      <section className="mx-auto max-w-6xl px-6 py-16 bg-white">
-        <h2 className="mb-10 text-center text-3xl font-bold">
-          Vì sao chọn Auto Wash Pro?
-        </h2>
-
-        <div className="grid gap-8 md:grid-cols-3">
-          <div className="rounded-xl bg-sky-200 p-6 shadow">
-            <h3 className="mb-3 text-xl text-black font-semibold">
-              Nhanh chóng
-            </h3>
-
-            <p className="text-black">
-              Quy trình tự động giúp tiết kiệm thời gian.
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-sky-200 p-6 shadow">
-            <h3 className="mb-3 text-xl text-black font-semibold">
-              Chuyên nghiệp
-            </h3>
-
-            <p className="text-black">
-              Trang thiết bị hiện đại và dịch vụ chất lượng.
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-sky-200 p-6 shadow">
-            <h3 className="mb-3 text-xl text-black font-semibold">
-              Tiện lợi
-            </h3>
-
-            <p className="text-black">
-              Đặt lịch trực tuyến mọi lúc mọi nơi.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-slate-900 text-slate-300 pt-16 pb-8 mt-20">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-            <div className="flex flex-col gap-4">
-              <h3 className="text-2xl font-bold text-white tracking-tight">
-                Auto Wash Pro
-              </h3>
-
-              <p className="text-sm text-slate-400 leading-relaxed">
-                Hệ thống chăm sóc và rửa xe chuyên nghiệp tự động. Mang lại trải
-                nghiệm sạch sẽ, nhanh chóng và an tâm tuyệt đối cho xế yêu của bạn.
+      <main className="bg-gray-100 px-6 py-12">
+        <div className="mx-auto max-w-6xl">
+          <section className="grid gap-6 md:grid-cols-4">
+            <Link
+              to="/booking"
+              className="rounded-2xl bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+            >
+              <div className="mb-4 text-4xl">📅</div>
+              <h2 className="text-lg font-bold text-slate-800">Đặt lịch</h2>
+              <p className="mt-2 text-sm text-slate-500">
+                Chọn chi nhánh, dịch vụ, xe và khung giờ rửa xe.
               </p>
+            </Link>
+
+            <Link
+              to="/register-car"
+              className="rounded-2xl bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+            >
+              <div className="mb-4 text-4xl">🚘</div>
+              <h2 className="text-lg font-bold text-slate-800">Đăng ký xe</h2>
+              <p className="mt-2 text-sm text-slate-500">
+                Thêm xe mới vào tài khoản để đặt lịch nhanh hơn.
+              </p>
+            </Link>
+
+            <Link
+              to="/customer/vehicles"
+              className="rounded-2xl bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+            >
+              <div className="mb-4 text-4xl">🧾</div>
+              <h2 className="text-lg font-bold text-slate-800">Xe của tôi</h2>
+              <p className="mt-2 text-sm text-slate-500">
+                Xem, chỉnh sửa hoặc xóa thông tin xe đã đăng ký.
+              </p>
+            </Link>
+
+            <Link
+              to="/customer/profile"
+              className="rounded-2xl bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+            >
+              <div className="mb-4 text-4xl">👤</div>
+              <h2 className="text-lg font-bold text-slate-800">Hồ sơ</h2>
+              <p className="mt-2 text-sm text-slate-500">
+                Xem thông tin cá nhân và dữ liệu khách hàng.
+              </p>
+            </Link>
+          </section>
+
+          <section className="mt-10 grid gap-6 lg:grid-cols-3">
+            <div className="rounded-2xl bg-white p-6 shadow-sm lg:col-span-2">
+              <h2 className="text-2xl font-bold text-slate-800">
+                Quy trình đặt lịch
+              </h2>
+
+              <div className="mt-6 space-y-5">
+                <div className="flex gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-100 font-bold text-sky-700">
+                    1
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800">
+                      Kiểm tra xe đã đăng ký
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Nếu chưa có xe, hãy thêm xe trước khi đặt lịch.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-100 font-bold text-sky-700">
+                    2
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800">
+                      Chọn chi nhánh và dịch vụ
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Chọn nơi rửa xe, dịch vụ cần dùng và phương tiện của bạn.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-100 font-bold text-sky-700">
+                    3
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800">
+                      Chọn khung giờ còn trống
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Hệ thống sẽ hiển thị các slot còn khả dụng để bạn chọn.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-100 font-bold text-sky-700">
+                    4
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800">
+                      Đến chi nhánh đúng giờ
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Nhân viên sẽ kiểm tra xe và cập nhật trạng thái xử lý.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="flex flex-col gap-3">
-              <h4 className="text-lg font-semibold text-white">Dịch vụ</h4>
+            <aside className="rounded-2xl bg-slate-900 p-6 text-white shadow-sm">
+              <h2 className="text-2xl font-bold">Gợi ý hôm nay</h2>
 
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <a href="#" className="hover:text-sky-400 transition">
-                    Rửa xe máy
-                  </a>
-                </li>
+              <div className="mt-6 space-y-4">
+                <div className="rounded-xl bg-white/10 p-4">
+                  <p className="font-semibold">Bạn mới dùng hệ thống?</p>
+                  <p className="mt-1 text-sm text-slate-300">
+                    Hãy đăng ký xe trước, sau đó quay lại đặt lịch.
+                  </p>
+                </div>
 
-                <li>
-                  <a href="#" className="hover:text-sky-400 transition">
-                    Chăm sóc & Đánh bóng
-                  </a>
-                </li>
+                <div className="rounded-xl bg-white/10 p-4">
+                  <p className="font-semibold">Muốn tiết kiệm thời gian?</p>
+                  <p className="mt-1 text-sm text-slate-300">
+                    Đặt lịch trước để cửa hàng chuẩn bị slot phù hợp.
+                  </p>
+                </div>
 
-                <li>
-                  <a href="#" className="hover:text-sky-400 transition">
-                    Đặt lịch trước
-                  </a>
-                </li>
-              </ul>
+                <div className="rounded-xl bg-white/10 p-4">
+                  <p className="font-semibold">Có nhiều xe?</p>
+                  <p className="mt-1 text-sm text-slate-300">
+                    Bạn có thể lưu nhiều xe trong mục “Xe của tôi”.
+                  </p>
+                </div>
+              </div>
+            </aside>
+          </section>
+
+          <section className="mt-10 rounded-2xl bg-white p-6 shadow-sm">
+            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">
+                  Dịch vụ thường dùng
+                </h2>
+                <p className="mt-2 text-slate-500">
+                  Một số dịch vụ cơ bản khách hàng thường chọn khi đặt lịch.
+                </p>
+              </div>
+
+              <Link
+                to="/booking"
+                className="rounded-xl bg-sky-600 px-5 py-3 text-center font-semibold text-white hover:bg-sky-700"
+              >
+                Đặt lịch ngay
+              </Link>
             </div>
 
-            <div className="flex flex-col gap-3">
-              <h4 className="text-lg font-semibold text-white">Liên hệ</h4>
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <div className="rounded-xl border border-gray-100 p-5">
+                <p className="text-3xl">🏍️</p>
+                <h3 className="mt-3 font-bold text-slate-800">Rửa xe máy</h3>
+                <p className="mt-2 text-sm text-slate-500">
+                  Dịch vụ nhanh, phù hợp cho nhu cầu hằng ngày.
+                </p>
+              </div>
 
-              <ul className="space-y-2 text-sm text-slate-400">
-                <li>
-                  📍 Địa chỉ: 643/40 Đường Xô Viết Nghệ Tĩnh Bình Thạnh, TP. Hồ Chí Minh
-                </li>
-                <li>
-                  📍 Số 7 Đường D1 Phường Tăng Nhơn Phú, TP. Hồ Chí Minh
-                </li>
-                <li>
-                  📍 Số 1 Đường Lưu Hữu Phước Phường Đông Hòa, TP. Hồ Chí Minh
-                </li>
-                <li>📞 Hotline: 1900 xxxx</li>
-                <li>✉️ Email: support@autowashpro.com</li>
-              </ul>
+              <div className="rounded-xl border border-gray-100 p-5">
+                <p className="text-3xl">🚗</p>
+                <h3 className="mt-3 font-bold text-slate-800">Rửa ô tô</h3>
+                <p className="mt-2 text-sm text-slate-500">
+                  Làm sạch xe theo quy trình tại chi nhánh.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-gray-100 p-5">
+                <p className="text-3xl">✨</p>
+                <h3 className="mt-3 font-bold text-slate-800">Chăm sóc xe</h3>
+                <p className="mt-2 text-sm text-slate-500">
+                  Thêm dịch vụ phát sinh khi xe cần chăm sóc kỹ hơn.
+                </p>
+              </div>
             </div>
-          </div>
+          </section>
 
-          <hr className="border-slate-800 my-6" />
+          <section className="mt-10 rounded-2xl bg-white p-6 shadow-sm">
+  <h2 className="text-2xl font-bold text-slate-800">
+    Thông tin chi nhánh
+  </h2>
 
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-500">
-            <p>© 2026 Auto Wash Pro. All rights reserved.</p>
+  <p className="mt-2 text-slate-500">
+    Bạn có thể chọn chi nhánh phù hợp khi đặt lịch rửa xe.
+  </p>
 
-            <div className="flex gap-4">
-              <a href="#" className="hover:underline">
-                Chính sách bảo mật
-              </a>
+  <div className="mt-6 grid gap-4 md:grid-cols-3">
+    <div className="rounded-xl bg-gray-50 p-5">
+      <p className="font-semibold text-slate-800">Chi nhánh Quận 1</p>
+      <p className="mt-2 text-sm text-slate-500">
+        643/40 Đường Xô Viết Nghệ Tĩnh, Bình Thạnh, TP. HCM
+      </p>
+      <p className="mt-3 text-sm font-medium text-sky-700">
+        Hotline: 0281234567
+      </p>
+      <span className="mt-4 inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+        Đang hoạt động
+      </span>
+    </div>
 
-              <a href="#" className="hover:underline">
-                Điều khoản dịch vụ
-              </a>
-            </div>
-          </div>
+    <div className="rounded-xl bg-gray-50 p-5">
+      <p className="font-semibold text-slate-800">Chi nhánh Quận 9</p>
+      <p className="mt-2 text-sm text-slate-500">
+        Số 7 Đường D1, Phường Tăng Nhơn Phú, TP. HCM
+      </p>
+      <p className="mt-3 text-sm font-medium text-sky-700">
+        Hotline: 0282345678
+      </p>
+      <span className="mt-4 inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+        Đang hoạt động
+      </span>
+    </div>
+
+    <div className="rounded-xl bg-gray-50 p-5">
+      <p className="font-semibold text-slate-800">Chi nhánh Dĩ An</p>
+      <p className="mt-2 text-sm text-slate-500">
+        Số 1 Đường Lưu Hữu Phước, Phường Đông Hòa, TP. HCM
+      </p>
+      <p className="mt-3 text-sm font-medium text-sky-700">
+        Hotline: 0283456789
+      </p>
+      <span className="mt-4 inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+        Đang hoạt động
+      </span>
+    </div>
+  </div>
+</section>
         </div>
+      </main>
+
+      <footer className="bg-slate-950 px-6 py-6 text-center text-sm text-slate-400">
+        © 2026 Auto Wash Pro. All rights reserved.
       </footer>
     </>
   );
