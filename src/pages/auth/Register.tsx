@@ -77,11 +77,7 @@ function Register() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
-        <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">
-          Đăng ký
-        </h1>
-
-<button
+        <button
   type="button"
   onClick={() => navigate(-1)}
   className="mb-4 text-sm font-medium text-gray-600 hover:text-blue-600"
@@ -89,6 +85,9 @@ function Register() {
   ← Quay lại
 </button>
 
+        <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">
+          Đăng ký
+        </h1>
         <p className="text-center text-gray-500 mb-6">
           Tạo tài khoản để sử dụng hệ thống
         </p>
