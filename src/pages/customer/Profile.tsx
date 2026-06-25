@@ -1,69 +1,54 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../../components/Navbar";
 import axiosClient from "../../api/axiosClient";
 import avatarImg from "../../assets/avatar.png";
 
-type ProfileUser = {
-  UserID?: number;
-  FullName?: string;
-  Phone?: string;
-  Email?: string;
-  Role?: string;
-  Status?: string;
-  CreatedAt?: string;
-  UpdatedAt?: string;
+function Profile() {
+  const navigate = useNavigate();
 
-  userId?: number;
-  fullName?: string;
-  phone?: string;
-  email?: string;
-  role?: string;
-  status?: string;
-};
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
 
-const Profile = () => {
-  const userString = localStorage.getItem("user");
+  const [vehicles, setVehicles] = useState<any[]>([]);
 
-  const localUser: ProfileUser | null = userString
-    ? JSON.parse(userString)
-    : null;
+  const [totalVisits, setTotalVisits] = useState(0);
+  const [totalSpent, setTotalSpent] = useState(0);
 
-  const [user, setUser] = useState<ProfileUser | null>(localUser);
   const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
-
-  const userId = localUser?.userId || localUser?.UserID;
-
-  const fullName = user?.fullName || user?.FullName || "Người dùng";
-  const email = user?.email || user?.Email || "Chưa có email";
-  const phone = user?.phone || user?.Phone || "Chưa cập nhật";
-  const role = user?.role || user?.Role || "Customer";
-  const status = user?.status || user?.Status || "Active";
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
-    async function fetchProfile() {
+    async function loadProfile() {
       try {
-        if (!userId) {
-          setErrorMessage("Không tìm thấy ID người dùng");
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+          navigate("/login");
           return;
         }
 
-        const token = localStorage.getItem("token");
-
-        const res = await axiosClient.get(`/api/users/${userId}`, {
+        const res = await axiosClient.get("/api/customers/profile", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
-        const apiUser = res.data?.data || res.data;
+        const data = res.data.data;
 
-        setUser(apiUser);
+        setFullName(data.Users.FullName);
+        setEmail(data.Users.Email);
+        setPhone(data.Users.Phone || "Chưa cập nhật");
+
+        setVehicles(data.Vehicles || []);
+
+        setTotalVisits(data.TotalVisits || 0);
+        setTotalSpent(data.TotalSpent || 0);
       } catch (error: any) {
         console.log(error.response?.data || error);
 
-        setErrorMessage(
+        setMessage(
           error.response?.data?.message || "Không thể tải thông tin cá nhân"
         );
       } finally {
@@ -71,8 +56,26 @@ const Profile = () => {
       }
     }
 
-    fetchProfile();
-  }, [userId]);
+    loadProfile();
+  }, [navigate]);
+
+  function formatMoney(value: number) {
+    return value.toLocaleString("vi-VN") + "đ";
+  }
+
+  if (loading) {
+    return (
+      <>
+        <Navbar />
+
+        <main className="min-h-screen bg-gray-100 px-6 py-10">
+          <div className="mx-auto max-w-6xl">
+            <p className="text-slate-600">Đang tải thông tin cá nhân...</p>
+          </div>
+        </main>
+      </>
+    );
+  }
 
   return (
     <>
@@ -84,15 +87,9 @@ const Profile = () => {
             Trang cá nhân
           </h1>
 
-          {loading && (
-            <p className="mb-4 text-sm text-slate-500">
-              Đang tải thông tin cá nhân...
-            </p>
-          )}
-
-          {errorMessage && (
+          {message && (
             <p className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-              {errorMessage}
+              {message}
             </p>
           )}
 
@@ -106,13 +103,15 @@ const Profile = () => {
                 />
 
                 <h2 className="mt-4 text-2xl font-bold text-slate-800">
-                  {fullName}
+                  {fullName || "Người dùng"}
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500">{email}</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {email || "Chưa có email"}
+                </p>
 
                 <span className="mt-4 rounded-full bg-sky-100 px-4 py-1 text-sm font-medium text-sky-700">
-                  Hạng: Thành viên
+                  Khách hàng
                 </span>
               </div>
             </section>
@@ -126,35 +125,28 @@ const Profile = () => {
                 <div className="rounded-xl border border-gray-100 p-4">
                   <p className="text-sm text-slate-500">Họ và tên</p>
                   <p className="mt-1 font-semibold text-slate-800">
-                    {fullName}
+                    {fullName || "Chưa cập nhật"}
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-gray-100 p-4">
                   <p className="text-sm text-slate-500">Email</p>
                   <p className="mt-1 font-semibold text-slate-800">
-                    {email}
+                    {email || "Chưa cập nhật"}
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-gray-100 p-4">
                   <p className="text-sm text-slate-500">Số điện thoại</p>
                   <p className="mt-1 font-semibold text-slate-800">
-                    {phone}
+                    {phone || "Chưa cập nhật"}
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-gray-100 p-4">
                   <p className="text-sm text-slate-500">Vai trò</p>
                   <p className="mt-1 font-semibold text-slate-800">
-                    {role}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-gray-100 p-4">
-                  <p className="text-sm text-slate-500">Trạng thái</p>
-                  <p className="mt-1 font-semibold text-slate-800">
-                    {status}
+                    Customer
                   </p>
                 </div>
               </div>
@@ -166,20 +158,19 @@ const Profile = () => {
               Thống kê khách hàng
             </h2>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-xl bg-sky-50 p-5">
                 <p className="text-sm text-slate-500">Tổng lượt sử dụng</p>
-                <p className="mt-2 text-3xl font-bold text-sky-700">0</p>
+                <p className="mt-2 text-3xl font-bold text-sky-700">
+                  {totalVisits}
+                </p>
               </div>
 
               <div className="rounded-xl bg-green-50 p-5">
                 <p className="text-sm text-slate-500">Tổng chi tiêu</p>
-                <p className="mt-2 text-3xl font-bold text-green-700">0đ</p>
-              </div>
-
-              <div className="rounded-xl bg-amber-50 p-5">
-                <p className="text-sm text-slate-500">Điểm thành viên</p>
-                <p className="mt-2 text-3xl font-bold text-amber-700">0</p>
+                <p className="mt-2 text-3xl font-bold text-green-700">
+                  {formatMoney(totalSpent)}
+                </p>
               </div>
             </div>
           </section>
@@ -196,16 +187,64 @@ const Profile = () => {
               </Link>
             </div>
 
-            <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center">
-              <p className="text-slate-500">
-                Chưa có dữ liệu xe. Bạn có thể đăng ký xe mới để sử dụng dịch vụ.
-              </p>
-            </div>
+            {vehicles.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center">
+                <p className="text-slate-500">
+                  Chưa có dữ liệu xe. Bạn có thể đăng ký xe mới để sử dụng dịch
+                  vụ.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {vehicles.map((vehicle) => (
+                  <div
+                    key={vehicle.VehicleID}
+                    className="rounded-xl border border-gray-100 p-4 shadow-sm"
+                  >
+                    <p className="text-lg font-bold text-slate-800">
+                      {vehicle.LicensePlate}
+                    </p>
+
+                    <p className="mt-2 text-sm text-slate-500">
+                      Loại xe:{" "}
+                      <span className="font-medium text-slate-700">
+                        {vehicle.VehicleType || "Chưa cập nhật"}
+                      </span>
+                    </p>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      Hãng xe:{" "}
+                      <span className="font-medium text-slate-700">
+                        {vehicle.Brand || "Chưa cập nhật"}
+                      </span>
+                    </p>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      Model:{" "}
+                      <span className="font-medium text-slate-700">
+                        {vehicle.Model || "Chưa cập nhật"}
+                      </span>
+                    </p>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      Màu xe:{" "}
+                      <span className="font-medium text-slate-700">
+                        {vehicle.Color || "Chưa cập nhật"}
+                      </span>
+                    </p>
+
+                    <span className="mt-4 inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                      {vehicle.Status || "Active"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         </div>
       </main>
     </>
   );
-};
+}
 
 export default Profile;
