@@ -29,6 +29,7 @@ import Profile from "../pages/customer/Profile";
 import MyVehicles from "../pages/customer/MyVehicles";
 import Booking from "../pages/customer/Booking";
 import ForgotPassword from "../pages/auth/ForgotPassword";
+import BookingSuccess from "../pages/customer/BookingSuccess";
 
 import ProtectedRoute, { ManagerRoute, AdminRoute } from "./ProtectedRoute";
 
@@ -113,6 +114,15 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <Booking />
+            </ProtectedRoute>
+          }
+          
+        />
+                <Route
+          path="/booking-success"
+          element={
+            <ProtectedRoute>
+              <BookingSuccess />
             </ProtectedRoute>
           }
         />
