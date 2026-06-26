@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import StatCard from "../../components/staff/StatCard";
 import axiosClient from "../../api/axiosClient";
+import userService from "../../services/userService";
 
 interface Stats {
   totalStaff: number;
@@ -34,7 +35,6 @@ const ManagerDashboard = () => {
     completedToday: 0,
     pendingBookings: 0,
   });
-  void setStats;
   const [recentBookings, setRecentBookings] = useState<RecentBooking[]>([]);
   void setRecentBookings;
   const [branchName, setBranchName] = useState<string>("");
@@ -57,6 +57,27 @@ const ManagerDashboard = () => {
       }
     };
     fetchBranchName();
+  }, []);
+
+  useEffect(() => {
+    const fetchTotalStaff = async () => {
+      const user = getUserFromStorage();
+      if (!user?.branchId) return;
+      try {
+        // GET /api/users?Role=Staff&BranchID=<branchId> → chỉ Manager
+        // mới gọi được với filter BranchID (đã được roleMiddleware bảo vệ),
+        // trả về danh sách Staff thuộc đúng chi nhánh của Manager đang đăng nhập.
+        const staff = await userService.getAllUsers({
+          Role: "Staff",
+          BranchID: user.branchId,
+        });
+        setStats((prev) => ({ ...prev, totalStaff: staff.length }));
+      } catch (err) {
+        console.error("Lỗi tải danh sách nhân viên:", err);
+        // Không setState khi lỗi — giữ giá trị mặc định 0
+      }
+    };
+    fetchTotalStaff();
   }, []);
 
   const getStatusBadge = (status: string) => {
