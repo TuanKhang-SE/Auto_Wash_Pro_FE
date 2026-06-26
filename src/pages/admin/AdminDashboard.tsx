@@ -11,6 +11,7 @@ import {
 import StatCard from "../../components/admin/AdminStatCard";
 import userService from "../../services/userService";
 import branchService from "../../services/branchService";
+import revenueService from "../../services/revenueService";
 
 interface BranchStats {
   branchID: number;
@@ -58,6 +59,23 @@ const AdminDashboard = () => {
           userService.getAllUsers({ Role: "Staff" }),
         ]);
 
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+          .toISOString()
+          .split("T")[0];
+        const today = now.toISOString().split("T")[0];
+
+        let monthlyRevenue = 0;
+        try {
+          const cashflow = await revenueService.getDailyCashflow({
+            StartDate: startOfMonth,
+            EndDate: today,
+          });
+          monthlyRevenue = cashflow.summary.total;
+        } catch {
+          monthlyRevenue = 0;
+        }
+
         const activeBranches = branchesData.filter((b) => b.Status === "Active");
         const activeStaff = staffData.filter((s) => s.Status === "Active");
         const branchStaffMap = new Map<number, number>();
@@ -67,14 +85,20 @@ const AdminDashboard = () => {
           }
         });
 
+        const branchRevenueMap = new Map<number, number>();
+        if (monthlyRevenue > 0 && activeBranches.length > 0) {
+          const perBranch = monthlyRevenue / activeBranches.length;
+          activeBranches.forEach((b) => branchRevenueMap.set(b.BranchID, perBranch));
+        }
+
         const branchStatsData = branchesData.map((b) => ({
           branchID: b.BranchID,
           branchName: b.BranchName,
           address: b.Address,
           totalStaff: branchStaffMap.get(b.BranchID) || 0,
-          todayBookings: Math.floor(Math.random() * 15) + 20,
-          revenue: Math.floor(Math.random() * 20000000) + 40000000,
-          occupancy: Math.floor(Math.random() * 25) + 65,
+          todayBookings: 0,
+          revenue: branchRevenueMap.get(b.BranchID) || 0,
+          occupancy: 0,
           status: b.Status,
         }));
 
@@ -82,8 +106,8 @@ const AdminDashboard = () => {
           totalBranches: activeBranches.length,
           totalManagers: managersData.length,
           totalStaff: activeStaff.length,
-          totalBookings: 1287,
-          monthlyRevenue: 156800000,
+          totalBookings: 0,
+          monthlyRevenue,
           activeUsers: managersData.filter((m) => m.Status === "Active").length + activeStaff.length,
         });
 
