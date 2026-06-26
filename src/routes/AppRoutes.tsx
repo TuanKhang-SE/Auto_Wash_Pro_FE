@@ -19,6 +19,9 @@ import AdminManagerManagement from "../pages/admin/AdminManagerManagement";
 import AdminStaffManagement from "../pages/admin/AdminStaffManagement";
 import AdminBranches from "../pages/admin/AdminBranches";
 import AdminStatistics from "../pages/admin/AdminStatistics";
+import AdminCustomers from "../pages/admin/AdminCustomers";
+import AdminTierConfig from "../pages/admin/AdminTierConfig";
+import AdminRevenue from "../pages/admin/AdminRevenue";
 
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
@@ -151,6 +154,9 @@ const AppRoutes = () => {
           <Route path="staff" element={<AdminStaffManagement />} />
           <Route path="branches" element={<AdminBranches />} />
           <Route path="statistics" element={<AdminStatistics />} />
+          <Route path="customers" element={<AdminCustomers />} />
+          <Route path="tier-configs" element={<AdminTierConfig />} />
+          <Route path="revenue" element={<AdminRevenue />} />
         </Route>
 
         {/* Customer cần đăng nhập */}
