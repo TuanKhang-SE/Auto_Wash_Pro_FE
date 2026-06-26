@@ -7,6 +7,42 @@ const axiosClient = axios.create({
   },
 });
 
+// Log mọi request liên quan đến branches/users để dễ debug
+axiosClient.interceptors.request.use((config) => {
+  const url = config.url || "";
+  if (url.includes("/api/branches") || url.includes("/api/users")) {
+    console.log("[axios] →", config.method?.toUpperCase(), url, {
+      data: config.data,
+      params: config.params,
+    });
+  }
+  return config;
+});
+
+axiosClient.interceptors.response.use(
+  (response) => {
+    const url = response.config.url || "";
+    if (url.includes("/api/branches") || url.includes("/api/users")) {
+      console.log("[axios] ←", response.status, url, {
+        data: response.data,
+      });
+    }
+    return response;
+  },
+  (error) => {
+    const url = error?.config?.url || "";
+    if (url.includes("/api/branches") || url.includes("/api/users")) {
+      console.log(
+        "[axios] ✕",
+        error.response?.status,
+        url,
+        error.response?.data
+      );
+    }
+    return Promise.reject(error);
+  }
+);
+
 export function getErrorMessage(error: unknown): string {
   if (error && typeof error === "object" && "isAxiosError" in error) {
     const e = error as Record<string, unknown>;

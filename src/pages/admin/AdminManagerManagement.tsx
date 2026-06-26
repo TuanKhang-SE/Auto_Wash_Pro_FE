@@ -45,7 +45,7 @@ const AdminManagerManagement = () => {
     fullName: "",
     email: "",
     phone: "",
-    branchID: 1,
+    branchID: 0,
   });
   const [editFormData, setEditFormData] = useState<EditFormData>({
     fullName: "",
@@ -130,6 +130,10 @@ const AdminManagerManagement = () => {
       setError("Số điện thoại phải có 10-11 chữ số");
       return false;
     }
+    if (!formData.branchID || formData.branchID <= 0) {
+      setError("Vui lòng chọn chi nhánh phụ trách");
+      return false;
+    }
 
     const existing = managers.find((m) => m.BranchID === formData.branchID);
     if (existing) {
@@ -169,7 +173,7 @@ const AdminManagerManagement = () => {
         fullName: "",
         email: "",
         phone: "",
-        branchID: 1,
+        branchID: 0,
       });
       setTimeout(() => {
         setIsModalOpen(false);
@@ -521,10 +525,15 @@ const AdminManagerManagement = () => {
                 </label>
                 <select
                   name="branchID"
-                  value={formData.branchID}
+                  value={formData.branchID || ""}
                   onChange={handleInputChange}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
                 >
+                  {formData.branchID === 0 && (
+                    <option value="" disabled>
+                      -- Vui lòng chọn chi nhánh --
+                    </option>
+                  )}
                   {branches.map((b) => {
                     const taken = managers.some(
                       (m) => m.BranchID === b.BranchID

@@ -6,7 +6,7 @@ import {
   CalendarCheck,
   Users,
 } from "lucide-react";
-import { BRANCHES } from "../../constants/branches";
+import branchService, { type Branch } from "../../services/branchService";
 
 interface BranchStats {
   branchID: number;
@@ -18,6 +18,7 @@ interface BranchStats {
 
 const AdminStatistics = () => {
   const [period, setPeriod] = useState<"week" | "month" | "year">("month");
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [branchStats, setBranchStats] = useState<BranchStats[]>([]);
   const [totals, setTotals] = useState({
     revenue: 0,
@@ -27,12 +28,26 @@ const AdminStatistics = () => {
   });
 
   useEffect(() => {
-    const mock: BranchStats[] = BRANCHES.map((b) => ({
-      branchID: b.branchID,
-      revenue: b.branchID === 1 ? 58400000 : b.branchID === 2 ? 49600000 : 48800000,
-      bookings: b.branchID === 1 ? 487 : b.branchID === 2 ? 412 : 388,
-      staff: b.branchID === 1 ? 9 : b.branchID === 2 ? 8 : 7,
-      customers: b.branchID === 1 ? 412 : b.branchID === 2 ? 358 : 324,
+    fetchBranches();
+  }, []);
+
+  const fetchBranches = async () => {
+    try {
+      const data = await branchService.getAllBranches();
+      setBranches(data);
+    } catch (err) {
+      console.error("Error fetching branches:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (branches.length === 0) return;
+    const mock: BranchStats[] = branches.map((b) => ({
+      branchID: b.BranchID,
+      revenue: b.BranchID === 1 ? 58400000 : b.BranchID === 2 ? 49600000 : 48800000,
+      bookings: b.BranchID === 1 ? 487 : b.BranchID === 2 ? 412 : 388,
+      staff: b.BranchID === 1 ? 9 : b.BranchID === 2 ? 8 : 7,
+      customers: b.BranchID === 1 ? 412 : b.BranchID === 2 ? 358 : 324,
     }));
     setBranchStats(mock);
     setTotals({
@@ -41,7 +56,7 @@ const AdminStatistics = () => {
       customers: mock.reduce((s, b) => s + b.customers, 0),
       staff: mock.reduce((s, b) => s + b.staff, 0),
     });
-  }, [period]);
+  }, [period, branches]);
 
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat("vi-VN", {
@@ -54,7 +69,7 @@ const AdminStatistics = () => {
   const maxBookings = Math.max(...branchStats.map((b) => b.bookings), 1);
 
   const getBranchName = (id: number) =>
-    BRANCHES.find((b) => b.branchID === id)?.branchName || `CN ${id}`;
+    branches.find((b) => b.BranchID === id)?.BranchName || `CN ${id}`;
 
   return (
     <div className="space-y-6">

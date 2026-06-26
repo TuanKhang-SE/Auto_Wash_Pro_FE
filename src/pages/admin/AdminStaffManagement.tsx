@@ -14,8 +14,8 @@ import {
   Trash2,
 } from "lucide-react";
 import userService, { type User } from "../../services/userService";
+import branchService, { type Branch } from "../../services/branchService";
 import { getErrorMessage } from "../../api/axiosClient";
-import { BRANCHES, getBranchName } from "../../constants/branches";
 
 interface RegisterFormData {
   password: string;
@@ -36,6 +36,7 @@ interface EditFormData {
 const AdminStaffManagement = () => {
   const [staffList, setStaffList] = useState<User[]>([]);
   const [managers, setManagers] = useState<{ branchID: number; fullName: string }[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -62,7 +63,23 @@ const AdminStaffManagement = () => {
   useEffect(() => {
     fetchStaff();
     fetchManagers();
+    fetchBranches();
   }, []);
+
+  const fetchBranches = async () => {
+    try {
+      const data = await branchService.getAllBranches();
+      setBranches(data);
+    } catch (err) {
+      console.error("Error fetching branches:", err);
+    }
+  };
+
+  const getBranchName = (branchID: number | null): string => {
+    if (branchID == null) return "Chưa phân công";
+    const branch = branches.find((b) => b.BranchID === branchID);
+    return branch?.BranchName || `Chi nhánh ${branchID}`;
+  };
 
   // Lấy danh sách tất cả tài khoản có Role = "Staff" từ backend
   // để hiển thị lên bảng quản lý Staff của Admin
@@ -324,16 +341,16 @@ const AdminStaffManagement = () => {
             {staffList.length}
           </p>
         </div>
-        {BRANCHES.map((b) => {
+        {branches.map((b) => {
           const count = staffList.filter(
-            (s) => s.BranchID === b.branchID && s.Status === "Active"
+            (s) => s.BranchID === b.BranchID && s.Status === "Active"
           ).length;
           return (
             <div
-              key={b.branchID}
+              key={b.BranchID}
               className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
             >
-              <p className="text-xs text-slate-500 truncate">{b.branchName}</p>
+              <p className="text-xs text-slate-500 truncate">{b.BranchName}</p>
               <p className="mt-1 text-2xl font-bold text-rose-600">{count}</p>
               <p className="text-xs text-slate-400">staff đang hoạt động</p>
             </div>
@@ -367,9 +384,9 @@ const AdminStaffManagement = () => {
           className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
         >
           <option value="all">Tất cả chi nhánh</option>
-          {BRANCHES.map((b) => (
-            <option key={b.branchID} value={b.branchID}>
-              {b.branchName}
+          {branches.map((b) => (
+            <option key={b.BranchID} value={b.BranchID}>
+              {b.BranchName}
             </option>
           ))}
         </select>
@@ -542,20 +559,20 @@ const AdminStaffManagement = () => {
                   onChange={handleInputChange}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
                 >
-                  {BRANCHES.map((b) => {
+                  {branches.map((b) => {
                     const hasManager = managers.some(
-                      (m) => m.branchID === b.branchID
+                      (m) => m.branchID === b.BranchID
                     );
                     return (
                       <option
-                        key={b.branchID}
-                        value={b.branchID}
+                        key={b.BranchID}
+                        value={b.BranchID}
                         disabled={!hasManager}
                       >
-                        {b.branchName}{" "}
+                        {b.BranchName}{" "}
                         {hasManager
                           ? `(Manager: ${
-                              managers.find((m) => m.branchID === b.branchID)
+                              managers.find((m) => m.branchID === b.BranchID)
                                 ?.fullName
                             })`
                           : "(chưa có Manager)"}

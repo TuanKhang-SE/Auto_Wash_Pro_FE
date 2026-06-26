@@ -76,7 +76,7 @@ const branchService = {
     return response.data.data as Branch;
   },
 
-  async updateBranch(id: number, payload: UpdateBranchPayload): Promise<Branch> {
+  async updateBranch(id: number, payload: UpdateBranchPayload): Promise<Branch> { // PUT /api/branches/:id - Cập nhật chi nhánh (AdminBranches)
     const body = { ...payload };
     if (body.OpenTime) body.OpenTime = timeToIso(body.OpenTime);
     if (body.CloseTime) body.CloseTime = timeToIso(body.CloseTime);
@@ -87,6 +87,15 @@ const branchService = {
       throw new Error(response.data?.message || "Cập nhật chi nhánh thất bại");
     }
     return response.data.data as Branch;
+  },
+
+  async deleteBranch(id: number): Promise<void> { // DELETE /api/branches/:id - Xóa chi nhánh (AdminBranches)
+    const response = await axiosClient.delete(`/api/branches/${id}`, {
+      headers: getAuthHeader(),
+    });
+    if (!response.data?.success) {
+      throw new Error(response.data?.message || "Xóa chi nhánh thất bại");
+    }
   },
 };
 
