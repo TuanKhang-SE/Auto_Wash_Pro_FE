@@ -64,6 +64,8 @@ const AdminStaffManagement = () => {
     fetchManagers();
   }, []);
 
+  // Lấy danh sách tất cả tài khoản có Role = "Staff" từ backend
+  // để hiển thị lên bảng quản lý Staff của Admin
   const fetchStaff = async () => {
     setIsLoading(true);
     try {
@@ -76,6 +78,8 @@ const AdminStaffManagement = () => {
     }
   };
 
+  // Lấy danh sách tất cả Manager theo từng chi nhánh, dùng để kiểm tra
+  // chi nhánh nào đã có Manager trước khi cho phép tạo Staff thuộc chi nhánh đó
   const fetchManagers = async () => {
     try {
       const data = await userService.getAllUsers({ Role: "Manager" }); // GET /api/users?Role=Manager
@@ -86,6 +90,7 @@ const AdminStaffManagement = () => {
         }))
       );
     } catch {
+      // Fallback dữ liệu tạm khi API lỗi, tránh block form tạo Staff
       setManagers([
         { branchID: 1, fullName: "Nguyễn Văn An" },
         { branchID: 2, fullName: "Trần Thị Bình" },
@@ -94,6 +99,8 @@ const AdminStaffManagement = () => {
     }
   };
 
+  // Cập nhật state formData khi người dùng nhập liệu trong form tạo Staff
+  // (chuyển branchID từ string sang number) đồng thời xóa thông báo lỗi cũ
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -105,6 +112,8 @@ const AdminStaffManagement = () => {
     setError("");
   };
 
+  // Cập nhật state editFormData khi người dùng nhập liệu trong form chỉnh sửa Staff
+  // (status được ép kiểu về "Active" | "Inactive") đồng thời xóa thông báo lỗi cũ
   const handleEditInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -116,6 +125,9 @@ const AdminStaffManagement = () => {
     setError("");
   };
 
+  // Kiểm tra hợp lệ form tạo Staff trước khi gửi API: bắt buộc nhập
+  // họ tên + mật khẩu (≥6 ký tự, khớp confirmPassword), email/phone đúng
+  // format và chi nhánh được chọn đã có Manager quản lý
   const validateForm = (): boolean => {
     if (!formData.password || !formData.fullName) {
       setError("Vui lòng điền đầy đủ thông tin bắt buộc");
@@ -152,6 +164,8 @@ const AdminStaffManagement = () => {
     return true;
   };
 
+  // Gọi API tạo mới một tài khoản Staff trên backend với các thông tin:
+  // họ tên, mật khẩu, email, số điện thoại và chi nhánh được phân công
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -191,6 +205,8 @@ const AdminStaffManagement = () => {
     }
   };
 
+  // Mở modal chỉnh sửa Staff: lưu nhân viên đang sửa vào state editingStaff,
+  // đổ dữ liệu hiện tại vào editFormData để form hiển thị và reset thông báo cũ
   const openEditModal = (staff: User) => {
     setEditingStaff(staff);
     setEditFormData({
@@ -204,6 +220,8 @@ const AdminStaffManagement = () => {
     setIsEditModalOpen(true);
   };
 
+  // Gọi API cập nhật thông tin Staff (họ tên, email, số điện thoại, trạng thái)
+  // theo UserID của nhân viên đang được chỉnh sửa
   const handleEditStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStaff) return;
@@ -243,6 +261,8 @@ const AdminStaffManagement = () => {
     }
   };
 
+  // Gọi API xóa tài khoản Staff khỏi hệ thống theo UserID
+  // sau khi người dùng đã xác nhận qua hộp thoại confirm
   const handleDeleteStaff = async (staff: User) => {
     if (!confirm(`Bạn có chắc muốn xóa Staff "${staff.FullName}"?`)) return;
 
@@ -257,6 +277,8 @@ const AdminStaffManagement = () => {
     }
   };
 
+  // Lọc danh sách Staff theo từ khóa tìm kiếm (họ tên/email/SĐT)
+  // và theo chi nhánh đã chọn ở bộ lọc, dùng để render bảng
   const filteredStaff = staffList.filter((s) => {
     const matchSearch =
       s.FullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -266,6 +288,8 @@ const AdminStaffManagement = () => {
     return matchSearch && matchBranch;
   });
 
+  // Tra cứu tên Manager quản lý theo branchID để hiển thị cột "Manager quản lý"
+  // trong bảng Staff; trả về "Chưa phân công" nếu chi nhánh chưa có Manager
   const getManagerName = (branchID: number | null) => {
     const manager = managers.find((m) => m.branchID === branchID);
     return manager?.fullName || "Chưa phân công";

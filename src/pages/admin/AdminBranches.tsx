@@ -46,6 +46,8 @@ interface CreateBranchForm {
   Status: "Active" | "Inactive";
 }
 
+// Parse giờ mở/đóng cửa từ chuỗi ISO (vd: "2024-01-01T07:00:00.000Z")
+// hoặc chuỗi "HH:mm" về định dạng "HH:mm" hiển thị; trả về "—" nếu không hợp lệ
 const parseTime = (value: string | null | undefined): string => {
   if (!value) return "—";
   const match = value.match(/T(\d{2}):(\d{2})/);
@@ -54,6 +56,7 @@ const parseTime = (value: string | null | undefined): string => {
   return "—";
 };
 
+// Giá trị khởi tạo mặc định cho form tạo chi nhánh (mở cửa 07:00, đóng cửa 20:00)
 const emptyForm: CreateBranchForm = {
   BranchName: "",
   Address: "",
@@ -75,6 +78,9 @@ const AdminBranches = () => {
   const [createError, setCreateError] = useState("");
   const [createSuccess, setCreateSuccess] = useState("");
 
+  // Lấy song song danh sách chi nhánh và toàn bộ user từ backend, sau đó
+  // tổng hợp (enrich) thành danh sách BranchDetail với thông tin Manager,
+  // số Staff active cho mỗi chi nhánh để hiển thị trên trang quản lý
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -133,6 +139,7 @@ const AdminBranches = () => {
     fetchData();
   }, [fetchData]);
 
+  // Định dạng số tiền VND theo locale vi-VN (vd: 50.000.000 ₫)
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("vi-VN", {
       style: "currency",
@@ -140,6 +147,8 @@ const AdminBranches = () => {
       maximumFractionDigits: 0,
     }).format(value);
 
+  // Cập nhật state createForm khi người dùng nhập liệu trong form tạo chi nhánh
+  // đồng thời xóa thông báo lỗi cũ để người dùng nhập lại không bị hiển thị lỗi cũ
   const handleCreateInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -151,6 +160,9 @@ const AdminBranches = () => {
     setCreateError("");
   };
 
+  // Kiểm tra hợp lệ form tạo chi nhánh trước khi gửi API: tên chi nhánh
+  // bắt buộc, SĐT đúng format (9-11 chữ số) nếu có, giờ đóng cửa phải
+  // sau giờ mở cửa để đảm bảo khoảng thời gian hoạt động hợp lệ
   const validateCreateForm = (): boolean => {
     if (!createForm.BranchName.trim()) {
       setCreateError("Tên chi nhánh không được để trống");
@@ -169,6 +181,8 @@ const AdminBranches = () => {
     return true;
   };
 
+  // Gọi API tạo mới một chi nhánh trên backend với các thông tin:
+  // tên, địa chỉ, SĐT, giờ mở/đóng cửa, tài khoản ngân hàng và trạng thái
   const handleCreateBranch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateCreateForm()) return;

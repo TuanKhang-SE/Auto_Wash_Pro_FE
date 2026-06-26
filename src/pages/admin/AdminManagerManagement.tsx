@@ -60,6 +60,10 @@ const AdminManagerManagement = () => {
     fetchManagers();
   }, []);
 
+  // Lấy song song danh sách Manager và danh sách chi nhánh từ backend:
+  // - GET /api/users?Role=Manager: lấy tất cả tài khoản Manager
+  // - GET /api/branches: lấy danh sách chi nhánh để hiển thị tên và kiểm tra
+  //   chi nhánh nào đã có Manager (mỗi chi nhánh chỉ gán được 1 Manager)
   const fetchManagers = async () => {
     setIsLoading(true);
     try {
@@ -76,6 +80,8 @@ const AdminManagerManagement = () => {
     }
   };
 
+  // Cập nhật state formData khi người dùng nhập liệu trong form tạo Manager
+  // (chuyển branchID từ string sang number) đồng thời xóa thông báo lỗi cũ
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -87,6 +93,8 @@ const AdminManagerManagement = () => {
     setError("");
   };
 
+  // Cập nhật state editFormData khi người dùng nhập liệu trong form chỉnh sửa Manager
+  // đồng thời xóa thông báo lỗi cũ
   const handleEditInputChange = (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -95,6 +103,9 @@ const AdminManagerManagement = () => {
     setError("");
   };
 
+  // Kiểm tra hợp lệ form tạo Manager trước khi gửi API: bắt buộc nhập
+  // họ tên + mật khẩu (≥6 ký tự, khớp confirmPassword), email/phone đúng
+  // format và chi nhánh được chọn chưa có Manager nào (1 chi nhánh chỉ 1 Manager)
   const validateForm = (): boolean => {
     if (
       !formData.password ||
@@ -131,6 +142,8 @@ const AdminManagerManagement = () => {
     return true;
   };
 
+  // Gọi API tạo mới một tài khoản Manager trên backend với các thông tin:
+  // họ tên, mật khẩu, email, số điện thoại và chi nhánh mà Manager sẽ phụ trách
   const handleCreateManager = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -170,6 +183,8 @@ const AdminManagerManagement = () => {
     }
   };
 
+  // Mở modal chỉnh sửa Manager: lưu Manager đang sửa vào state editingManager,
+  // đổ dữ liệu hiện tại vào editFormData để form hiển thị và reset thông báo cũ
   const openEditModal = (manager: User) => {
     setEditingManager(manager);
     setEditFormData({
@@ -182,6 +197,8 @@ const AdminManagerManagement = () => {
     setIsEditModalOpen(true);
   };
 
+  // Gọi API cập nhật thông tin Manager (họ tên, email, số điện thoại)
+  // theo UserID của Manager đang được chỉnh sửa
   const handleEditManager = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingManager) return;
@@ -220,6 +237,8 @@ const AdminManagerManagement = () => {
     }
   };
 
+  // Gọi API xóa tài khoản Manager khỏi hệ thống theo UserID
+  // sau khi người dùng đã xác nhận qua hộp thoại confirm
   const handleDeleteManager = async (manager: User) => {
     if (!confirm(`Bạn có chắc muốn xóa Manager "${manager.FullName}"?`)) return;
 
@@ -234,6 +253,8 @@ const AdminManagerManagement = () => {
     }
   };
 
+  // Lọc danh sách Manager theo từ khóa tìm kiếm (họ tên/email/SĐT)
+  // và theo chi nhánh đã chọn ở bộ lọc, dùng để render bảng
   const filteredManagers = managers.filter((m) => {
     const matchSearch =
       m.FullName.toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -9,15 +9,18 @@ import {
   Shield,
 } from "lucide-react";
 import StatCard from "../../components/admin/AdminStatCard";
-import { BRANCHES } from "../../constants/branches";
 import userService from "../../services/userService";
+import branchService from "../../services/branchService";
 
 interface BranchStats {
   branchID: number;
+  branchName: string;
+  address: string | null;
   totalStaff: number;
   todayBookings: number;
   revenue: number;
   occupancy: number;
+  status: "Active" | "Inactive";
 }
 
 interface AdminStats {
@@ -42,14 +45,20 @@ const AdminDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Tải song song 3 nguồn dữ liệu để hiển thị dashboard tổng quan:
+    // - branchService.getAllBranches(): GET /api/branches - tổng số chi nhánh
+    // - userService.getAllUsers({Role:"Manager"}): GET /api/users?Role=Manager - số Manager
+    // - userService.getAllUsers({Role:"Staff"}): GET /api/users?Role=Staff - số Staff active
     const fetchStats = async () => {
       setIsLoading(true);
       try {
-        const [managersData, staffData] = await Promise.all([
-          userService.getAllUsers({ Role: "Manager" }), // GET /api/users?Role=Manager
-          userService.getAllUsers({ Role: "Staff" }), // GET /api/users?Role=Staff
+        const [branchesData, managersData, staffData] = await Promise.all([
+          branchService.getAllBranches(),
+          userService.getAllUsers({ Role: "Manager" }),
+          userService.getAllUsers({ Role: "Staff" }),
         ]);
 
+        const activeBranches = branchesData.filter((b) => b.Status === "Active");
         const activeStaff = staffData.filter((s) => s.Status === "Active");
         const branchStaffMap = new Map<number, number>();
         activeStaff.forEach((s) => {
@@ -58,16 +67,19 @@ const AdminDashboard = () => {
           }
         });
 
-        const branchStatsData = BRANCHES.map((b) => ({
-          branchID: b.branchID,
-          totalStaff: branchStaffMap.get(b.branchID) || 0,
+        const branchStatsData = branchesData.map((b) => ({
+          branchID: b.BranchID,
+          branchName: b.BranchName,
+          address: b.Address,
+          totalStaff: branchStaffMap.get(b.BranchID) || 0,
           todayBookings: Math.floor(Math.random() * 15) + 20,
           revenue: Math.floor(Math.random() * 20000000) + 40000000,
           occupancy: Math.floor(Math.random() * 25) + 65,
+          status: b.Status,
         }));
 
         setStats({
-          totalBranches: BRANCHES.length,
+          totalBranches: activeBranches.length,
           totalManagers: managersData.length,
           totalStaff: activeStaff.length,
           totalBookings: 1287,
@@ -93,9 +105,6 @@ const AdminDashboard = () => {
       maximumFractionDigits: 0,
     }).format(value);
   };
-
-  const getBranchName = (id: number) =>
-    BRANCHES.find((b) => b.branchID === id)?.branchName || `Chi nhánh ${id}`;
 
   const getUserFromStorage = () => {
     try {
@@ -203,20 +212,32 @@ const AdminDashboard = () => {
                     </div>
                     <div>
                       <p className="font-semibold text-slate-800">
-                        {getBranchName(branch.branchID)}
+                        {branch.branchName}
                       </p>
                       <p className="text-xs text-slate-500">
                         Mã CN: #{branch.branchID}
                       </p>
                     </div>
                   </div>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                    Hoạt động
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                    branch.status === "Active"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-slate-100 text-slate-500"
+                  }`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${
+                      branch.status === "Active" ? "bg-emerald-500" : "bg-slate-400"
+                    }`}></span>
+                    {branch.status === "Active" ? "Hoạt động" : "Ngừng"}
                   </span>
                 </div>
 
                 <div className="space-y-3">
+                  {branch.address && (
+                    <div className="flex items-start text-xs text-slate-500 mb-1">
+                      <span className="mr-1">📍</span>
+                      <span className="line-clamp-1">{branch.address}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-500 flex items-center gap-1.5">
                       <Users size={14} />
@@ -297,7 +318,7 @@ const AdminDashboard = () => {
             <div>
               <p className="font-semibold text-slate-800">Dữ liệu Chi nhánh</p>
               <p className="text-xs text-slate-500 mt-0.5">
-                Xem chi tiết toàn bộ dữ liệu 3 chi nhánh
+                Xem chi tiết toàn bộ dữ liệu {stats.totalBranches} chi nhánh
               </p>
             </div>
           </div>
