@@ -1,8 +1,42 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
+import axiosClient from "../api/axiosClient";
 import heroBg from "../assets/hero-bg.jpg";
 
+type Branch = {
+  BranchID: number;
+  BranchName: string;
+  Address: string | null;
+  Phone: string | null;
+  Status: string | null;
+};
+
 const HomePage = () => {
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [branchMessage, setBranchMessage] = useState("");
+
+  useEffect(() => {
+    async function loadBranches() {
+      try {
+        setLoadingBranches(true);
+        setBranchMessage("");
+
+        const res = await axiosClient.get("/api/branches?status=Active");
+
+        setBranches(res.data.data || []);
+      } catch (error) {
+        console.log(error);
+        setBranchMessage("Không tải được danh sách chi nhánh");
+      } finally {
+        setLoadingBranches(false);
+      }
+    }
+
+    loadBranches();
+  }, []);
+
   return (
     <>
       <Navbar />
@@ -75,7 +109,9 @@ const HomePage = () => {
 
             <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
               <div className="mb-4 text-4xl">✨</div>
-              <h3 className="text-xl font-bold text-slate-800">Chăm sóc xe</h3>
+              <h3 className="text-xl font-bold text-slate-800">
+                Chăm sóc xe
+              </h3>
               <p className="mt-3 text-slate-500">
                 Hỗ trợ các dịch vụ phát sinh như vệ sinh, chăm sóc và làm mới xe.
               </p>
@@ -174,54 +210,89 @@ const HomePage = () => {
       </section>
 
       <section className="bg-slate-900 px-6 py-16 text-white">
-        <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-2">
-          <div>
-            <h2 className="text-3xl font-bold">Chi nhánh hoạt động</h2>
+        <div className="mx-auto max-w-6xl">
+          <div className="grid gap-10 lg:grid-cols-2">
+            <div>
+              <h2 className="text-3xl font-bold">Chi nhánh hoạt động</h2>
 
-            <p className="mt-4 text-slate-300">
-              Auto Wash Pro hỗ trợ nhiều chi nhánh để khách hàng lựa chọn nơi
-              rửa xe thuận tiện nhất.
-            </p>
+              <p className="mt-4 text-slate-300">
+                Auto Wash Pro hỗ trợ nhiều chi nhánh để khách hàng lựa chọn nơi
+                rửa xe thuận tiện nhất.
+              </p>
 
-            <div className="mt-8 space-y-4 text-sm text-slate-300">
-              <p>
-    📍 <span className="font-semibold text-white">Chi nhánh Quận 1:</span>{" "}
-    643/40 Đường Xô Viết Nghệ Tĩnh, Bình Thạnh, TP. HCM — 0281234567
-  </p>
+              <div className="mt-8">
+                {loadingBranches && (
+                  <p className="text-sm text-slate-300">
+                    Đang tải danh sách chi nhánh...
+                  </p>
+                )}
 
-  <p>
-    📍 <span className="font-semibold text-white">Chi nhánh Quận 9:</span>{" "}
-    Số 7 Đường D1, Phường Tăng Nhơn Phú, TP. HCM — 0282345678
-  </p>
+                {!loadingBranches && branchMessage && (
+                  <p className="text-sm text-red-300">{branchMessage}</p>
+                )}
 
-  <p>
-    📍 <span className="font-semibold text-white">Chi nhánh Dĩ An:</span>{" "}
-    Số 1 Đường Lưu Hữu Phước, Phường Đông Hòa, TP. HCM — 0283456789
-  </p>
+                {!loadingBranches &&
+                  !branchMessage &&
+                  branches.length === 0 && (
+                    <p className="text-sm text-slate-300">
+                      Hiện chưa có chi nhánh hoạt động.
+                    </p>
+                  )}
+
+                {!loadingBranches && branches.length > 0 && (
+                  <div className="space-y-4">
+                    {branches.map((branch) => (
+                      <div
+                        key={branch.BranchID}
+                        className="rounded-2xl bg-white/10 p-5"
+                      >
+                        <h3 className="font-bold text-white">
+                          {branch.BranchName}
+                        </h3>
+
+                        <p className="mt-2 text-sm text-slate-300">
+                          📍 {branch.Address || "Chưa cập nhật địa chỉ"}
+                        </p>
+
+                        <p className="mt-2 text-sm text-slate-300">
+                          📞 {branch.Phone || "Chưa cập nhật số điện thoại"}
+                        </p>
+
+                        <span className="mt-3 inline-block rounded-full bg-green-500/20 px-3 py-1 text-xs font-semibold text-green-300">
+                          {branch.Status === "Active"
+                            ? "Đang hoạt động"
+                            : "Tạm ngưng"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
-          <div className="rounded-2xl bg-white p-8 text-slate-900">
-            <h3 className="text-2xl font-bold">Bắt đầu sử dụng ngay</h3>
+            <div className="rounded-2xl bg-white p-8 text-slate-900">
+              <h3 className="text-2xl font-bold">Bắt đầu sử dụng ngay</h3>
 
-            <p className="mt-3 text-slate-600">
-              Tạo tài khoản để đăng ký xe, đặt lịch và quản lý thông tin cá nhân.
-            </p>
+              <p className="mt-3 text-slate-600">
+                Tạo tài khoản để đăng ký xe, đặt lịch và quản lý thông tin cá
+                nhân.
+              </p>
 
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <Link
-                to="/register"
-                className="rounded-xl bg-sky-600 px-5 py-3 text-center font-semibold text-white hover:bg-sky-700"
-              >
-                Đăng ký
-              </Link>
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  to="/register"
+                  className="rounded-xl bg-sky-600 px-5 py-3 text-center font-semibold text-white hover:bg-sky-700"
+                >
+                  Đăng ký
+                </Link>
 
-              <Link
-                to="/login"
-                className="rounded-xl border border-sky-600 px-5 py-3 text-center font-semibold text-sky-700 hover:bg-sky-50"
-              >
-                Đăng nhập
-              </Link>
+                <Link
+                  to="/login"
+                  className="rounded-xl border border-sky-600 px-5 py-3 text-center font-semibold text-sky-700 hover:bg-sky-50"
+                >
+                  Đăng nhập
+                </Link>
+              </div>
             </div>
           </div>
         </div>

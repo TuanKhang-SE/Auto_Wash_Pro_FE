@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../../components/Navbar";
 import axiosClient from "../../api/axiosClient";
 
@@ -34,6 +34,33 @@ type Vehicle = {
 };
 
 const currentPoints = 300;
+
+const temporaryServices: Service[] = [
+    {
+        id: 1,
+        name: "Rửa xe cơ bản",
+        price: 50000,
+        duration: 30,
+    },
+    {
+        id: 2,
+        name: "Rửa xe bọt tuyết",
+        price: 80000,
+        duration: 45,
+    },
+    {
+        id: 3,
+        name: "Rửa nội thất",
+        price: 120000,
+        duration: 60,
+    },
+    {
+        id: 4,
+        name: "Combo rửa xe cao cấp",
+        price: 180000,
+        duration: 90,
+    },
+];
 
 const rewards: Reward[] = [
     {
@@ -127,6 +154,8 @@ function formatTime(value?: string | null) {
 }
 
 function Booking() {
+    const navigate = useNavigate();
+
     const userString = localStorage.getItem("user");
     const localUser = userString ? JSON.parse(userString) : null;
 
@@ -139,7 +168,7 @@ function Booking() {
     );
 
     const [branches, setBranches] = useState<Branch[]>([]);
-    const [services, setServices] = useState<Service[]>([]);
+    const [services, setServices] = useState<Service[]>(temporaryServices);
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
 
     const [loadingBranches, setLoadingBranches] = useState(false);
@@ -164,8 +193,8 @@ function Booking() {
         async function fetchBookingData() {
             try {
                 setLoadingBranches(true);
-                setLoadingServices(true);
                 setLoadingVehicles(true);
+                setLoadingServices(false);
                 setMessage("");
 
                 const token = localStorage.getItem("token");
@@ -179,18 +208,15 @@ function Booking() {
                     Authorization: `Bearer ${token}`,
                 };
 
-                const [branchRes, serviceRes, vehicleRes] = await Promise.all([
+                const [branchRes, vehicleRes] = await Promise.all([
                     axiosClient.get("/api/branches", { headers }),
-                    axiosClient.get("/api/services", { headers }),
                     axiosClient.get("/api/vehicles", { headers }),
                 ]);
 
                 console.log("Branch API response:", branchRes.data);
-                console.log("Service API response:", serviceRes.data);
                 console.log("Vehicle API response:", vehicleRes.data);
 
                 const branchList = getArrayData(branchRes.data, "branches");
-                const serviceList = getArrayData(serviceRes.data, "services");
                 const vehicleList = getArrayData(vehicleRes.data, "vehicles");
 
                 const mappedBranches: Branch[] = branchList.map((branch: any) => ({
@@ -234,35 +260,6 @@ function Booking() {
                     ),
                 }));
 
-                const mappedServices: Service[] = serviceList.map((service: any) => ({
-                    id: Number(
-                        service.ServiceID ||
-                        service.ServiceId ||
-                        service.serviceId ||
-                        service.id
-                    ),
-                    name:
-                        service.ServiceName ||
-                        service.serviceName ||
-                        service.Name ||
-                        service.name ||
-                        "Dịch vụ chưa có tên",
-                    price: Number(
-                        service.BasePrice ||
-                        service.basePrice ||
-                        service.Price ||
-                        service.price ||
-                        0
-                    ),
-                    duration: Number(
-                        service.DurationMinutes ||
-                        service.durationMinutes ||
-                        service.Duration ||
-                        service.duration ||
-                        0
-                    ),
-                }));
-
                 const mappedVehicles: Vehicle[] = vehicleList.map((vehicle: any) => ({
                     id: Number(
                         vehicle.VehicleID ||
@@ -280,11 +277,12 @@ function Booking() {
                 }));
 
                 setBranches(mappedBranches);
-                setServices(mappedServices);
                 setVehicles(mappedVehicles);
+                setServices(temporaryServices);
             } catch (error: any) {
                 console.log(error.response?.data || error);
                 setMessage("Không thể tải dữ liệu đặt lịch");
+                window.scrollTo({ top: 0, behavior: "smooth" });
             } finally {
                 setLoadingBranches(false);
                 setLoadingServices(false);
@@ -328,89 +326,86 @@ function Booking() {
         return value.toLocaleString("vi-VN") + "đ";
     }
 
+    function showMessage(text: string) {
+        setMessage(text);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
     async function handleSubmit(e: FormEvent) {
         e.preventDefault();
 
         setMessage("");
 
         if (!fullName.trim()) {
-            setMessage("Vui lòng nhập họ và tên");
+            showMessage("Vui lòng nhập họ và tên");
             return;
         }
 
         if (!phone.trim()) {
-            setMessage("Vui lòng nhập số điện thoại");
+            showMessage("Vui lòng nhập số điện thoại");
             return;
         }
 
         if (!branchId) {
-            setMessage("Vui lòng chọn chi nhánh");
+            showMessage("Vui lòng chọn chi nhánh");
             return;
         }
 
         if (!vehicleId) {
-            setMessage("Vui lòng chọn xe");
+            showMessage("Vui lòng chọn xe");
             return;
         }
 
         if (!serviceId) {
-            setMessage("Vui lòng chọn dịch vụ");
+            showMessage("Vui lòng chọn dịch vụ");
             return;
         }
 
         if (!bookingDate) {
-            setMessage("Vui lòng chọn ngày đặt lịch");
+            showMessage("Vui lòng chọn ngày đặt lịch");
             return;
         }
 
         if (!startTime) {
-            setMessage("Vui lòng chọn khung giờ");
+            showMessage("Vui lòng chọn khung giờ");
             return;
         }
 
         try {
             setIsSubmitting(true);
 
-            const token = localStorage.getItem("token");
-
-            if (!token) {
-                setMessage("Bạn cần đăng nhập để đặt lịch");
-                return;
-            }
-
-            const bookingPayload = {
+            const fakeBookingData = {
+                BookingCode: `BK-${Date.now()}`,
+                Status: "Pending",
                 BranchID: Number(branchId),
                 BookingDate: bookingDate,
                 StartTime: startTime,
-                Items: [
-                    {
-                        VehicleID: Number(vehicleId),
-                        Services: [
-                            {
-                                ServiceID: Number(serviceId),
-                            },
-                        ],
-                    },
-                ],
             };
 
-            console.log("Dữ liệu gửi lên API:", bookingPayload);
-
-            const res = await axiosClient.post("/api/bookings", bookingPayload, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
+            navigate("/booking-success", {
+                state: {
+                    booking: fakeBookingData,
+                    summary: {
+                        customerName: fullName,
+                        phone,
+                        branchName: selectedBranch?.name || "",
+                        vehicleName: selectedVehicle
+                            ? `${selectedVehicle.licensePlate} - ${selectedVehicle.brand} ${selectedVehicle.model}`
+                            : "",
+                        serviceName: selectedService?.name || "",
+                        serviceDuration: selectedService?.duration || 0,
+                        servicePrice,
+                        discountAmount,
+                        finalPrice,
+                        bookingDate,
+                        startTime,
+                        note,
+                    },
                 },
             });
-
-            console.log("Kết quả API booking:", res.data);
-
-            setMessage("Đặt lịch thành công! Lịch hẹn đã được lưu vào hệ thống.");
         } catch (error: any) {
-            console.log(error.response?.data || error);
-
-            setMessage(
-                error.response?.data?.message || "Đặt lịch thất bại, vui lòng thử lại"
-            );
+            console.log(error);
+            showMessage("Đặt lịch thất bại, vui lòng thử lại");
         } finally {
             setIsSubmitting(false);
         }
@@ -451,7 +446,7 @@ function Booking() {
                         </div>
 
                         {message && (
-                            <div className="mb-5 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                            <div className="mb-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
                                 {message}
                             </div>
                         )}
@@ -497,7 +492,11 @@ function Booking() {
 
                                     <select
                                         value={branchId}
-                                        onChange={(e) => setBranchId(e.target.value)}
+                                        onChange={(e) => {
+                                            setBranchId(e.target.value);
+                                            setServiceId("");
+                                            setStartTime("");
+                                        }}
                                         className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                                     >
                                         <option value="">
@@ -634,8 +633,8 @@ function Booking() {
                                             type="button"
                                             onClick={() => setStartTime(time)}
                                             className={`rounded-xl border px-4 py-3 font-semibold transition ${isSelected
-                                                ? "border-sky-600 bg-sky-600 text-white"
-                                                : "border-gray-300 bg-white text-slate-600 hover:border-sky-500 hover:text-sky-600"
+                                                    ? "border-sky-600 bg-sky-600 text-white"
+                                                    : "border-gray-300 bg-white text-slate-600 hover:border-sky-500 hover:text-sky-600"
                                                 }`}
                                         >
                                             {time}

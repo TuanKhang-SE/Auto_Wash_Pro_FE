@@ -1,6 +1,16 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../../components/Navbar";
+import axiosClient from "../../api/axiosClient";
 import heroBg from "../../assets/hero-bg.jpg";
+
+type Branch = {
+  BranchID: number;
+  BranchName: string;
+  Address: string | null;
+  Phone: string | null;
+  Status: string | null;
+};
 
 function getUserName() {
   const userString = localStorage.getItem("user");
@@ -11,7 +21,7 @@ function getUserName() {
 
   try {
     const user = JSON.parse(userString);
-    return user.fullName || user.email || "Khách hàng";
+    return user.fullName || user.FullName || user.email || user.Email || "Khách hàng";
   } catch {
     return "Khách hàng";
   }
@@ -19,6 +29,30 @@ function getUserName() {
 
 const LoginedHomePage = () => {
   const userName = getUserName();
+
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [branchMessage, setBranchMessage] = useState("");
+
+  useEffect(() => {
+    async function loadBranches() {
+      try {
+        setLoadingBranches(true);
+        setBranchMessage("");
+
+        const res = await axiosClient.get("/api/branches?status=Active");
+
+        setBranches(res.data.data || []);
+      } catch (error) {
+        console.log(error);
+        setBranchMessage("Không tải được danh sách chi nhánh");
+      } finally {
+        setLoadingBranches(false);
+      }
+    }
+
+    loadBranches();
+  }, []);
 
   return (
     <>
@@ -250,55 +284,61 @@ const LoginedHomePage = () => {
           </section>
 
           <section className="mt-10 rounded-2xl bg-white p-6 shadow-sm">
-  <h2 className="text-2xl font-bold text-slate-800">
-    Thông tin chi nhánh
-  </h2>
+            <h2 className="text-2xl font-bold text-slate-800">
+              Thông tin chi nhánh
+            </h2>
 
-  <p className="mt-2 text-slate-500">
-    Bạn có thể chọn chi nhánh phù hợp khi đặt lịch rửa xe.
-  </p>
+            <p className="mt-2 text-slate-500">
+              Danh sách chi nhánh đang hoạt động được lấy trực tiếp từ database.
+            </p>
 
-  <div className="mt-6 grid gap-4 md:grid-cols-3">
-    <div className="rounded-xl bg-gray-50 p-5">
-      <p className="font-semibold text-slate-800">Chi nhánh Quận 1</p>
-      <p className="mt-2 text-sm text-slate-500">
-        643/40 Đường Xô Viết Nghệ Tĩnh, Bình Thạnh, TP. HCM
-      </p>
-      <p className="mt-3 text-sm font-medium text-sky-700">
-        Hotline: 0281234567
-      </p>
-      <span className="mt-4 inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-        Đang hoạt động
-      </span>
-    </div>
+            <div className="mt-6">
+              {loadingBranches && (
+                <p className="text-sm text-slate-500">
+                  Đang tải danh sách chi nhánh...
+                </p>
+              )}
 
-    <div className="rounded-xl bg-gray-50 p-5">
-      <p className="font-semibold text-slate-800">Chi nhánh Quận 9</p>
-      <p className="mt-2 text-sm text-slate-500">
-        Số 7 Đường D1, Phường Tăng Nhơn Phú, TP. HCM
-      </p>
-      <p className="mt-3 text-sm font-medium text-sky-700">
-        Hotline: 0282345678
-      </p>
-      <span className="mt-4 inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-        Đang hoạt động
-      </span>
-    </div>
+              {!loadingBranches && branchMessage && (
+                <p className="text-sm text-red-500">{branchMessage}</p>
+              )}
 
-    <div className="rounded-xl bg-gray-50 p-5">
-      <p className="font-semibold text-slate-800">Chi nhánh Dĩ An</p>
-      <p className="mt-2 text-sm text-slate-500">
-        Số 1 Đường Lưu Hữu Phước, Phường Đông Hòa, TP. HCM
-      </p>
-      <p className="mt-3 text-sm font-medium text-sky-700">
-        Hotline: 0283456789
-      </p>
-      <span className="mt-4 inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-        Đang hoạt động
-      </span>
-    </div>
-  </div>
-</section>
+              {!loadingBranches && !branchMessage && branches.length === 0 && (
+                <p className="text-sm text-slate-500">
+                  Hiện chưa có chi nhánh hoạt động.
+                </p>
+              )}
+
+              {!loadingBranches && branches.length > 0 && (
+                <div className="grid gap-4 md:grid-cols-3">
+                  {branches.map((branch) => (
+                    <div
+                      key={branch.BranchID}
+                      className="rounded-xl bg-gray-50 p-5"
+                    >
+                      <p className="font-semibold text-slate-800">
+                        {branch.BranchName}
+                      </p>
+
+                      <p className="mt-2 text-sm text-slate-500">
+                        {branch.Address || "Chưa cập nhật địa chỉ"}
+                      </p>
+
+                      <p className="mt-3 text-sm font-medium text-sky-700">
+                        Hotline: {branch.Phone || "Chưa cập nhật"}
+                      </p>
+
+                      <span className="mt-4 inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                        {branch.Status === "Active"
+                          ? "Đang hoạt động"
+                          : "Tạm ngưng"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
         </div>
       </main>
 

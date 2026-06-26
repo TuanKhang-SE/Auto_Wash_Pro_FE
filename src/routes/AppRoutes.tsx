@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import HomePage from "../pages/HomePage";
 import AboutPage from "../pages/AboutPage";
@@ -22,6 +22,7 @@ import AdminStatistics from "../pages/admin/AdminStatistics";
 
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
+import ForgotPassword from "../pages/auth/ForgotPassword";
 
 import LoginedHomePage from "../pages/customer/LoginedHomePage";
 import RegisterCar from "../pages/customer/RegisterCar";
@@ -31,18 +32,92 @@ import Booking from "../pages/customer/Booking";
 
 import ProtectedRoute, { ManagerRoute, AdminRoute } from "./ProtectedRoute";
 
+function getRedirectPath(role: string | null) {
+  switch (role) {
+    case "Admin":
+      return "/admin";
+
+    case "Manager":
+      return "/manager";
+
+    case "Staff":
+      return "/staff";
+
+    case "Customer":
+      return "/home";
+
+    default:
+      return "/home";
+  }
+}
+
+function getCurrentRole() {
+  return localStorage.getItem("userRole");
+}
+
+function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
+  const token = localStorage.getItem("token");
+  const role = getCurrentRole();
+
+  if (token) {
+    return <Navigate to={getRedirectPath(role)} replace />;
+  }
+
+  return children;
+}
+
 const AppRoutes = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Trang public */}
-        <Route path="/" element={<HomePage />} />
+        {/* Trang public - chỉ dành cho người chưa đăng nhập */}
+        <Route
+          path="/"
+          element={
+            <PublicOnlyRoute>
+              <HomePage />
+            </PublicOnlyRoute>
+          }
+        />
+
         <Route path="/about" element={<AboutPage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+
+        <Route
+          path="/login"
+          element={
+            <PublicOnlyRoute>
+              <Login />
+            </PublicOnlyRoute>
+          }
+        />
+
+        <Route
+          path="/register"
+          element={
+            <PublicOnlyRoute>
+              <Register />
+            </PublicOnlyRoute>
+          }
+        />
+
+        <Route
+          path="/forgot-password"
+          element={
+            <PublicOnlyRoute>
+              <ForgotPassword />
+            </PublicOnlyRoute>
+          }
+        />
 
         {/* Staff */}
-        <Route path="/staff" element={<StaffLayout />}>
+        <Route
+          path="/staff"
+          element={
+            <ProtectedRoute>
+              <StaffLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<StaffDashboard />} />
         </Route>
 
