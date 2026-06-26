@@ -7,10 +7,17 @@ const axiosClient = axios.create({
   },
 });
 
-// Log mọi request liên quan đến branches/users để dễ debug
+// Log mọi request liên quan đến branches/users/customers/tier-configs để dễ debug
 axiosClient.interceptors.request.use((config) => {
   const url = config.url || "";
-  if (url.includes("/api/branches") || url.includes("/api/users")) {
+  if (
+    url.includes("/api/branches") ||
+    url.includes("/api/users") ||
+    url.includes("/api/customers") ||
+    url.includes("/api/tier-configs") ||
+    url.includes("/api/dashboard") ||
+    url.includes("/api/dashboard")
+  ) {
     console.log("[axios] →", config.method?.toUpperCase(), url, {
       data: config.data,
       params: config.params,
@@ -22,7 +29,12 @@ axiosClient.interceptors.request.use((config) => {
 axiosClient.interceptors.response.use(
   (response) => {
     const url = response.config.url || "";
-    if (url.includes("/api/branches") || url.includes("/api/users")) {
+    if (
+      url.includes("/api/branches") ||
+      url.includes("/api/users") ||
+      url.includes("/api/customers") ||
+      url.includes("/api/tier-configs")
+    ) {
       console.log("[axios] ←", response.status, url, {
         data: response.data,
       });
@@ -31,7 +43,12 @@ axiosClient.interceptors.response.use(
   },
   (error) => {
     const url = error?.config?.url || "";
-    if (url.includes("/api/branches") || url.includes("/api/users")) {
+    if (
+      url.includes("/api/branches") ||
+      url.includes("/api/users") ||
+      url.includes("/api/customers") ||
+      url.includes("/api/tier-configs")
+    ) {
       console.log(
         "[axios] ✕",
         error.response?.status,

@@ -7,6 +7,7 @@ import {
   Users,
 } from "lucide-react";
 import branchService, { type Branch } from "../../services/branchService";
+import revenueService from "../../services/revenueService";
 
 interface BranchStats {
   branchID: number;
@@ -26,6 +27,19 @@ const AdminStatistics = () => {
     customers: 0,
     staff: 0,
   });
+  const [isLoading, setIsLoading] = useState(false);
+
+  const getDateRange = () => {
+    const end = new Date();
+    const start = new Date();
+    if (period === "week") start.setDate(end.getDate() - 7);
+    else if (period === "month") start.setMonth(end.getMonth() - 1);
+    else start.setFullYear(end.getFullYear() - 1);
+    return {
+      StartDate: start.toISOString().split("T")[0],
+      EndDate: end.toISOString().split("T")[0],
+    };
+  };
 
   useEffect(() => {
     fetchBranches();
@@ -42,21 +56,55 @@ const AdminStatistics = () => {
 
   useEffect(() => {
     if (branches.length === 0) return;
-    const mock: BranchStats[] = branches.map((b) => ({
-      branchID: b.BranchID,
-      revenue: b.BranchID === 1 ? 58400000 : b.BranchID === 2 ? 49600000 : 48800000,
-      bookings: b.BranchID === 1 ? 487 : b.BranchID === 2 ? 412 : 388,
-      staff: b.BranchID === 1 ? 9 : b.BranchID === 2 ? 8 : 7,
-      customers: b.BranchID === 1 ? 412 : b.BranchID === 2 ? 358 : 324,
-    }));
-    setBranchStats(mock);
-    setTotals({
-      revenue: mock.reduce((s, b) => s + b.revenue, 0),
-      bookings: mock.reduce((s, b) => s + b.bookings, 0),
-      customers: mock.reduce((s, b) => s + b.customers, 0),
-      staff: mock.reduce((s, b) => s + b.staff, 0),
-    });
+    setIsLoading(true);
+    fetchRevenueData();
   }, [period, branches]);
+
+  const fetchRevenueData = async () => {
+    setIsLoading(true);
+    try {
+      const { StartDate, EndDate } = getDateRange();
+
+      const revenueByBranch: Record<number, number> = {};
+      const totalRevenue = { cash: 0, transfer: 0, other: 0, total: 0 };
+      const totalBookings = { count: 0, completed: 0, cancelled: 0, customers: 0 };
+
+      const cashflow = await revenueService.getDailyCashflow({ StartDate, EndDate });
+      for (const item of cashflow.dailyData) {
+        totalRevenue.cash += item.cash;
+        totalRevenue.transfer += item.transfer;
+        totalRevenue.other += item.other;
+        totalRevenue.total += item.total;
+      }
+
+      if (branches.length > 0) {
+        const branchRevenue = totalRevenue.total / branches.length;
+        branches.forEach((b) => {
+          revenueByBranch[b.BranchID] = Math.round(branchRevenue);
+        });
+      }
+
+      const stats: BranchStats[] = branches.map((b) => ({
+        branchID: b.BranchID,
+        revenue: revenueByBranch[b.BranchID] || 0,
+        bookings: Math.round(totalBookings.count / branches.length),
+        staff: 0,
+        customers: 0,
+      }));
+
+      setBranchStats(stats);
+      setTotals({
+        revenue: totalRevenue.total,
+        bookings: totalBookings.count,
+        customers: totalBookings.customers,
+        staff: totals.staff,
+      });
+    } catch (err) {
+      console.error("Error fetching revenue data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat("vi-VN", {
@@ -180,7 +228,12 @@ const AdminStatistics = () => {
           </div>
 
           <div className="space-y-4">
-            {branchStats.map((b) => (
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent"></div>
+              </div>
+            ) : (
+              branchStats.map((b) => (
               <div key={b.branchID}>
                 <div className="flex items-center justify-between mb-1.5 text-sm">
                   <span className="font-medium text-slate-700">
@@ -197,7 +250,8 @@ const AdminStatistics = () => {
                   ></div>
                 </div>
               </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
@@ -246,6 +300,11 @@ const AdminStatistics = () => {
         </h3>
 
         <div className="overflow-x-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-rose-500 border-t-transparent"></div>
+            </div>
+          ) : (
           <table className="w-full">
             <thead className="bg-slate-50">
               <tr className="text-left text-xs font-medium uppercase tracking-wider text-slate-500">
@@ -281,6 +340,7 @@ const AdminStatistics = () => {
               ))}
             </tbody>
           </table>
+          )}
         </div>
       </div>
     </div>
