@@ -7,7 +7,7 @@ import {
 
 export const staffMenu = [
   {
-    path: "/staff/dashboard",
+    path: "/staff",
     name: "Tổng quan",
     icon: <LayoutDashboard size={20} />,
   },
