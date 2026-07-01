@@ -174,8 +174,15 @@ function BookingSuccess() {
                         </Link>
 
                         <Link
-                            to="/home"
+                            to="/customer/bookings"
                             className="rounded-lg bg-sky-600 px-6 py-3 text-center font-semibold text-white hover:bg-sky-700"
+                        >
+                            Xem lịch sử đặt lịch
+                        </Link>
+
+                        <Link
+                            to="/home"
+                            className="rounded-lg bg-slate-800 px-6 py-3 text-center font-semibold text-white hover:bg-slate-900"
                         >
                             Về trang chủ
                         </Link>

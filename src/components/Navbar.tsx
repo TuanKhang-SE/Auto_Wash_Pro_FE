@@ -92,6 +92,12 @@ const Navbar = () => {
                   to="/register-car"
                   className="block rounded-lg px-4 py-3 font-medium text-slate-700 hover:bg-gray-100"
                 >
+                  <Link
+                    to="/customer/bookings"
+                    className="block rounded-lg px-4 py-3 font-medium text-slate-700 hover:bg-gray-100"
+                  >
+                    Lịch sử đặt lịch
+                  </Link>
                   Đăng ký xe
                 </Link>
 

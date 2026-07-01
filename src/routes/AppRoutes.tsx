@@ -32,7 +32,8 @@ import RegisterCar from "../pages/customer/RegisterCar";
 import Profile from "../pages/customer/Profile";
 import MyVehicles from "../pages/customer/MyVehicles";
 import Booking from "../pages/customer/Booking";
-import BookingSuccess from "../pages/customer/BookingSuccess";  
+import BookingSuccess from "../pages/customer/BookingSuccess";
+import BookingHistory from "../pages/customer/BookingHistory";
 
 import ProtectedRoute, { ManagerRoute, AdminRoute } from "./ProtectedRoute";
 
@@ -197,14 +198,22 @@ const AppRoutes = () => {
           }
         />
 
-<Route
-  path="/booking-success"
-  element={
-    <ProtectedRoute>
-      <BookingSuccess />
-    </ProtectedRoute>
-  }
-/>
+        <Route
+          path="/booking-success"
+          element={
+            <ProtectedRoute>
+              <BookingSuccess />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/customer/bookings"
+          element={
+            <ProtectedRoute>
+              <BookingHistory />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/customer/vehicles"

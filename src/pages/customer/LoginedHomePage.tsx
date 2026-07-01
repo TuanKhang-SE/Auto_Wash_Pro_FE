@@ -21,7 +21,13 @@ function getUserName() {
 
   try {
     const user = JSON.parse(userString);
-    return user.fullName || user.FullName || user.email || user.Email || "Khách hàng";
+    return (
+      user.fullName ||
+      user.FullName ||
+      user.email ||
+      user.Email ||
+      "Khách hàng"
+    );
   } catch {
     return "Khách hàng";
   }
@@ -69,9 +75,7 @@ const LoginedHomePage = () => {
             Xin chào
           </p>
 
-          <h1 className="mt-4 text-4xl font-bold md:text-6xl">
-            {userName}
-          </h1>
+          <h1 className="mt-4 text-4xl font-bold md:text-6xl">{userName}</h1>
 
           <p className="mt-5 max-w-2xl text-lg text-slate-200">
             Bạn có thể đặt lịch rửa xe, quản lý xe đã đăng ký và xem thông tin
@@ -92,13 +96,20 @@ const LoginedHomePage = () => {
             >
               Xem xe của tôi
             </Link>
+
+            <Link
+              to="/customer/bookings"
+              className="rounded-xl border border-white/70 px-6 py-3 text-center font-semibold text-white transition hover:bg-white hover:text-slate-900"
+            >
+              Lịch sử đặt lịch
+            </Link>
           </div>
         </div>
       </section>
 
       <main className="bg-gray-100 px-6 py-12">
         <div className="mx-auto max-w-6xl">
-          <section className="grid gap-6 md:grid-cols-4">
+          <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
             <Link
               to="/booking"
               className="rounded-2xl bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
@@ -107,6 +118,19 @@ const LoginedHomePage = () => {
               <h2 className="text-lg font-bold text-slate-800">Đặt lịch</h2>
               <p className="mt-2 text-sm text-slate-500">
                 Chọn chi nhánh, dịch vụ, xe và khung giờ rửa xe.
+              </p>
+            </Link>
+
+            <Link
+              to="/customer/bookings"
+              className="rounded-2xl bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+            >
+              <div className="mb-4 text-4xl">📖</div>
+              <h2 className="text-lg font-bold text-slate-800">
+                Lịch sử đặt lịch
+              </h2>
+              <p className="mt-2 text-sm text-slate-500">
+                Xem lại các lịch rửa xe đã đặt và trạng thái xử lý.
               </p>
             </Link>
 
