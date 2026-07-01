@@ -50,8 +50,30 @@ type Slot = {
   Status: string;
 };
 
+const NOT_UPDATED_TEXT = "Not updated";
+const NOT_SELECTED_TEXT = "Not selected";
+
 function formatMoney(value: number | string | null | undefined) {
-  return Number(value || 0).toLocaleString("vi-VN") + "đ";
+  return Number(value || 0).toLocaleString("en-US") + " VND";
+}
+
+function formatVehicleName(vehicle: Vehicle) {
+  const brand = vehicle.Brand || NOT_UPDATED_TEXT;
+  const model = vehicle.Model ? ` ${vehicle.Model}` : "";
+
+  return `${vehicle.LicensePlate} - ${brand}${model}`;
+}
+
+function formatBookingDate(value: string) {
+  if (!value) {
+    return NOT_SELECTED_TEXT;
+  }
+
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  });
 }
 
 function formatTime(value: string | null | undefined) {
@@ -106,6 +128,8 @@ function Booking() {
   const selectedService = services.find(
     (service) => service.ServiceID === Number(serviceId)
   );
+
+  const selectedSlot = slots.find((slot) => slot.StartTime === startTime);
 
   const servicePrice = Number(selectedService?.ActualPrice || 0);
 
@@ -222,37 +246,37 @@ function Booking() {
     setMessage("");
 
     if (!fullName.trim()) {
-      showMessage("Vui lòng nhập họ và tên");
+      showMessage("Please enter your full name");
       return;
     }
 
     if (!phone.trim()) {
-      showMessage("Vui lòng nhập số điện thoại");
+      showMessage("Please enter your phone number");
       return;
     }
 
     if (!branchId) {
-      showMessage("Vui lòng chọn chi nhánh");
+      showMessage("Please select a branch");
       return;
     }
 
     if (!vehicleId) {
-      showMessage("Vui lòng chọn xe");
+      showMessage("Please select a vehicle");
       return;
     }
 
     if (!serviceId) {
-      showMessage("Vui lòng chọn dịch vụ");
+      showMessage("Please select a service");
       return;
     }
 
     if (!bookingDate) {
-      showMessage("Vui lòng chọn ngày đặt lịch");
+      showMessage("Please select a booking date");
       return;
     }
 
     if (!startTime) {
-      showMessage("Vui lòng chọn khung giờ");
+      showMessage("Please select a time slot");
       return;
     }
 
@@ -295,11 +319,7 @@ function Booking() {
             customerName: fullName,
             phone,
             branchName: selectedBranch?.BranchName || "",
-            vehicleName: selectedVehicle
-              ? `${selectedVehicle.LicensePlate} - ${
-                  selectedVehicle.Brand || "Chưa cập nhật"
-                } ${selectedVehicle.Model || ""}`
-              : "",
+            vehicleName: selectedVehicle ? formatVehicleName(selectedVehicle) : "",
             serviceName: selectedService?.ServiceName || "",
             serviceDuration: selectedService?.DurationMinutes || 0,
             servicePrice,
@@ -326,7 +346,7 @@ function Booking() {
 
         <main className="min-h-screen bg-gray-100 px-6 py-10">
           <div className="mx-auto max-w-6xl rounded-xl bg-white p-6 shadow">
-            Đang tải dữ liệu đặt lịch...
+            Loading booking data...
           </div>
         </main>
       </>
@@ -344,10 +364,10 @@ function Booking() {
               Auto Wash Pro
             </p>
 
-            <h1 className="mt-3 text-3xl font-bold">Đặt lịch rửa xe</h1>
+            <h1 className="mt-3 text-3xl font-bold">Book a Car Wash</h1>
 
             <p className="mt-2 text-slate-300">
-              Chọn chi nhánh, xe, dịch vụ và khung giờ phù hợp.
+              Select a branch, vehicle, service, and a suitable time slot.
             </p>
           </div>
         </section>
@@ -364,45 +384,46 @@ function Booking() {
             )}
 
             <h2 className="text-xl font-bold text-slate-800">
-              Thông tin khách hàng
+              Customer Information
             </h2>
 
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-2 block font-semibold text-slate-700">
-                  Họ và tên <span className="text-red-500">*</span>
+                  Full Name <span className="text-red-500">*</span>
                 </label>
 
                 <input
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Nhập họ và tên"
+                  placeholder="Enter full name"
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                 />
               </div>
 
               <div>
                 <label className="mb-2 block font-semibold text-slate-700">
-                  Số điện thoại <span className="text-red-500">*</span>
+                  Phone Number <span className="text-red-500">*</span>
                 </label>
 
                 <input
+                  type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="Nhập số điện thoại"
+                  placeholder="Enter phone number"
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                 />
               </div>
             </div>
 
             <h2 className="mt-8 text-xl font-bold text-slate-800">
-              Thông tin đặt lịch
+              Booking Information
             </h2>
 
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-2 block font-semibold text-slate-700">
-                  Chi nhánh <span className="text-red-500">*</span>
+                  Branch <span className="text-red-500">*</span>
                 </label>
 
                 <select
@@ -416,7 +437,7 @@ function Booking() {
                   }}
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                 >
-                  <option value="">Chọn chi nhánh</option>
+                  <option value="">Select a branch</option>
 
                   {branches.map((branch) => (
                     <option key={branch.BranchID} value={branch.BranchID}>
@@ -428,7 +449,7 @@ function Booking() {
 
               <div>
                 <label className="mb-2 block font-semibold text-slate-700">
-                  Xe <span className="text-red-500">*</span>
+                  Vehicle <span className="text-red-500">*</span>
                 </label>
 
                 <select
@@ -436,12 +457,11 @@ function Booking() {
                   onChange={(e) => setVehicleId(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                 >
-                  <option value="">Chọn xe</option>
+                  <option value="">Select a vehicle</option>
 
                   {vehicles.map((vehicle) => (
                     <option key={vehicle.VehicleID} value={vehicle.VehicleID}>
-                      {vehicle.LicensePlate} -{" "}
-                      {vehicle.Brand || "Chưa cập nhật"} {vehicle.Model || ""}
+                      {formatVehicleName(vehicle)}
                     </option>
                   ))}
                 </select>
@@ -449,7 +469,7 @@ function Booking() {
 
               <div>
                 <label className="mb-2 block font-semibold text-slate-700">
-                  Ngày đặt lịch <span className="text-red-500">*</span>
+                  Booking Date <span className="text-red-500">*</span>
                 </label>
 
                 <input
@@ -466,7 +486,7 @@ function Booking() {
 
               <div>
                 <label className="mb-2 block font-semibold text-slate-700">
-                  Dịch vụ <span className="text-red-500">*</span>
+                  Service <span className="text-red-500">*</span>
                 </label>
 
                 <select
@@ -477,10 +497,10 @@ function Booking() {
                 >
                   <option value="">
                     {!branchId
-                      ? "Chọn chi nhánh trước"
+                      ? "Select a branch first"
                       : loadingServices
-                      ? "Đang tải dịch vụ..."
-                      : "Chọn dịch vụ"}
+                      ? "Loading services..."
+                      : "Select a service"}
                   </option>
 
                   {services.map((service) => (
@@ -495,17 +515,17 @@ function Booking() {
             {selectedBranch && (
               <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
                 <p>
-                  <span className="font-semibold">Địa chỉ:</span>{" "}
-                  {selectedBranch.Address || "Chưa cập nhật"}
+                  <span className="font-semibold">Address:</span>{" "}
+                  {selectedBranch.Address || NOT_UPDATED_TEXT}
                 </p>
 
                 <p className="mt-1">
-                  <span className="font-semibold">Số điện thoại:</span>{" "}
-                  {selectedBranch.Phone || "Chưa cập nhật"}
+                  <span className="font-semibold">Phone:</span>{" "}
+                  {selectedBranch.Phone || NOT_UPDATED_TEXT}
                 </p>
 
                 <p className="mt-1">
-                  <span className="font-semibold">Giờ mở cửa:</span>{" "}
+                  <span className="font-semibold">Opening Hours:</span>{" "}
                   {formatTime(selectedBranch.OpenTime)} -{" "}
                   {formatTime(selectedBranch.CloseTime)}
                 </p>
@@ -515,24 +535,24 @@ function Booking() {
             {selectedVehicle && (
               <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
                 <p>
-                  <span className="font-semibold">Xe đã chọn:</span>{" "}
+                  <span className="font-semibold">Selected Vehicle:</span>{" "}
                   {selectedVehicle.LicensePlate}
                 </p>
 
                 <p className="mt-1">
-                  <span className="font-semibold">Loại xe:</span>{" "}
-                  {selectedVehicle.VehicleType || "Chưa cập nhật"}
+                  <span className="font-semibold">Vehicle Type:</span>{" "}
+                  {selectedVehicle.VehicleType || NOT_UPDATED_TEXT}
                 </p>
 
                 <p className="mt-1">
-                  <span className="font-semibold">Hãng / model:</span>{" "}
-                  {selectedVehicle.Brand || "Chưa cập nhật"}{" "}
+                  <span className="font-semibold">Brand / Model:</span>{" "}
+                  {selectedVehicle.Brand || NOT_UPDATED_TEXT}{" "}
                   {selectedVehicle.Model || ""}
                 </p>
 
                 <p className="mt-1">
-                  <span className="font-semibold">Màu xe:</span>{" "}
-                  {selectedVehicle.Color || "Chưa cập nhật"}
+                  <span className="font-semibold">Color:</span>{" "}
+                  {selectedVehicle.Color || NOT_UPDATED_TEXT}
                 </p>
               </div>
             )}
@@ -540,22 +560,22 @@ function Booking() {
             {selectedService && (
               <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
                 <p>
-                  <span className="font-semibold">Dịch vụ đã chọn:</span>{" "}
+                  <span className="font-semibold">Selected Service:</span>{" "}
                   {selectedService.ServiceName}
                 </p>
 
                 <p className="mt-1">
-                  <span className="font-semibold">Mô tả:</span>{" "}
-                  {selectedService.Description || "Chưa có mô tả"}
+                  <span className="font-semibold">Description:</span>{" "}
+                  {selectedService.Description || "No description available"}
                 </p>
 
                 <p className="mt-1">
-                  <span className="font-semibold">Thời lượng:</span>{" "}
-                  {selectedService.DurationMinutes || 0} phút
+                  <span className="font-semibold">Duration:</span>{" "}
+                  {selectedService.DurationMinutes || 0} minutes
                 </p>
 
                 <p className="mt-1">
-                  <span className="font-semibold">Giá:</span>{" "}
+                  <span className="font-semibold">Price:</span>{" "}
                   {formatMoney(selectedService.ActualPrice)}
                 </p>
               </div>
@@ -563,29 +583,26 @@ function Booking() {
 
             <div className="mt-8">
               <label className="mb-3 block font-semibold text-slate-700">
-                Khung giờ <span className="text-red-500">*</span>
+                Time Slot <span className="text-red-500">*</span>
               </label>
 
               {!branchId || !bookingDate ? (
                 <p className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-slate-500">
-                  Vui lòng chọn chi nhánh và ngày trước.
+                  Please select a branch and date first.
                 </p>
               ) : loadingSlots ? (
                 <p className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-slate-500">
-                  Đang tải khung giờ...
+                  Loading time slots...
                 </p>
               ) : slots.length === 0 ? (
                 <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-                  Không có khung giờ trống.
+                  No available time slots.
                 </p>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-4">
                   {slots.map((slot) => {
-                    let isSelected = false;
+                    const isSelected = startTime === slot.StartTime;
 
-                  if (startTime === slot.StartTime) {
-                    isSelected = true;
-         }
                     const isDisabled =
                       slot.Available <= 0 || slot.Status !== "Available";
 
@@ -606,7 +623,8 @@ function Booking() {
                         </div>
 
                         <div className="text-xs font-normal">
-                          {slot.ShiftName} | Còn {slot.Available} chỗ
+                          {slot.ShiftName} | {slot.Available}/
+                          {slot.MaxCapacity} spots left
                         </div>
                       </button>
                     );
@@ -615,15 +633,29 @@ function Booking() {
               )}
             </div>
 
+            {selectedSlot && (
+              <div className="mt-5 rounded-xl bg-sky-50 p-4 text-sm text-slate-700">
+                <p>
+                  <span className="font-semibold">Selected Time Slot:</span>{" "}
+                  {selectedSlot.StartTime} - {selectedSlot.EndTime}
+                </p>
+
+                <p className="mt-1">
+                  <span className="font-semibold">Remaining Capacity:</span>{" "}
+                  {selectedSlot.Available}/{selectedSlot.MaxCapacity} spots
+                </p>
+              </div>
+            )}
+
             <div className="mt-8">
               <label className="mb-2 block font-semibold text-slate-700">
-                Ghi chú
+                Note
               </label>
 
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Ví dụ: Xe nhiều bụi, cần rửa kỹ phần nội thất..."
+                placeholder="Example: The car is very dusty; please clean the interior carefully..."
                 rows={4}
                 className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
               />
@@ -635,69 +667,78 @@ function Booking() {
                 disabled={isSubmitting}
                 className="rounded-lg bg-sky-600 px-6 py-3 font-semibold text-white hover:bg-sky-700 disabled:bg-gray-400"
               >
-                {isSubmitting ? "Đang đặt lịch..." : "Đặt lịch"}
+                {isSubmitting ? "Booking..." : "Book Now"}
               </button>
 
               <Link
                 to="/register-car"
                 className="rounded-lg border border-gray-300 px-6 py-3 text-center font-semibold text-slate-700 hover:bg-gray-50"
               >
-                Đăng ký xe mới
+                Register New Vehicle
               </Link>
             </div>
           </form>
 
           <aside className="rounded-2xl bg-white p-6 shadow">
             <h2 className="text-xl font-bold text-slate-800">
-              Tóm tắt lịch hẹn
+              Appointment Summary
             </h2>
 
             <div className="mt-5 space-y-4 text-sm">
               <div>
-                <p className="text-slate-500">Khách hàng</p>
+                <p className="text-slate-500">Customer</p>
                 <p className="font-semibold text-slate-800">
-                  {fullName || "Chưa nhập"}
+                  {fullName || "Not entered"}
                 </p>
               </div>
 
               <div>
-                <p className="text-slate-500">Số điện thoại</p>
+                <p className="text-slate-500">Phone Number</p>
                 <p className="font-semibold text-slate-800">
-                  {phone || "Chưa nhập"}
+                  {phone || "Not entered"}
                 </p>
               </div>
 
               <div>
-                <p className="text-slate-500">Chi nhánh</p>
+                <p className="text-slate-500">Branch</p>
                 <p className="font-semibold text-slate-800">
-                  {selectedBranch?.BranchName || "Chưa chọn"}
+                  {selectedBranch?.BranchName || NOT_SELECTED_TEXT}
                 </p>
               </div>
 
               <div>
-                <p className="text-slate-500">Xe</p>
+                <p className="text-slate-500">Vehicle</p>
                 <p className="font-semibold text-slate-800">
-                  {selectedVehicle?.LicensePlate || "Chưa chọn"}
+                  {selectedVehicle
+                    ? formatVehicleName(selectedVehicle)
+                    : NOT_SELECTED_TEXT}
                 </p>
               </div>
 
               <div>
-                <p className="text-slate-500">Dịch vụ</p>
+                <p className="text-slate-500">Service</p>
                 <p className="font-semibold text-slate-800">
-                  {selectedService?.ServiceName || "Chưa chọn"}
+                  {selectedService?.ServiceName || NOT_SELECTED_TEXT}
                 </p>
               </div>
 
               <div>
-                <p className="text-slate-500">Ngày giờ</p>
+                <p className="text-slate-500">Date & Time</p>
                 <p className="font-semibold text-slate-800">
-                  {bookingDate || "Chưa chọn"}{" "}
-                  {startTime && `lúc ${startTime}`}
+                  {formatBookingDate(bookingDate)}{" "}
+                  {startTime && `at ${startTime}`}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-slate-500">Note</p>
+                <p className="font-semibold text-slate-800">
+                  {note || "No note"}
                 </p>
               </div>
 
               <div className="border-t pt-4">
-                <p className="text-slate-500">Thanh toán dự kiến</p>
+                <p className="text-slate-500">Estimated Payment</p>
                 <p className="text-2xl font-bold text-sky-700">
                   {formatMoney(servicePrice)}
                 </p>
