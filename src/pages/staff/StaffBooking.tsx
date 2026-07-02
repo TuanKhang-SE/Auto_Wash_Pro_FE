@@ -23,3 +23,14 @@ function formatTime(value: string | null | undefined) {
 
   return text.substring(0, 5);
 }
+const StaffBookings = () => {
+  const [bookings, setBookings] = useState<StaffBooking[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const [stats, setStats] = useState({
+    waiting: 0,
+    washing: 0,
+    completed: 0,
+    total: 0,
+  });
