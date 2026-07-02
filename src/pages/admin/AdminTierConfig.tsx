@@ -77,7 +77,7 @@ const AdminTierConfig = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await tierConfigService.getAllTierConfigs();
+      const data = await tierConfigService.getAllTierConfigs(); // GET /api/tier-configs lấy danh sách hạng thành viên
       setTiers(data);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -149,7 +149,7 @@ const AdminTierConfig = () => {
         PointMultiplier: createForm.PointMultiplier ?? 1,
         Status: createForm.Status ?? "Active",
       };
-      await tierConfigService.createTierConfig(payload);
+      await tierConfigService.createTierConfig(payload); // POST /api/tier-configs tạo hạng thành viên mới
       setCreateSuccess("Tạo hạng thành viên thành công!");
       setTimeout(() => {
         setIsCreateModalOpen(false);
@@ -236,7 +236,7 @@ const AdminTierConfig = () => {
         PointMultiplier: editForm.PointMultiplier ?? 1,
         Status: editForm.Status ?? "Active",
       };
-      await tierConfigService.updateTierConfig(editingTier.TierID, payload);
+      await tierConfigService.updateTierConfig(editingTier.TierID, payload); // PUT /api/tier-configs/<id> cập nhật hạng thành viên
       setEditSuccess("Cập nhật hạng thành viên thành công!");
       setTimeout(() => {
         setIsEditModalOpen(false);
@@ -257,7 +257,7 @@ const AdminTierConfig = () => {
     setIsDeleting(true);
     setDeleteError("");
     try {
-      await tierConfigService.deleteTierConfig(deleteTarget.TierID);
+      await tierConfigService.deleteTierConfig(deleteTarget.TierID); // DELETE /api/tier-configs/<id> xóa hạng thành viên
       setDeleteTarget(null);
       fetchData();
     } catch (err) {
