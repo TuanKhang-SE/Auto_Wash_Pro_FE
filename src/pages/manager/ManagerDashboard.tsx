@@ -45,7 +45,7 @@ const ManagerDashboard = () => {
       if (user?.branchId) {
         try {
           const token = localStorage.getItem("token");
-          const res = await axiosClient.get(`/api/branches/${user.branchId}`, { // GET /api/branches/:id
+          const res = await axiosClient.get(`/api/branches/${user.branchId}`, { // GET /api/branches/:id lấy thông tin chi nhánh
             headers: { Authorization: `Bearer ${token}` },
           });
           if (res.data?.success) {
@@ -67,9 +67,9 @@ const ManagerDashboard = () => {
         // GET /api/users?Role=Staff&BranchID=<branchId> → chỉ Manager
         // mới gọi được với filter BranchID (đã được roleMiddleware bảo vệ),
         // trả về danh sách Staff thuộc đúng chi nhánh của Manager đang đăng nhập.
-        const staff = await userService.getAllUsers({
+        const staff = await userService.getAllUsers({ // GET /api/users?Role=Staff&BranchID=<branchId> lấy danh sách staff
           Role: "Staff",
-          BranchID: user.branchId,
+          BranchID: user.branchId, // lấy danh sách staff thuộc chi nhánh của Manager đang đăng nhập
         });
         setStats((prev) => ({ ...prev, totalStaff: staff.length }));
       } catch (err) {
