@@ -64,12 +64,12 @@ const AdminManagerManagement = () => {
   // - GET /api/users?Role=Manager: lấy tất cả tài khoản Manager
   // - GET /api/branches: lấy danh sách chi nhánh để hiển thị tên và kiểm tra
   //   chi nhánh nào đã có Manager (mỗi chi nhánh chỉ gán được 1 Manager)
-  const fetchManagers = async () => {
+  const fetchManagers = async () => { // GET /api/users?Role=Manager lấy danh sách manager
     setIsLoading(true);
     try {
       const [data, branchList] = await Promise.all([
-        userService.getAllUsers({ Role: "Manager" }),
-        branchService.getAllBranches(),
+        userService.getAllUsers({ Role: "Manager" }), // GET /api/users?Role=Manager lấy danh sách manager
+        branchService.getAllBranches(), // GET /api/branches lấy danh sách chi nhánh
       ]);
       setManagers(data);
       setBranches(branchList);
@@ -157,7 +157,7 @@ const AdminManagerManagement = () => {
     setSuccess("");
 
     try {
-      await userService.createUser({ // POST /api/users
+      await userService.createUser({ // POST /api/users tạo tài khoản manager mới
         FullName: formData.fullName,
         Password: formData.password,
         Role: "Manager",
@@ -221,7 +221,7 @@ const AdminManagerManagement = () => {
     setSuccess("");
 
     try {
-      await userService.updateUser(editingManager.UserID, { // PUT /api/users/:id
+      await userService.updateUser(editingManager.UserID, { // PUT /api/users/:id cập nhật thông tin manager
         FullName: editFormData.fullName,
         Email: editFormData.email,
         Phone: editFormData.phone,
@@ -248,7 +248,7 @@ const AdminManagerManagement = () => {
 
     setIsLoading(true);
     try {
-      await userService.deleteUser(manager.UserID); // DELETE /api/users/:id
+      await userService.deleteUser(manager.UserID); // DELETE /api/users/:id xóa tài khoản manager
       fetchManagers();
     } catch (err: unknown) {
       alert(getErrorMessage(err));
