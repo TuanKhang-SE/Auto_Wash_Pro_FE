@@ -47,7 +47,7 @@ const AdminStatistics = () => {
 
   const fetchBranches = async () => {
     try {
-      const data = await branchService.getAllBranches();
+      const data = await branchService.getAllBranches(); // GET /api/branches lấy danh sách chi nhánh
       setBranches(data);
     } catch (err) {
       console.error("Error fetching branches:", err);
@@ -69,7 +69,7 @@ const AdminStatistics = () => {
       const totalRevenue = { cash: 0, transfer: 0, other: 0, total: 0 };
       const totalBookings = { count: 0, completed: 0, cancelled: 0, customers: 0 };
 
-      const cashflow = await revenueService.getDailyCashflow({ StartDate, EndDate });
+      const cashflow = await revenueService.getDailyCashflow({ StartDate, EndDate }); // GET /api/dashboard/daily-cashflow lấy dữ liệu doanh thu theo phương thức thanh toán
       for (const item of cashflow.dailyData) {
         totalRevenue.cash += item.cash;
         totalRevenue.transfer += item.transfer;
