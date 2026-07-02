@@ -12,6 +12,7 @@ axiosClient.interceptors.request.use((config) => {
   const url = config.url || "";
   if (
     url.includes("/api/branches") ||
+    url.includes("/api/branch-configs") ||
     url.includes("/api/users") ||
     url.includes("/api/customers") ||
     url.includes("/api/tier-configs") ||
@@ -33,6 +34,7 @@ axiosClient.interceptors.response.use(
     const url = response.config.url || "";
     if (
       url.includes("/api/branches") ||
+      url.includes("/api/branch-configs") ||
       url.includes("/api/users") ||
       url.includes("/api/customers") ||
       url.includes("/api/tier-configs") ||
@@ -49,6 +51,7 @@ axiosClient.interceptors.response.use(
     const url = error?.config?.url || "";
     if (
       url.includes("/api/branches") ||
+      url.includes("/api/branch-configs") ||
       url.includes("/api/users") ||
       url.includes("/api/customers") ||
       url.includes("/api/tier-configs") ||

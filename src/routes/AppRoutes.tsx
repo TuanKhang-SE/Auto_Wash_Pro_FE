@@ -5,6 +5,7 @@ import AboutPage from "../pages/AboutPage";
 
 import StaffLayout from "../layouts/StaffLayout";
 import StaffDashboard from "../pages/staff/StaffDashboard";
+import StaffBookings from "../pages/staff/StaffBookings";
 
 import ManagerLayout from "../layouts/ManagerLayout";
 import ManagerDashboard from "../pages/manager/ManagerDashboard";

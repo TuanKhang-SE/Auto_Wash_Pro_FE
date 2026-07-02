@@ -3,6 +3,7 @@ import {
   Building2,
   CalendarDays,
   Clock,
+  CreditCard,
   Loader2,
   MapPin,
   Phone,
@@ -53,59 +54,95 @@ interface StaffSchedule {
     FullName: string;
     Phone: string | null;
     BranchID: number | null;
-  };
+  } | null;
   Shifts?: {
     ShiftName: string;
     StartTime: string | null;
     EndTime: string | null;
-  };
+  } | null;
 }
 
-const getTokenHeader = () => {
+// Lấy token để gọi API cần đăng nhập
+const getAuthHeader = () => {
   const token = localStorage.getItem("token");
+
+  if (!token) {
+    return {};
+  }
 
   return {
     Authorization: `Bearer ${token}`,
   };
 };
 
+// Lấy BranchID của manager từ localStorage
 const getBranchIdFromLocalStorage = () => {
   const userText = localStorage.getItem("user");
-  if (!userText) return null;
 
-  const user = JSON.parse(userText);
+  if (!userText) {
+    return null;
+  }
 
-  return (
-    user.branchId ||
-    user.BranchID ||
-    user.branchID ||
-    user.BranchId ||
-    null
-  );
+  try {
+    const user = JSON.parse(userText);
+
+    const branchId =
+      user.branchId ||
+      user.BranchID ||
+      user.branchID ||
+      user.BranchId ||
+      null;
+
+    return branchId ? Number(branchId) : null;
+  } catch {
+    return null;
+  }
+};
+
+// Format Date thành yyyy-mm-dd cho input type date
+const formatDateInput = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 };
 
 const getToday = () => {
-  return new Date().toISOString().slice(0, 10);
+  return formatDateInput(new Date());
 };
 
 const changeDate = (dateText: string, dayAmount: number) => {
-  const date = new Date(dateText);
+  const date = new Date(`${dateText}T00:00:00`);
   date.setDate(date.getDate() + dayAmount);
-  return date.toISOString().slice(0, 10);
+
+  return formatDateInput(date);
 };
 
 const formatTime = (value: string | null) => {
   if (!value) return "Chưa có";
 
   const match = value.match(/T(\d{2}:\d{2})/);
-  if (match) return match[1];
+
+  if (match) {
+    return match[1];
+  }
 
   return value.slice(0, 5);
 };
 
 const formatDate = (dateText: string) => {
   const [year, month, day] = dateText.split("-");
+
+  if (!year || !month || !day) {
+    return dateText;
+  }
+
   return `${day}/${month}/${year}`;
+};
+
+const normalizeDate = (dateText: string) => {
+  return dateText.slice(0, 10);
 };
 
 const ManagerBranchInfo = () => {
@@ -121,7 +158,7 @@ const ManagerBranchInfo = () => {
     Record<number, string>
   >({});
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isPageLoading, setIsPageLoading] = useState(false);
   const [isScheduleLoading, setIsScheduleLoading] = useState(false);
   const [savingShiftId, setSavingShiftId] = useState<number | null>(null);
 
@@ -129,28 +166,28 @@ const ManagerBranchInfo = () => {
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    fetchPageData();
+    loadPageData();
   }, []);
 
   useEffect(() => {
-    fetchSchedules();
+    loadSchedules();
   }, [selectedDate]);
 
-  const fetchPageData = async () => {
-    setIsLoading(true);
+  const loadPageData = async () => {
+    setIsPageLoading(true);
     setError("");
 
     try {
-      await Promise.all([fetchBranchInfo(), fetchStaffList(), fetchShiftList()]);
+      await Promise.all([loadBranchInfo(), loadStaffList(), loadShiftList()]);
     } catch (err) {
       console.error(err);
-      setError("Không tải được dữ liệu trang thông tin chi nhánh.");
+      setError(getErrorMessage(err));
     } finally {
-      setIsLoading(false);
+      setIsPageLoading(false);
     }
   };
 
-  const fetchBranchInfo = async () => {
+  const loadBranchInfo = async () => {
     const branchId = getBranchIdFromLocalStorage();
 
     if (!branchId) {
@@ -159,7 +196,7 @@ const ManagerBranchInfo = () => {
     }
 
     const response = await axiosClient.get(`/api/branches/${branchId}`, {
-      headers: getTokenHeader(),
+      headers: getAuthHeader(),
     });
 
     if (response.data?.success) {
@@ -167,13 +204,13 @@ const ManagerBranchInfo = () => {
     }
   };
 
-  const fetchStaffList = async () => {
+  const loadStaffList = async () => {
     const response = await axiosClient.get("/api/users", {
       params: {
         Role: "Staff",
         Status: "Active",
       },
-      headers: getTokenHeader(),
+      headers: getAuthHeader(),
     });
 
     if (response.data?.success) {
@@ -181,12 +218,12 @@ const ManagerBranchInfo = () => {
     }
   };
 
-  const fetchShiftList = async () => {
+  const loadShiftList = async () => {
     const response = await axiosClient.get("/api/shifts", {
       params: {
         Status: "Active",
       },
-      headers: getTokenHeader(),
+      headers: getAuthHeader(),
     });
 
     if (response.data?.success) {
@@ -194,7 +231,7 @@ const ManagerBranchInfo = () => {
     }
   };
 
-  const fetchSchedules = async () => {
+  const loadSchedules = async () => {
     setIsScheduleLoading(true);
     setError("");
 
@@ -205,7 +242,7 @@ const ManagerBranchInfo = () => {
           to: selectedDate,
           Status: "Active",
         },
-        headers: getTokenHeader(),
+        headers: getAuthHeader(),
       });
 
       if (response.data?.success) {
@@ -220,7 +257,23 @@ const ManagerBranchInfo = () => {
   };
 
   const getSchedulesOfShift = (shiftId: number) => {
-    return scheduleList.filter((item) => item.ShiftID === shiftId);
+    return scheduleList.filter((schedule) => {
+      const isSameShift = schedule.ShiftID === shiftId;
+      const isSameDate = normalizeDate(schedule.WorkDate) === selectedDate;
+      const isActive = schedule.Status === "Active";
+
+      return isSameShift && isSameDate && isActive;
+    });
+  };
+
+  const getAvailableStaffOfShift = (shiftId: number) => {
+    const schedulesOfThisShift = getSchedulesOfShift(shiftId);
+
+    const assignedStaffIds = schedulesOfThisShift.map((item) => item.UserID);
+
+    return staffList.filter((staff) => {
+      return !assignedStaffIds.includes(staff.UserID);
+    });
   };
 
   const handleSelectStaff = (shiftId: number, staffId: string) => {
@@ -230,6 +283,7 @@ const ManagerBranchInfo = () => {
     }));
 
     setError("");
+    setSuccess("");
   };
 
   const handleAssignStaff = async (shiftId: number) => {
@@ -254,7 +308,7 @@ const ManagerBranchInfo = () => {
           CapacityWeight: 1,
         },
         {
-          headers: getTokenHeader(),
+          headers: getAuthHeader(),
         }
       );
 
@@ -266,7 +320,7 @@ const ManagerBranchInfo = () => {
           [shiftId]: "",
         }));
 
-        await fetchSchedules();
+        await loadSchedules();
       }
     } catch (err) {
       console.error(err);
@@ -278,7 +332,10 @@ const ManagerBranchInfo = () => {
 
   const handleDeleteSchedule = async (scheduleId: number) => {
     const confirmDelete = window.confirm("Bạn có chắc muốn xóa lịch này không?");
-    if (!confirmDelete) return;
+
+    if (!confirmDelete) {
+      return;
+    }
 
     setError("");
     setSuccess("");
@@ -287,13 +344,13 @@ const ManagerBranchInfo = () => {
       const response = await axiosClient.delete(
         `/api/staff-schedules/${scheduleId}`,
         {
-          headers: getTokenHeader(),
+          headers: getAuthHeader(),
         }
       );
 
       if (response.data?.success) {
         setSuccess("Xóa lịch thành công.");
-        await fetchSchedules();
+        await loadSchedules();
       }
     } catch (err) {
       console.error(err);
@@ -301,7 +358,7 @@ const ManagerBranchInfo = () => {
     }
   };
 
-  if (isLoading && !branchInfo) {
+  if (isPageLoading && !branchInfo) {
     return (
       <div className="flex h-64 items-center justify-center">
         <Loader2 className="animate-spin text-blue-600" size={32} />
@@ -317,19 +374,22 @@ const ManagerBranchInfo = () => {
     );
   }
 
+  const totalAssignedToday = scheduleList.filter((schedule) => {
+    return normalizeDate(schedule.WorkDate) === selectedDate;
+  }).length;
+
   return (
     <div className="space-y-6">
-      {/* Tiêu đề trang */}
       <div>
         <h1 className="text-2xl font-bold text-slate-800">
           Thông tin chi nhánh
         </h1>
+
         <p className="mt-1 text-sm text-slate-500">
           Manager chỉ xem và xếp lịch cho chi nhánh của mình.
         </p>
       </div>
 
-      {/* Thông báo lỗi / thành công */}
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
@@ -342,7 +402,6 @@ const ManagerBranchInfo = () => {
         </div>
       )}
 
-      {/* Thông tin chi nhánh */}
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center gap-3">
           <div className="rounded-lg bg-blue-100 p-2">
@@ -353,8 +412,9 @@ const ManagerBranchInfo = () => {
             <h2 className="text-lg font-semibold text-slate-800">
               {branchInfo.BranchName}
             </h2>
+
             <p className="text-sm text-slate-500">
-              Trạng thái: {branchInfo.Status}
+              Trạng thái: {branchInfo.Status || "Chưa có"}
             </p>
           </div>
         </div>
@@ -365,6 +425,7 @@ const ManagerBranchInfo = () => {
               <MapPin size={16} />
               Địa chỉ
             </div>
+
             <p className="font-medium text-slate-800">
               {branchInfo.Address || "Chưa cập nhật"}
             </p>
@@ -375,6 +436,7 @@ const ManagerBranchInfo = () => {
               <Phone size={16} />
               Số điện thoại
             </div>
+
             <p className="font-medium text-slate-800">
               {branchInfo.Phone || "Chưa cập nhật"}
             </p>
@@ -385,6 +447,7 @@ const ManagerBranchInfo = () => {
               <Clock size={16} />
               Giờ mở cửa
             </div>
+
             <p className="font-medium text-slate-800">
               {formatTime(branchInfo.OpenTime)}
             </p>
@@ -395,14 +458,25 @@ const ManagerBranchInfo = () => {
               <Clock size={16} />
               Giờ đóng cửa
             </div>
+
             <p className="font-medium text-slate-800">
               {formatTime(branchInfo.CloseTime)}
+            </p>
+          </div>
+
+          <div className="rounded-lg bg-slate-50 p-4 md:col-span-2">
+            <div className="mb-1 flex items-center gap-2 text-sm text-slate-500">
+              <CreditCard size={16} />
+              Tài khoản ngân hàng
+            </div>
+
+            <p className="font-medium text-slate-800">
+              {branchInfo.BankAccount || "Chưa cập nhật"}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Khu vực xếp ca */}
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
@@ -414,6 +488,7 @@ const ManagerBranchInfo = () => {
               <h2 className="text-lg font-semibold text-slate-800">
                 Lịch ca nhân viên
               </h2>
+
               <p className="text-sm text-slate-500">
                 Xem nhân viên theo ca và xếp staff vào ca làm.
               </p>
@@ -421,7 +496,8 @@ const ManagerBranchInfo = () => {
           </div>
 
           <button
-            onClick={fetchSchedules}
+            type="button"
+            onClick={loadSchedules}
             className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
             <RefreshCw size={16} />
@@ -429,9 +505,9 @@ const ManagerBranchInfo = () => {
           </button>
         </div>
 
-        {/* Chọn ngày */}
         <div className="mb-5 flex flex-wrap items-center gap-3">
           <button
+            type="button"
             onClick={() => setSelectedDate(changeDate(selectedDate, -1))}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50"
           >
@@ -446,6 +522,7 @@ const ManagerBranchInfo = () => {
           />
 
           <button
+            type="button"
             onClick={() => setSelectedDate(changeDate(selectedDate, 1))}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50"
           >
@@ -453,13 +530,13 @@ const ManagerBranchInfo = () => {
           </button>
         </div>
 
-        {/* Thống kê nhỏ */}
         <div className="mb-5 grid gap-4 md:grid-cols-3">
           <div className="rounded-lg bg-blue-50 p-4">
             <div className="mb-1 flex items-center gap-2 text-sm text-blue-600">
               <Building2 size={16} />
               Chi nhánh
             </div>
+
             <p className="font-semibold text-slate-800">
               {branchInfo.BranchName}
             </p>
@@ -470,6 +547,7 @@ const ManagerBranchInfo = () => {
               <Users size={16} />
               Số staff
             </div>
+
             <p className="font-semibold text-slate-800">
               {staffList.length} nhân viên
             </p>
@@ -480,8 +558,9 @@ const ManagerBranchInfo = () => {
               <UserPlus size={16} />
               Đã xếp ngày {formatDate(selectedDate)}
             </div>
+
             <p className="font-semibold text-slate-800">
-              {scheduleList.length} lịch
+              {totalAssignedToday} lịch
             </p>
           </div>
         </div>
@@ -503,13 +582,16 @@ const ManagerBranchInfo = () => {
           <div className="space-y-4">
             {shiftList.map((shift) => {
               const schedulesOfThisShift = getSchedulesOfShift(shift.ShiftID);
+              const availableStaffOfThisShift = getAvailableStaffOfShift(
+                shift.ShiftID
+              );
+              const isSaving = savingShiftId === shift.ShiftID;
 
               return (
                 <div
                   key={shift.ShiftID}
                   className="rounded-xl border border-slate-200 bg-slate-50 p-4"
                 >
-                  {/* Tên ca */}
                   <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                     <div>
                       <h3 className="font-semibold text-slate-800">
@@ -528,7 +610,6 @@ const ManagerBranchInfo = () => {
                     </span>
                   </div>
 
-                  {/* Danh sách nhân viên trong ca */}
                   {schedulesOfThisShift.length === 0 ? (
                     <div className="mb-4 rounded-lg border border-dashed border-slate-300 bg-white p-4 text-center text-sm text-slate-500">
                       Chưa có nhân viên trong ca này.
@@ -545,12 +626,14 @@ const ManagerBranchInfo = () => {
                               {schedule.Users?.FullName ||
                                 `Staff #${schedule.UserID}`}
                             </p>
+
                             <p className="text-sm text-slate-500">
                               {schedule.Users?.Phone || "Chưa có SĐT"}
                             </p>
                           </div>
 
                           <button
+                            type="button"
                             onClick={() =>
                               handleDeleteSchedule(schedule.ScheduleID)
                             }
@@ -564,31 +647,38 @@ const ManagerBranchInfo = () => {
                     </div>
                   )}
 
-                  {/* Form xếp staff vào ca */}
                   <div className="grid gap-3 rounded-lg bg-white p-3 md:grid-cols-[1fr_auto]">
                     <select
                       value={selectedStaffByShift[shift.ShiftID] || ""}
                       onChange={(e) =>
                         handleSelectStaff(shift.ShiftID, e.target.value)
                       }
-                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                      disabled={availableStaffOfThisShift.length === 0}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-400"
                     >
-                      <option value="">Chọn nhân viên</option>
+                      <option value="">
+                        {availableStaffOfThisShift.length === 0
+                          ? "Tất cả staff đã được xếp vào ca này"
+                          : "Chọn nhân viên"}
+                      </option>
 
-                      {staffList.map((staff) => (
+                      {availableStaffOfThisShift.map((staff) => (
                         <option key={staff.UserID} value={staff.UserID}>
-                          {staff.FullName}
+                          ID {staff.UserID} - {staff.FullName}
                           {staff.Phone ? ` - ${staff.Phone}` : ""}
                         </option>
                       ))}
                     </select>
 
                     <button
+                      type="button"
                       onClick={() => handleAssignStaff(shift.ShiftID)}
-                      disabled={savingShiftId === shift.ShiftID}
-                      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                      disabled={
+                        isSaving || availableStaffOfThisShift.length === 0
+                      }
+                      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {savingShiftId === shift.ShiftID ? "Đang xếp..." : "Xếp ca"}
+                      {isSaving ? "Đang xếp..." : "Xếp ca"}
                     </button>
                   </div>
                 </div>
