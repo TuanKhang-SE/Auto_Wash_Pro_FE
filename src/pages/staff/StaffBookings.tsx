@@ -46,6 +46,13 @@ type StaffBooking = {
     BookingItems?: BookingItem[];
 };
 
+type StaffStats = {
+    waiting: number;
+    washing: number;
+    completed: number;
+    total: number;
+};
+
 function formatTime(value: string | null | undefined) {
     if (!value) {
         return "--:--";
@@ -60,12 +67,65 @@ function formatTime(value: string | null | undefined) {
     return text.substring(0, 5);
 }
 
+function calculateStats(data: StaffBooking[]): StaffStats {
+    let waiting = 0;
+    let washing = 0;
+    let completed = 0;
+    let total = 0;
+
+    data.forEach((booking) => {
+        booking.BookingItems?.forEach((item) => {
+            total++;
+
+            if (item.Status === "Completed") {
+                completed++;
+            } else if (item.Status === "CheckedIn" || item.Status === "InProgress") {
+                washing++;
+            } else {
+                waiting++;
+            }
+        });
+    });
+
+    return {
+        waiting,
+        washing,
+        completed,
+        total,
+    };
+}
+
+function getUpdatedTimeFields(status: string) {
+    const now = new Date().toISOString();
+
+    if (status === "CheckedIn") {
+        return {
+            CheckInAt: now,
+        };
+    }
+
+    if (status === "InProgress") {
+        return {
+            WashStartAt: now,
+        };
+    }
+
+    if (status === "Completed") {
+        return {
+            CompletedAt: now,
+        };
+    }
+
+    return {};
+}
+
 const StaffBookings = () => {
     const [bookings, setBookings] = useState<StaffBooking[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [updatingItemId, setUpdatingItemId] = useState<number | null>(null);
     const [message, setMessage] = useState("");
 
-    const [stats, setStats] = useState({
+    const [stats, setStats] = useState<StaffStats>({
         waiting: 0,
         washing: 0,
         completed: 0,
@@ -97,35 +157,7 @@ const StaffBookings = () => {
             const data: StaffBooking[] = res.data.data || [];
 
             setBookings(data);
-
-            let waiting = 0;
-            let washing = 0;
-            let completed = 0;
-            let total = 0;
-
-            data.forEach((booking) => {
-                booking.BookingItems?.forEach((item) => {
-                    total++;
-
-                    if (item.Status === "Completed") {
-                        completed++;
-                    } else if (
-                        item.Status === "CheckedIn" ||
-                        item.Status === "InProgress"
-                    ) {
-                        washing++;
-                    } else {
-                        waiting++;
-                    }
-                });
-            });
-
-            setStats({
-                waiting,
-                washing,
-                completed,
-                total,
-            });
+            setStats(calculateStats(data));
         } catch (error) {
             console.log(error);
             setMessage(getErrorMessage(error));
@@ -137,6 +169,7 @@ const StaffBookings = () => {
     async function updateItemStatus(bookingItemId: number, status: string) {
         try {
             setMessage("");
+            setUpdatingItemId(bookingItemId);
 
             const token = localStorage.getItem("token");
 
@@ -157,10 +190,31 @@ const StaffBookings = () => {
                 }
             );
 
-            await fetchBookings();
+            setBookings((prevBookings) => {
+                const updatedBookings = prevBookings.map((booking) => ({
+                    ...booking,
+                    BookingItems: booking.BookingItems?.map((item) => {
+                        if (item.BookingItemID !== bookingItemId) {
+                            return item;
+                        }
+
+                        return {
+                            ...item,
+                            Status: status,
+                            ...getUpdatedTimeFields(status),
+                        };
+                    }),
+                }));
+
+                setStats(calculateStats(updatedBookings));
+
+                return updatedBookings;
+            });
         } catch (error) {
             console.log(error);
             setMessage(getErrorMessage(error));
+        } finally {
+            setUpdatingItemId(null);
         }
     }
 
@@ -209,10 +263,15 @@ const StaffBookings = () => {
         return serviceNames.join(", ");
     }
 
+    function isItemUpdating(itemId: number) {
+        return updatingItemId === itemId;
+    }
+
     return (
         <div className="space-y-6">
             <div className="rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white shadow-xl shadow-blue-500/20">
                 <h2 className="text-2xl font-bold">Quản lý đặt lịch hôm nay</h2>
+
                 <p className="mt-1 text-blue-100">
                     Staff chỉ xem và xử lý booking tại chi nhánh của mình.
                 </p>
@@ -250,8 +309,8 @@ const StaffBookings = () => {
 
                     <button
                         onClick={fetchBookings}
-                        disabled={isLoading}
-                        className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-600 transition hover:bg-blue-100 disabled:opacity-50"
+                        disabled={isLoading || updatingItemId !== null}
+                        className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-600 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
                         Làm mới
@@ -334,52 +393,65 @@ const StaffBookings = () => {
                                                         {getServicesText(item)}
                                                     </td>
 
-                                                    <td className="px-4">
-                                                        {getStatusBadge(item.Status)}
-                                                    </td>
+                                                    <td className="px-4">{getStatusBadge(item.Status)}</td>
 
                                                     <td className="px-4">
                                                         <div className="flex flex-wrap gap-2">
                                                             <button
                                                                 type="button"
-                                                                disabled={item.Status !== "Pending"}
+                                                                disabled={
+                                                                    item.Status !== "Pending" ||
+                                                                    isItemUpdating(item.BookingItemID)
+                                                                }
                                                                 onClick={() =>
                                                                     updateItemStatus(
                                                                         item.BookingItemID,
                                                                         "CheckedIn"
                                                                     )
                                                                 }
-                                                                className="rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-purple-700 disabled:bg-gray-300"
+                                                                className="rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:bg-gray-300"
                                                             >
-                                                                Check-in
+                                                                {isItemUpdating(item.BookingItemID)
+                                                                    ? "Đang xử lý..."
+                                                                    : "Check-in"}
                                                             </button>
 
                                                             <button
                                                                 type="button"
-                                                                disabled={item.Status !== "CheckedIn"}
+                                                                disabled={
+                                                                    item.Status !== "CheckedIn" ||
+                                                                    isItemUpdating(item.BookingItemID)
+                                                                }
                                                                 onClick={() =>
                                                                     updateItemStatus(
                                                                         item.BookingItemID,
                                                                         "InProgress"
                                                                     )
                                                                 }
-                                                                className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-gray-300"
+                                                                className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
                                                             >
-                                                                Bắt đầu rửa
+                                                                {isItemUpdating(item.BookingItemID)
+                                                                    ? "Đang xử lý..."
+                                                                    : "Bắt đầu rửa"}
                                                             </button>
 
                                                             <button
                                                                 type="button"
-                                                                disabled={item.Status !== "InProgress"}
+                                                                disabled={
+                                                                    item.Status !== "InProgress" ||
+                                                                    isItemUpdating(item.BookingItemID)
+                                                                }
                                                                 onClick={() =>
                                                                     updateItemStatus(
                                                                         item.BookingItemID,
                                                                         "Completed"
                                                                     )
                                                                 }
-                                                                className="rounded-lg bg-green-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-700 disabled:bg-gray-300"
+                                                                className="rounded-lg bg-green-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-300"
                                                             >
-                                                                Hoàn thành
+                                                                {isItemUpdating(item.BookingItemID)
+                                                                    ? "Đang xử lý..."
+                                                                    : "Hoàn thành"}
                                                             </button>
                                                         </div>
                                                     </td>
