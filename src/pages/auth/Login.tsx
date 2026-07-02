@@ -48,12 +48,12 @@ function LoginPage() {
         return;
       }
 
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("token", token); // lưu token vào localStorage
+      localStorage.setItem("user", JSON.stringify(user)); // lưu thông tin user vào localStorage
       localStorage.setItem("userRole", (user.role as string) ?? "");
 
       setMessage("Đăng nhập thành công");
-      navigate(getRedirectPath(user.role as string), { replace: true });
+      navigate(getRedirectPath(user.role as string), { replace: true }); // chuyển hướng đến trang tương ứng với role của user
     } catch (error: unknown) {
       console.log(error);
       const axiosErr = error as {
