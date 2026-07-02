@@ -66,16 +66,16 @@ const AdminStaffManagement = () => {
     fetchBranches();
   }, []);
 
-  const fetchBranches = async () => {
+  const fetchBranches = async () => { // GET /api/branches lấy danh sách chi nhánh
     try {
-      const data = await branchService.getAllBranches();
+      const data = await branchService.getAllBranches(); // GET /api/branches lấy danh sách chi nhánh
       setBranches(data);
     } catch (err) {
       console.error("Error fetching branches:", err);
     }
   };
 
-  const getBranchName = (branchID: number | null): string => {
+  const getBranchName = (branchID: number | null): string => { // lấy tên chi nhánh theo id
     if (branchID == null) return "Chưa phân công";
     const branch = branches.find((b) => b.BranchID === branchID);
     return branch?.BranchName || `Chi nhánh ${branchID}`;
@@ -86,7 +86,7 @@ const AdminStaffManagement = () => {
   const fetchStaff = async () => {
     setIsLoading(true);
     try {
-      const data = await userService.getAllUsers({ Role: "Staff" }); // GET /api/users?Role=Staff
+      const data = await userService.getAllUsers({ Role: "Staff" }); // GET /api/users?Role=Staff lấy danh sách staff
       setStaffList(data);
     } catch (err) {
       console.error("Error fetching staff:", err);
@@ -99,10 +99,10 @@ const AdminStaffManagement = () => {
   // chi nhánh nào đã có Manager trước khi cho phép tạo Staff thuộc chi nhánh đó
   const fetchManagers = async () => {
     try {
-      const data = await userService.getAllUsers({ Role: "Manager" }); // GET /api/users?Role=Manager
+      const data = await userService.getAllUsers({ Role: "Manager" }); // GET /api/users?Role=Manager lấy danh sách manager
       setManagers(
         data.map((m) => ({
-          branchID: m.BranchID || 0,
+          branchID: m.BranchID || 0, 
           fullName: m.FullName,
         }))
       );
@@ -192,7 +192,7 @@ const AdminStaffManagement = () => {
     setSuccess("");
 
     try {
-      await userService.createUser({ // POST /api/users
+      await userService.createUser({ // POST /api/users tạo tài khoản staff mới
         FullName: formData.fullName,
         Password: formData.password,
         Role: "Staff",
@@ -257,7 +257,7 @@ const AdminStaffManagement = () => {
     setSuccess("");
 
     try {
-      await userService.updateUser(editingStaff.UserID, { // PUT /api/users/:id
+      await userService.updateUser(editingStaff.UserID, { // PUT /api/users/:id cập nhật thông tin staff
         FullName: editFormData.fullName,
         Email: editFormData.email,
         Phone: editFormData.phone,
@@ -285,7 +285,7 @@ const AdminStaffManagement = () => {
 
     setIsLoading(true);
     try {
-      await userService.deleteUser(staff.UserID); // DELETE /api/users/:id
+      await userService.deleteUser(staff.UserID); // DELETE /api/users/:id xóa tài khoản staff
       fetchStaff();
     } catch (err: unknown) {
       alert(getErrorMessage(err));
