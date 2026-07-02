@@ -33,7 +33,7 @@ export interface UpdateBranchPayload {
   Status?: BranchStatus;
 }
 
-const getAuthHeader = () => {
+const getAuthHeader = () => { 
   const token = localStorage.getItem("token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
@@ -53,7 +53,7 @@ const branchService = {
     return [];
   },
 
-  async getBranchById(id: number): Promise<Branch | null> {
+  async getBranchById(id: number): Promise<Branch | null> { // GET /api/branches/:id lấy thông tin chi nhánh
     const response = await axiosClient.get(`/api/branches/${id}`, {
       headers: getAuthHeader(),
     });
@@ -63,7 +63,7 @@ const branchService = {
     return null;
   },
 
-  async createBranch(payload: CreateBranchPayload): Promise<Branch> {
+  async createBranch(payload: CreateBranchPayload): Promise<Branch> { // POST /api/branches tạo chi nhánh mới
     const body = { ...payload };
     if (body.OpenTime) body.OpenTime = timeToIso(body.OpenTime);
     if (body.CloseTime) body.CloseTime = timeToIso(body.CloseTime);
