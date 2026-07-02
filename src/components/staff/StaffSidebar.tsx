@@ -11,18 +11,25 @@ const StaffSidebar: React.FC = () => {
     const getUserFromStorage = () => {
       try {
         const userStr = localStorage.getItem("user");
+
         if (userStr) {
           const user = JSON.parse(userStr);
-          setStaffName(user?.fullName || user?.email || "Nhân viên");
+          setStaffName(
+            user?.fullName || user?.FullName || user?.email || "Nhân viên"
+          );
         }
-      } catch {}
+      } catch (error) {
+        console.log(error);
+      }
     };
+
     getUserFromStorage();
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("userRole");
+    localStorage.removeItem("user");
     navigate("/login");
   };
 
@@ -40,9 +47,7 @@ const StaffSidebar: React.FC = () => {
               AutoWash Pro
             </h1>
 
-            <p className="text-xs text-slate-400">
-              Phân hệ Nhân viên
-            </p>
+            <p className="text-xs text-slate-400">Phân hệ Nhân viên</p>
           </div>
         </div>
 
@@ -53,11 +58,11 @@ const StaffSidebar: React.FC = () => {
               <NavLink
                 key={item.path}
                 to={item.path}
+                end={item.path === "/staff"}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 ${
-                    isActive
-                      ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30"
-                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                  `flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 ${isActive
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
                   }`
                 }
               >
@@ -72,14 +77,12 @@ const StaffSidebar: React.FC = () => {
       {/* User + Logout */}
       <div className="border-t border-slate-800 bg-slate-950/40 p-4">
         <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-700 border border-blue-500">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-blue-500 bg-slate-700">
             <User size={18} className="text-blue-400" />
           </div>
 
           <div className="overflow-hidden">
-            <p className="truncate text-sm font-semibold">
-              {staffName}
-            </p>
+            <p className="truncate text-sm font-semibold">{staffName}</p>
 
             <p className="flex items-center gap-1 text-xs text-emerald-400">
               <span className="inline-block h-2 w-2 rounded-full bg-emerald-400"></span>
