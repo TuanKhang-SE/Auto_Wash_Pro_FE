@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
 
+const phoneRegex = /^0\d{9}$/;
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function Register() {
   const navigate = useNavigate();
 
@@ -16,63 +19,97 @@ function Register() {
   const [isCodeSent, setIsCodeSent] = useState(false);
 
   async function handleSendCode() {
-    if (!email) {
-      setMessage("Vui lòng nhập email trước");
-      return;
-    }
+  const trimmedEmail = email.trim();
 
-    try {
-      await axiosClient.post("/api/auth/send-register-code", {
-        email,
-      });
-
-      setIsCodeSent(true);
-      setMessage("Mã xác minh đã được gửi đến email");
-    } catch (error: any) {
-      setMessage(error.response?.data?.message || "Gửi mã xác minh thất bại");
-    }
+  if (!trimmedEmail) {
+    setMessage("Vui lòng nhập email trước");
+    return;
   }
+
+  if (!emailRegex.test(trimmedEmail)) {
+    setMessage("Email không hợp lệ");
+    return;
+  }
+
+  try {
+    await axiosClient.post("/api/auth/send-register-code", {
+      email: trimmedEmail,
+    });
+
+    setIsCodeSent(true);
+    setMessage("Mã xác minh đã được gửi đến email");
+  } catch (error: any) {
+    setMessage(error.response?.data?.message || "Gửi mã xác minh thất bại");
+  }
+}
 
   async function handleRegister(e: React.FormEvent) {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (password !== confirmPassword) {
-      setMessage("Mật khẩu xác nhận không khớp");
-      return;
-    }
+  setMessage("");
 
-    if (!isCodeSent) {
-      setMessage("Vui lòng bấm gửi mã xác minh trước");
-      return;
-    }
+  const trimmedFullName = fullName.trim();
+  const trimmedPhone = phone.trim();
+  const trimmedEmail = email.trim();
 
-    if (!code) {
-      setMessage("Vui lòng nhập mã xác minh");
-      return;
-    }
-
-    if (code.length !== 6) {
-      setMessage("Mã xác minh phải có 6 số");
-      return;
-    }
-
-    try {
-      await axiosClient.post("/api/auth/register", {
-        fullName,
-        phone,
-        email,
-        password,
-        code,
-      });
-
-      setMessage("Đăng ký thành công");
-      setTimeout(() => {
-        navigate("/login");
-      }, 1500);
-    } catch (error: any) {
-      setMessage(error.response?.data?.message || "Đăng ký thất bại");
-    }
+  if (!trimmedFullName) {
+    setMessage("Vui lòng nhập họ và tên");
+    return;
   }
+
+  if (!phoneRegex.test(trimmedPhone)) {
+    setMessage("Số điện thoại phải bắt đầu bằng 0 và có đúng 10 chữ số");
+    return;
+  }
+
+  if (!emailRegex.test(trimmedEmail)) {
+    setMessage("Email không hợp lệ");
+    return;
+  }
+
+  if (password.length < 7) {
+    setMessage("Mật khẩu phải có ít nhất 7 ký tự");
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    setMessage("Mật khẩu xác nhận không khớp");
+    return;
+  }
+
+  if (!isCodeSent) {
+    setMessage("Vui lòng bấm gửi mã xác minh trước");
+    return;
+  }
+
+  if (!code) {
+    setMessage("Vui lòng nhập mã xác minh");
+    return;
+  }
+
+  if (code.length !== 6) {
+    setMessage("Mã xác minh phải có 6 số");
+    return;
+  }
+
+  try {
+    await axiosClient.post("/api/auth/register", {
+      fullName: trimmedFullName,
+      phone: trimmedPhone,
+      email: trimmedEmail,
+      password,
+      code,
+    });
+
+    setMessage("Đăng ký thành công");
+
+    setTimeout(() => {
+      navigate("/login");
+    }, 1500);
+  } catch (error: any) {
+    setMessage(error.response?.data?.message || "Đăng ký thất bại");
+  }
+}
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
@@ -113,13 +150,22 @@ function Register() {
             </label>
 
             <input
-              type="text"
-              placeholder="Nhập số điện thoại"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              type="tel"
+  inputMode="numeric"
+  maxLength={10}
+  placeholder="Nhập số điện thoại"
+  value={phone}
+  onChange={(e) => {
+    const onlyNumbers = e.target.value.replace(/\D/g, "");
+    setPhone(onlyNumbers);
+  }}
+  className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
+
+<p className="mt-1 text-xs text-gray-500">
+  Số điện thoại phải bắt đầu bằng 0 và có đúng 10 chữ số.
+</p>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -138,6 +184,10 @@ function Register() {
               className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
+
+<p className="mt-1 text-xs text-gray-500">
+  Email phải đúng định dạng, ví dụ: example@gmail.com.
+</p>
 
           <button
             type="button"
@@ -178,6 +228,10 @@ function Register() {
               className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
+
+<p className="mt-1 text-xs text-gray-500">
+  Mật khẩu phải có ít nhất 7 ký tự.
+</p>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
