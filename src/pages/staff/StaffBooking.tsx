@@ -10,3 +10,16 @@
   };
   BookingItems?: BookingItem[];
 };
+function formatTime(value: string | null | undefined) {
+  if (!value) {
+    return "--:--";
+  }
+
+  const text = String(value);
+
+  if (text.includes("T")) {
+    return text.substring(11, 16);
+  }
+
+  return text.substring(0, 5);
+}
