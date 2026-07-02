@@ -1,604 +1,660 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Building2,
+  CalendarDays,
+  Clock,
+  Loader2,
   MapPin,
   Phone,
-  Clock,
-  CreditCard,
-  Settings,
-  Edit,
-  Save,
-  X,
-  Loader2,
+  RefreshCw,
+  Trash2,
+  UserPlus,
+  Users,
 } from "lucide-react";
-import branchService from "../../services/branchService";
-import branchConfigService, {
-  type BranchConfig,
-  type UpsertBranchConfigPayload,
-} from "../../services/branchConfigService";
-
-// Model cấu hình chi nhánh cho form (string rỗng = chưa nhập).
-// Hiển thị giờ từ ISO "1970-01-01T07:00:00.000Z" → "07:00".
-const displayTime = (iso: string | null | undefined): string => {
-  if (!iso) return "—";
-  const m = iso.match(/T(\d{2}:\d{2})/);
-  return m ? m[1] : "—";
-};
-
-interface ConfigDraft {
-  SlotDuration: string;
-  TotalWashBays: string;
-  BufferMinutes: string;
-  CancelWindowHours: string;
-}
-
-const emptyConfigDraft: ConfigDraft = {
-  SlotDuration: "",
-  TotalWashBays: "",
-  BufferMinutes: "",
-  CancelWindowHours: "",
-};
-
-// Chuyển BranchConfig (DB) → ConfigDraft (form).
-const configToDraft = (cfg: BranchConfig | null): ConfigDraft => ({
-  SlotDuration: cfg?.SlotDuration != null ? String(cfg.SlotDuration) : "",
-  TotalWashBays: cfg?.TotalWashBays != null ? String(cfg.TotalWashBays) : "",
-  BufferMinutes: cfg?.BufferMinutes != null ? String(cfg.BufferMinutes) : "",
-  CancelWindowHours:
-    cfg?.CancelWindowHours != null ? String(cfg.CancelWindowHours) : "",
-});
-
-// Tên hiển thị tiếng Việt cho từng trường config.
-const configLabels: Record<keyof ConfigDraft, string> = {
-  SlotDuration: "Thời lượng slot (phút)",
-  TotalWashBays: "Tổng số ô rửa",
-  BufferMinutes: "Thời gian đệm (phút)",
-  CancelWindowHours: "Thời hạn hủy (giờ)",
-};
-
-// Tìm trường config có giá trị không hợp lệ (không phải số nguyên ≥ 0 hoặc rỗng).
-const findInvalidField = (
-  draft: ConfigDraft
-): { field: keyof ConfigDraft; label: string } | null => {
-  for (const [field, label] of Object.entries(configLabels)) {
-    const raw = (draft as any)[field] as string;
-    if (raw === "") continue;
-    const num = Number(raw);
-    if (!Number.isFinite(num) || !Number.isInteger(num) || num < 0) {
-      return { field: field as keyof ConfigDraft, label };
-    }
-  }
-  return null;
-};
-
-// Build payload từ draft – bỏ trường rỗng, trả null nếu tất cả rỗng.
-const buildConfigPayload = (
-  draft: ConfigDraft,
-  branchID: number
-): UpsertBranchConfigPayload | null => {
-  const payload: UpsertBranchConfigPayload = { BranchID: branchID };
-  let hasAny = false;
-  for (const field of Object.keys(configLabels) as Array<keyof ConfigDraft>) {
-    const raw = (draft as any)[field] as string;
-    if (raw === "") continue;
-    (payload as any)[field] = Number(raw);
-    hasAny = true;
-  }
-  return hasAny ? payload : null;
-};
+import axiosClient, { getErrorMessage } from "../../api/axiosClient";
 
 interface BranchInfo {
   BranchID: number;
   BranchName: string;
   Address: string | null;
   Phone: string | null;
-  OpenTime: string | null; // ISO "1970-01-01T07:00:00.000Z" hoặc null
+  OpenTime: string | null;
   CloseTime: string | null;
   BankAccount: string | null;
   Status: string | null;
-  // config KHÔNG lấy từ /api/branches/:id (BE không trả).
-  // Phần cấu hình dùng state `config` riêng, load qua /api/branch-configs.
 }
+
+interface Staff {
+  UserID: number;
+  FullName: string;
+  Phone: string | null;
+  Email: string | null;
+  BranchID: number | null;
+  Role: string;
+  Status: string;
+}
+
+interface Shift {
+  ShiftID: number;
+  ShiftName: string;
+  StartTime: string | null;
+  EndTime: string | null;
+  Status: string;
+}
+
+interface StaffSchedule {
+  ScheduleID: number;
+  UserID: number;
+  WorkDate: string;
+  ShiftID: number;
+  CapacityWeight: number | string | null;
+  Status: string;
+  Users?: {
+    FullName: string;
+    Phone: string | null;
+    BranchID: number | null;
+  } | null;
+  Shifts?: {
+    ShiftName: string;
+    StartTime: string | null;
+    EndTime: string | null;
+  } | null;
+}
+
+const getAuthHeader = () => {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    return {};
+  }
+
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+};
+
+const getBranchIdFromLocalStorage = () => {
+  const userText = localStorage.getItem("user");
+
+  if (!userText) {
+    return null;
+  }
+
+  try {
+    const user = JSON.parse(userText);
+
+    const branchId =
+      user.branchId ||
+      user.BranchID ||
+      user.branchID ||
+      user.BranchId ||
+      null;
+
+    return branchId ? Number(branchId) : null;
+  } catch {
+    return null;
+  }
+};
+
+const formatDateInput = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+const getToday = () => {
+  return formatDateInput(new Date());
+};
+
+const formatTime = (value: string | null) => {
+  if (!value) return "Chưa có";
+
+  const match = value.match(/T(\d{2}:\d{2})/);
+
+  if (match) {
+    return match[1];
+  }
+
+  return value.slice(0, 5);
+};
+
+const formatDate = (dateText: string) => {
+  const [year, month, day] = dateText.split("-");
+
+  if (!year || !month || !day) {
+    return dateText;
+  }
+
+  return `${day}/${month}/${year}`;
+};
+
+const normalizeDate = (dateText: string) => {
+  return dateText.slice(0, 10);
+};
 
 const ManagerBranchInfo = () => {
   const [branchInfo, setBranchInfo] = useState<BranchInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState<{
-    BranchName?: string;
-    Address?: string;
-    Phone?: string;
-    OpenTime?: string;
-    CloseTime?: string;
-    BankAccount?: string;
-  }>({});
 
-  // Trạng thái cấu hình chi nhánh.
-  const [config, setConfig] = useState<BranchConfig | null>(null);
-  const [editConfig, setEditConfig] = useState<ConfigDraft>({
-    ...emptyConfigDraft,
-  });
-  const [configError, setConfigError] = useState("");
-  const [configSuccess, setConfigSuccess] = useState("");
+  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [shiftList, setShiftList] = useState<Shift[]>([]);
+  const [scheduleList, setScheduleList] = useState<StaffSchedule[]>([]);
+
+  const [selectedDate, setSelectedDate] = useState(getToday());
+
+  const [selectedStaffByShift, setSelectedStaffByShift] = useState<
+    Record<number, string>
+  >({});
+
+  const [isPageLoading, setIsPageLoading] = useState(false);
+  const [isScheduleLoading, setIsScheduleLoading] = useState(false);
+  const [savingShiftId, setSavingShiftId] = useState<number | null>(null);
+
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    fetchBranchInfo();
+    loadPageData();
   }, []);
 
-  const fetchBranchInfo = async () => {
-    setIsLoading(true);
+  useEffect(() => {
+    loadSchedules();
+  }, [selectedDate]);
+
+  const loadPageData = async () => {
+    setIsPageLoading(true);
+    setError("");
+
     try {
-      const userStr = localStorage.getItem("user");
-      const user = userStr ? JSON.parse(userStr) : null;
-
-      // Lấy BranchID từ user, hỗ trợ nhiều kiểu key BE có thể trả về.
-      const branchID: number | null =
-        user?.BranchID ??
-        user?.branchID ??
-        user?.branchId ??
-        user?.BranchId ??
-        null;
-
-      if (!branchID) {
-        console.warn("[ManagerBranchInfo] Không tìm thấy BranchID:", user);
-        return;
-      }
-
-      // Lấy thông tin chi nhánh + cấu hình cùng lúc.
-      const [branchResult, cfgResult] = await Promise.allSettled([
-        branchService.getBranchById(branchID),
-        branchConfigService.getBranchConfigByBranch(branchID),
-      ]);
-
-      if (branchResult.status === "fulfilled" && branchResult.value) {
-        setBranchInfo(branchResult.value as BranchInfo);
-      } else if (branchResult.status === "rejected") {
-        console.error("[ManagerBranchInfo] Lỗi tải chi nhánh:", branchResult.reason);
-      }
-
-      if (cfgResult.status === "fulfilled") {
-        setConfig(cfgResult.value);
-        setEditConfig(configToDraft(cfgResult.value));
-      } else if (cfgResult.status === "rejected") {
-        console.error("[ManagerBranchInfo] Lỗi tải cấu hình:", cfgResult.reason);
-      }
+      await Promise.all([loadBranchInfo(), loadStaffList(), loadShiftList()]);
     } catch (err) {
-      console.error("[ManagerBranchInfo] Lỗi tải thông tin chi nhánh:", err);
+      console.error(err);
+      setError(getErrorMessage(err));
     } finally {
-      setIsLoading(false);
+      setIsPageLoading(false);
     }
   };
 
-  const handleEdit = () => {
-    if (branchInfo) {
-      setEditForm({
-        BranchName: branchInfo.BranchName,
-        Address: branchInfo.Address ?? undefined,
-        Phone: branchInfo.Phone ?? undefined,
-        OpenTime: displayTime(branchInfo.OpenTime),
-        CloseTime: displayTime(branchInfo.CloseTime),
-        BankAccount: branchInfo.BankAccount ?? undefined,
-      });
-      setConfigError("");
-      setConfigSuccess("");
-      setIsEditing(true);
-    }
-  };
+  const loadBranchInfo = async () => {
+    const branchId = getBranchIdFromLocalStorage();
 
-  const handleCancel = () => {
-    setIsEditing(false);
-    setEditForm({});
-    setEditConfig(configToDraft(config));
-    setConfigError("");
-    setConfigSuccess("");
-  };
-
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setEditForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleConfigChange = (
-    field: keyof ConfigDraft,
-    value: string
-  ) => {
-    setEditConfig((prev) => ({ ...prev, [field]: value }));
-    setConfigError("");
-  };
-
-  const handleSave = async () => {
-    if (!branchInfo) return;
-
-    // Validate config.
-    const bad = findInvalidField(editConfig);
-    if (bad) {
-      setConfigError(
-        `Giá trị "${bad.label}" phải là số nguyên ≥ 0 (hoặc để trống)`
-      );
+    if (!branchId) {
+      setError("Tài khoản Manager này chưa được gán chi nhánh.");
       return;
     }
 
-    setIsLoading(true);
-    setConfigError("");
-    setConfigSuccess("");
+    const response = await axiosClient.get(`/api/branches/${branchId}`, {
+      headers: getAuthHeader(),
+    });
 
-    try {
-      // Lưu thông tin chi nhánh (BE tự convert HH:mm → ISO).
-      const updated = await branchService.updateBranch(
-        branchInfo.BranchID,
-        editForm as any
-      );
-      setBranchInfo(updated as BranchInfo);
-
-      // Upsert cấu hình chi nhánh (chỉ khi có ít nhất 1 trường được nhập).
-      let configSaved = true;
-      const cfgPayload = buildConfigPayload(editConfig, branchInfo.BranchID);
-      if (cfgPayload) {
-        try {
-          const saved = await branchConfigService.upsertBranchConfig(cfgPayload);
-          setConfig(saved);
-          setEditConfig(configToDraft(saved));
-        } catch (cfgErr) {
-          configSaved = false;
-          console.error(
-            "[ManagerBranchInfo] Lưu cấu hình chi nhánh thất bại:",
-            cfgErr
-          );
-          const beMsg =
-            (cfgErr as any)?.response?.data?.message ||
-            (cfgErr as any)?.message ||
-            "";
-          setConfigError(
-            `Cập nhật chi nhánh thành công nhưng lưu cấu hình thất bại${beMsg ? `: ${beMsg}` : "."}`
-          );
-        }
-      }
-
-      if (configSaved) {
-        setConfigSuccess("Lưu thông tin và cấu hình thành công!");
-        setTimeout(() => setConfigSuccess(""), 3000);
-      }
-      setIsEditing(false);
-    } catch (err) {
-      console.error("[ManagerBranchInfo] Lỗi lưu:", err);
-      setConfigError(
-        `Lỗi: ${(err as any)?.message || "Không rõ nguyên nhân"}`
-      );
-    } finally {
-      setIsLoading(false);
+    if (response.data?.success) {
+      setBranchInfo(response.data.data);
     }
   };
 
-  if (isLoading && !branchInfo) {
+  const loadStaffList = async () => {
+    const response = await axiosClient.get("/api/users", {
+      params: {
+        Role: "Staff",
+        Status: "Active",
+      },
+      headers: getAuthHeader(),
+    });
+
+    if (response.data?.success) {
+      setStaffList(response.data.data);
+    }
+  };
+
+  const loadShiftList = async () => {
+    const response = await axiosClient.get("/api/shifts", {
+      params: {
+        Status: "Active",
+      },
+      headers: getAuthHeader(),
+    });
+
+    if (response.data?.success) {
+      setShiftList(response.data.data);
+    }
+  };
+
+  const loadSchedules = async () => {
+    setIsScheduleLoading(true);
+    setError("");
+
+    try {
+      const response = await axiosClient.get("/api/staff-schedules", {
+        params: {
+          from: selectedDate,
+          to: selectedDate,
+          Status: "Active",
+        },
+        headers: getAuthHeader(),
+      });
+
+      if (response.data?.success) {
+        setScheduleList(response.data.data);
+      }
+    } catch (err) {
+      console.error(err);
+      setError(getErrorMessage(err));
+    } finally {
+      setIsScheduleLoading(false);
+    }
+  };
+
+  const getSchedulesOfShift = (shiftId: number) => {
+    return scheduleList.filter((schedule) => {
+      const isSameShift = schedule.ShiftID === shiftId;
+      const isSameDate = normalizeDate(schedule.WorkDate) === selectedDate;
+      const isActive = schedule.Status === "Active";
+
+      return isSameShift && isSameDate && isActive;
+    });
+  };
+
+  const getAvailableStaffOfShift = (shiftId: number) => {
+    const schedulesOfThisShift = getSchedulesOfShift(shiftId);
+
+    const assignedStaffIds = schedulesOfThisShift.map((item) => item.UserID);
+
+    return staffList.filter((staff) => {
+      return !assignedStaffIds.includes(staff.UserID);
+    });
+  };
+
+  const handleSelectStaff = (shiftId: number, staffId: string) => {
+    setSelectedStaffByShift((oldValue) => ({
+      ...oldValue,
+      [shiftId]: staffId,
+    }));
+
+    setError("");
+    setSuccess("");
+  };
+
+  const handleAssignStaff = async (shiftId: number) => {
+    const staffId = Number(selectedStaffByShift[shiftId]);
+
+    if (!staffId) {
+      setError("Bạn cần chọn nhân viên trước.");
+      return;
+    }
+
+    setSavingShiftId(shiftId);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await axiosClient.post(
+        "/api/staff-schedules",
+        {
+          UserID: staffId,
+          WorkDate: selectedDate,
+          ShiftID: shiftId,
+          CapacityWeight: 1,
+        },
+        {
+          headers: getAuthHeader(),
+        }
+      );
+
+      if (response.data?.success) {
+        setSuccess("Xếp ca thành công.");
+
+        setSelectedStaffByShift((oldValue) => ({
+          ...oldValue,
+          [shiftId]: "",
+        }));
+
+        await loadSchedules();
+      }
+    } catch (err) {
+      console.error(err);
+      setError(getErrorMessage(err));
+    } finally {
+      setSavingShiftId(null);
+    }
+  };
+
+  const handleDeleteSchedule = async (scheduleId: number) => {
+    const confirmDelete = window.confirm("Bạn có chắc muốn xóa lịch này không?");
+
+    if (!confirmDelete) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await axiosClient.delete(
+        `/api/staff-schedules/${scheduleId}`,
+        {
+          headers: getAuthHeader(),
+        }
+      );
+
+      if (response.data?.success) {
+        setSuccess("Xóa lịch thành công.");
+        await loadSchedules();
+      }
+    } catch (err) {
+      console.error(err);
+      setError(getErrorMessage(err));
+    }
+  };
+
+  if (isPageLoading && !branchInfo) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="animate-spin text-blue-600" size={32} />
       </div>
     );
   }
 
   if (!branchInfo) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
-        <p className="font-semibold">Không có thông tin chi nhánh</p>
-        <p className="mt-2 text-xs">
-          Tài khoản Manager hiện không liên kết với chi nhánh nào. Mở
-          DevTools → Console để xem chi tiết user object được BE trả về.
-        </p>
+      <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-700">
+        Không tìm thấy thông tin chi nhánh của Manager.
       </div>
     );
   }
 
+  const totalAssignedToday = scheduleList.filter((schedule) => {
+    return normalizeDate(schedule.WorkDate) === selectedDate;
+  }).length;
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">
-            Thông tin Chi nhánh
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Quản lý thông tin và cấu hình chi nhánh của bạn
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800">
+          Thông tin chi nhánh
+        </h1>
 
-        {!isEditing ? (
-          <button
-            onClick={handleEdit}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-500/30 transition hover:bg-blue-700"
-          >
-            <Edit size={18} />
-            Chỉnh sửa
-          </button>
-        ) : (
-          <div className="flex gap-2">
-            <button
-              onClick={handleCancel}
-              disabled={isLoading}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition disabled:opacity-50"
-            >
-              <X size={18} />
-              Hủy
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={isLoading}
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {isLoading ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : (
-                <Save size={18} />
-              )}
-              Lưu
-            </button>
-          </div>
-        )}
+        <p className="mt-1 text-sm text-slate-500">
+          Manager chỉ xem và xếp lịch cho chi nhánh của mình.
+        </p>
       </div>
 
-      {/* Alert messages */}
-      {configError && (
+      {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {configError}
-        </div>
-      )}
-      {configSuccess && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-          {configSuccess}
+          {error}
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Basic Info */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="rounded-lg bg-blue-100 p-2.5">
-              <Building2 size={24} className="text-blue-600" />
-            </div>
-            <h2 className="text-lg font-semibold text-slate-800">
-              Thông tin cơ bản
-            </h2>
+      {success && (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+          {success}
+        </div>
+      )}
+
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="rounded-lg bg-blue-100 p-2">
+            <Building2 className="text-blue-600" size={24} />
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-500">
-                Tên chi nhánh
-              </label>
-              {isEditing ? (
-                <input
-                  type="text"
-                  name="branchName"
-                  value={editForm.BranchName || ""}
-                  onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                />
-              ) : (
-                <p className="font-medium text-slate-800">{branchInfo.BranchName}</p>
-              )}
-            </div>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800">
+              {branchInfo.BranchName}
+            </h2>
 
-            <div>
-              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-slate-500">
-                <MapPin size={14} />
-                Địa chỉ
-              </label>
-              {isEditing ? (
-                <textarea
-                  name="address"
-                  value={editForm.Address || ""}
-                  onChange={handleInputChange}
-                  rows={2}
-                  className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                />
-              ) : (
-                <p className="font-medium text-slate-800">{branchInfo.Address}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-slate-500">
-                <Phone size={14} />
-                Số điện thoại
-              </label>
-              {isEditing ? (
-                <input
-                  type="text"
-                  name="phone"
-                  value={editForm.Phone || ""}
-                  onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                />
-              ) : (
-                <p className="font-medium text-slate-800">{branchInfo.Phone}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-slate-500">
-                <CreditCard size={14} />
-                Tài khoản ngân hàng
-              </label>
-              {isEditing ? (
-                <input
-                  type="text"
-                  name="bankAccount"
-                  value={editForm.BankAccount || ""}
-                  onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                />
-              ) : (
-                <p className="font-medium text-slate-800">{branchInfo.BankAccount}</p>
-              )}
-            </div>
+            <p className="text-sm text-slate-500">
+              Trạng thái: {branchInfo.Status || "Chưa có"}
+            </p>
           </div>
         </div>
 
-        {/* Operating Hours */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="rounded-lg bg-emerald-100 p-2.5">
-              <Clock size={24} className="text-emerald-600" />
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-lg bg-slate-50 p-4">
+            <div className="mb-1 flex items-center gap-2 text-sm text-slate-500">
+              <MapPin size={16} />
+              Địa chỉ
             </div>
-            <h2 className="text-lg font-semibold text-slate-800">
-              Giờ hoạt động
-            </h2>
+
+            <p className="font-medium text-slate-800">
+              {branchInfo.Address || "Chưa cập nhật"}
+            </p>
           </div>
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg bg-slate-50 p-4">
-              <span className="text-sm text-slate-500">Giờ mở cửa</span>
-              {isEditing ? (
-                <input
-                  type="time"
-                  name="OpenTime"
-                  value={editForm.OpenTime || ""}
-                  onChange={handleInputChange}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm outline-none focus:border-blue-500"
-                />
-              ) : (
-                <span className="font-semibold text-emerald-600">
-                  {displayTime(branchInfo.OpenTime)}
-                </span>
-              )}
+          <div className="rounded-lg bg-slate-50 p-4">
+            <div className="mb-1 flex items-center gap-2 text-sm text-slate-500">
+              <Phone size={16} />
+              Số điện thoại
             </div>
 
-            <div className="flex items-center justify-between rounded-lg bg-slate-50 p-4">
-              <span className="text-sm text-slate-500">Giờ đóng cửa</span>
-              {isEditing ? (
-                <input
-                  type="time"
-                  name="CloseTime"
-                  value={editForm.CloseTime || ""}
-                  onChange={handleInputChange}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm outline-none focus:border-blue-500"
-                />
-              ) : (
-                <span className="font-semibold text-red-600">
-                  {displayTime(branchInfo.CloseTime)}
-                </span>
-              )}
+            <p className="font-medium text-slate-800">
+              {branchInfo.Phone || "Chưa cập nhật"}
+            </p>
+          </div>
+
+          <div className="rounded-lg bg-slate-50 p-4">
+            <div className="mb-1 flex items-center gap-2 text-sm text-slate-500">
+              <Clock size={16} />
+              Giờ mở cửa
             </div>
 
-            <div className="flex items-center justify-between rounded-lg bg-slate-50 p-4">
-              <span className="text-sm text-slate-500">Trạng thái</span>
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ${
-                  branchInfo.Status === "Active"
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-red-100 text-red-700"
-                }`}
-              >
-                <span className="h-2 w-2 rounded-full bg-current"></span>
-                {branchInfo.Status === "Active" ? "Hoạt động" : "Ngừng hoạt động"}
-              </span>
+            <p className="font-medium text-slate-800">
+              {formatTime(branchInfo.OpenTime)}
+            </p>
+          </div>
+
+          <div className="rounded-lg bg-slate-50 p-4">
+            <div className="mb-1 flex items-center gap-2 text-sm text-slate-500">
+              <Clock size={16} />
+              Giờ đóng cửa
             </div>
+
+            <p className="font-medium text-slate-800">
+              {formatTime(branchInfo.CloseTime)}
+            </p>
           </div>
         </div>
+      </div>
 
-        {/* Configuration */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="rounded-lg bg-purple-100 p-2.5">
-              <Settings size={24} className="text-purple-600" />
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-purple-100 p-2">
+              <CalendarDays className="text-purple-600" size={24} />
             </div>
-            <h2 className="text-lg font-semibold text-slate-800">
-              Cấu hình chi nhánh
-            </h2>
-          </div>
 
-          {isEditing ? (
-            <>
-              {/* Form cấu hình khi đang chỉnh sửa */}
-              <div className="mb-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                {(Object.keys(configLabels) as Array<keyof ConfigDraft>).map(
-                  (field) => (
-                    <div key={field}>
-                      <label className="mb-1.5 block text-xs font-medium text-slate-500">
-                        {configLabels[field]}
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={(editConfig as any)[field]}
-                        onChange={(e) =>
-                          handleConfigChange(field, e.target.value)
-                        }
-                        placeholder={
-                          field === "TotalWashBays" ? "VD: 8" : "VD: 30"
-                        }
-                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
-                      />
-                    </div>
-                  )
-                )}
-              </div>
-              <p className="text-xs text-slate-500">
-                Để trống ô nếu không muốn thay đổi trường đó.
+            <div>
+              <h2 className="text-lg font-semibold text-slate-800">
+                Lịch ca nhân viên
+              </h2>
+
+              <p className="text-sm text-slate-500">
+                Xem nhân viên theo ca và xếp staff vào ca làm.
               </p>
-            </>
-          ) : (
-            <>
-              {/* Read-only display - đọc từ state `config` (đã load qua
-                  GET /api/branch-configs), fallback null khi chưa có. */}
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <ConfigCard
-                  label="Phút / slot"
-                  value={config?.SlotDuration ?? null}
-                  color="text-purple-600"
-                />
-                <ConfigCard
-                  label="Phút dự phòng"
-                  value={config?.BufferMinutes ?? null}
-                  color="text-amber-600"
-                />
-                <ConfigCard
-                  label="Giờ hủy trước"
-                  value={config?.CancelWindowHours ?? null}
-                  color="text-red-600"
-                />
-              </div>
-              {config?.TotalWashBays != null && (
-                <div className="mt-4">
-                  <ConfigCard
-                    label="Tổng số ô rửa"
-                    value={config.TotalWashBays}
-                    color="text-cyan-600"
-                  />
-                </div>
-              )}
-              {!config && (
-                <p className="mt-4 text-xs text-slate-500">
-                  Chi nhánh chưa có cấu hình — bấm <strong>Chỉnh sửa</strong> để thêm.
-                </p>
-              )}
-            </>
-          )}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={loadSchedules}
+            className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            <RefreshCw size={16} />
+            Làm mới
+          </button>
         </div>
+
+        <div className="mb-5">
+          <label className="mb-1 block text-sm font-medium text-slate-600">
+            Chọn ngày xem lịch
+          </label>
+
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          />
+        </div>
+
+        <div className="mb-5 grid gap-4 md:grid-cols-3">
+          <div className="rounded-lg bg-blue-50 p-4">
+            <div className="mb-1 flex items-center gap-2 text-sm text-blue-600">
+              <Building2 size={16} />
+              Chi nhánh
+            </div>
+
+            <p className="font-semibold text-slate-800">
+              {branchInfo.BranchName}
+            </p>
+          </div>
+
+          <div className="rounded-lg bg-green-50 p-4">
+            <div className="mb-1 flex items-center gap-2 text-sm text-green-600">
+              <Users size={16} />
+              Số staff
+            </div>
+
+            <p className="font-semibold text-slate-800">
+              {staffList.length} nhân viên
+            </p>
+          </div>
+
+          <div className="rounded-lg bg-purple-50 p-4">
+            <div className="mb-1 flex items-center gap-2 text-sm text-purple-600">
+              <UserPlus size={16} />
+              Đã xếp ngày {formatDate(selectedDate)}
+            </div>
+
+            <p className="font-semibold text-slate-800">
+              {totalAssignedToday} lịch
+            </p>
+          </div>
+        </div>
+
+        {isScheduleLoading ? (
+          <div className="flex items-center justify-center rounded-lg border border-dashed border-slate-200 p-8 text-slate-500">
+            <Loader2 className="mr-2 animate-spin" size={20} />
+            Đang tải lịch làm việc...
+          </div>
+        ) : shiftList.length === 0 ? (
+          <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-700">
+            Chưa có ca làm việc nào. Ca làm do Admin tạo.
+          </div>
+        ) : staffList.length === 0 ? (
+          <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-700">
+            Chi nhánh này chưa có nhân viên Staff.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {shiftList.map((shift) => {
+              const schedulesOfThisShift = getSchedulesOfShift(shift.ShiftID);
+              const availableStaffOfThisShift = getAvailableStaffOfShift(
+                shift.ShiftID
+              );
+              const isSaving = savingShiftId === shift.ShiftID;
+
+              return (
+                <div
+                  key={shift.ShiftID}
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                >
+                  <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <h3 className="font-semibold text-slate-800">
+                        {shift.ShiftName}
+                      </h3>
+
+                      <p className="mt-1 flex items-center gap-1 text-sm text-slate-500">
+                        <Clock size={14} />
+                        {formatTime(shift.StartTime)} -{" "}
+                        {formatTime(shift.EndTime)}
+                      </p>
+                    </div>
+
+                    <span className="w-fit rounded-full bg-white px-3 py-1 text-sm text-slate-600">
+                      {schedulesOfThisShift.length} nhân viên
+                    </span>
+                  </div>
+
+                  {schedulesOfThisShift.length === 0 ? (
+                    <div className="mb-4 rounded-lg border border-dashed border-slate-300 bg-white p-4 text-center text-sm text-slate-500">
+                      Chưa có nhân viên trong ca này.
+                    </div>
+                  ) : (
+                    <div className="mb-4 space-y-2">
+                      {schedulesOfThisShift.map((schedule) => (
+                        <div
+                          key={schedule.ScheduleID}
+                          className="flex items-center justify-between rounded-lg bg-white p-3"
+                        >
+                          <div>
+                            <p className="font-medium text-slate-800">
+                              {schedule.Users?.FullName ||
+                                `Staff #${schedule.UserID}`}
+                            </p>
+
+                            <p className="text-sm text-slate-500">
+                              {schedule.Users?.Phone || "Chưa có SĐT"}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDeleteSchedule(schedule.ScheduleID)
+                            }
+                            className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 size={16} />
+                            Xóa
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="grid gap-3 rounded-lg bg-white p-3 md:grid-cols-[1fr_auto]">
+                    <select
+                      value={selectedStaffByShift[shift.ShiftID] || ""}
+                      onChange={(e) =>
+                        handleSelectStaff(shift.ShiftID, e.target.value)
+                      }
+                      disabled={availableStaffOfThisShift.length === 0}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                      <option value="">
+                        {availableStaffOfThisShift.length === 0
+                          ? "Tất cả staff đã được xếp vào ca này"
+                          : "Chọn nhân viên"}
+                      </option>
+
+                      {availableStaffOfThisShift.map((staff) => (
+                        <option key={staff.UserID} value={staff.UserID}>
+                          ID {staff.UserID} - {staff.FullName}
+                          {staff.Phone ? ` - ${staff.Phone}` : ""}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAssignStaff(shift.ShiftID)}
+                      disabled={
+                        isSaving || availableStaffOfThisShift.length === 0
+                      }
+                      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isSaving ? "Đang xếp..." : "Xếp ca"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
 };
-
-// Component hiển thị 1 ô cấu hình (read-only).
-const ConfigCard = ({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number | null | undefined;
-  color: string;
-}) => (
-  <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 text-center">
-    <p className={`text-2xl font-bold ${color}`}>
-      {value != null ? value : "—"}
-    </p>
-    <p className="mt-1 text-xs text-slate-500">{label}</p>
-  </div>
-);
 
 export default ManagerBranchInfo;
