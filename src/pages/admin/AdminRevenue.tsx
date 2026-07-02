@@ -18,7 +18,7 @@ const AdminRevenue = () => {
   const [hasFetched, setHasFetched] = useState(false);
 
   useEffect(() => {
-    branchService.getAllBranches().then(setBranches).catch(console.error);
+    branchService.getAllBranches().then(setBranches).catch(console.error); // GET /api/branches lấy danh sách chi nhánh
   }, []);
 
   useEffect(() => {
@@ -33,7 +33,7 @@ const AdminRevenue = () => {
       const params: Parameters<typeof revenueService.getDailyCashflow>[0] = { StartDate: startDate, EndDate: endDate };
       if (selectedBranch !== "") params.BranchID = selectedBranch;
 
-      const data = await revenueService.getDailyCashflow(params);
+      const data = await revenueService.getDailyCashflow(params);  // GET /api/dashboard/daily-cashflow lấy dữ liệu doanh thu theo phương thức thanh toán
       setDailyData(data.dailyData);
       setSummary(data.summary);
       setHasFetched(true);
