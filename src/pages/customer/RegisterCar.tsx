@@ -135,13 +135,19 @@ function RegisterCar() {
             onChange={(e) => setBienSoXe(e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <p className="mt-1 text-xs text-gray-500">
+    Biển số hợp lệ: 29-B1 555.55, 73-K9 9999, 59-AB 1234 hoặc 59-AB 123.45.
+  </p>
 
           <input
-            placeholder="Loại xe, ví dụ: Xe máy, Ô tô"
+            placeholder="Loại xe, ví dụ: Xe máy, xe tay ga"
             value={loaiXe}
             onChange={(e) => setLoaiXe(e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <p className="mt-1 text-xs text-gray-500">
+    Nhập loại phương tiện, ví dụ: Xe máy, Xe tay ga.
+  </p>
 
           <input
             placeholder="Hãng xe, ví dụ: Honda, Yamaha"
@@ -150,6 +156,10 @@ function RegisterCar() {
             className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
           />
 
+<p className="mt-1 text-xs text-gray-500">
+    Nhập tên hãng xe, ví dụ: Honda, Yamaha, Suzuki, Toyota.
+  </p>
+
           <input
             placeholder="Model, ví dụ: Vision"
             value={model}
@@ -157,12 +167,20 @@ function RegisterCar() {
             className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
           />
 
+<p className="mt-1 text-xs text-gray-500">
+    Nhập dòng xe hoặc mẫu xe, ví dụ: Vision, Wave Alpha, Air Blade, Vios.
+  </p>
+
           <input
             placeholder="Màu xe, ví dụ: Đen"
             value={mauXe}
             onChange={(e) => setMauXe(e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
           />
+
+          <p className="mt-1 text-xs text-gray-500">
+    Nhập màu chính của xe, ví dụ: Đen, Trắng, Đỏ đen, Xanh bạc.
+  </p>
 
           {message && (
             <p className="text-center text-sm text-red-500">{message}</p>
