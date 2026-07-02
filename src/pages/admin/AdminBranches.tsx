@@ -99,14 +99,14 @@ const AdminBranches = () => {
   // Lấy song song danh sách chi nhánh và toàn bộ user từ backend, sau đó
   // tổng hợp (enrich) thành danh sách BranchDetail với thông tin Manager,
   // số Staff active cho mỗi chi nhánh để hiển thị trên trang quản lý
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async () => { 
     setIsLoading(true);
     setError(null);
     try {
       const [branchList, userList] = await Promise.all([
-        branchService.getAllBranches(),
-        userService.getAllUsers(),
-      ]);
+        branchService.getAllBranches(), // GET /api/branches lấy danh sách chi nhánh
+        userService.getAllUsers(), // GET /api/users lấy danh sách user
+      ]); 
 
       const enriched: BranchDetail[] = branchList.map((b) => {
         const branchUsers = userList.filter(
@@ -221,7 +221,7 @@ const AdminBranches = () => {
       if (createForm.OpenTime) payload.OpenTime = createForm.OpenTime;
       if (createForm.CloseTime) payload.CloseTime = createForm.CloseTime;
 
-      await branchService.createBranch(payload);
+      await branchService.createBranch(payload); // POST /api/branches tạo chi nhánh mới 
 
       setCreateSuccess("Tạo chi nhánh thành công!");
       setTimeout(() => {
@@ -258,7 +258,7 @@ const AdminBranches = () => {
 
   // Cập nhật state editForm khi người dùng nhập liệu trong form chỉnh sửa chi nhánh
   // đồng thời xóa thông báo lỗi cũ
-  const handleEditInputChange = (
+  const handleEditInputChange = ( 
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
@@ -289,7 +289,7 @@ const AdminBranches = () => {
 
   // Gọi API cập nhật thông tin chi nhánh (tên, địa chỉ, SĐT, giờ mở/đóng,
   // tài khoản ngân hàng, trạng thái) theo BranchID của chi nhánh đang sửa
-  const handleUpdateBranch = async (e: React.FormEvent) => {
+  const handleUpdateBranch = async (e: React.FormEvent) => { // PUT /api/branches/:id cập nhật thông tin chi nhánh
     e.preventDefault();
     if (!editingBranch) return;
     if (!validateEditForm()) return;
@@ -299,7 +299,7 @@ const AdminBranches = () => {
     setEditSuccess("");
 
     try {
-      const payload: UpdateBranchPayload = {
+      const payload: UpdateBranchPayload = { // PUT /api/branches/:id cập nhật thông tin chi nhánh
         BranchName: editForm.BranchName.trim(),
         Status: editForm.Status,
       };
@@ -311,7 +311,7 @@ const AdminBranches = () => {
       payload.OpenTime = editForm.OpenTime ? editForm.OpenTime : null;
       payload.CloseTime = editForm.CloseTime ? editForm.CloseTime : null;
 
-      await branchService.updateBranch(editingBranch.branchID, payload);
+      await branchService.updateBranch(editingBranch.branchID, payload); 
 
       setEditSuccess("Cập nhật chi nhánh thành công!");
       setTimeout(() => {
@@ -329,13 +329,13 @@ const AdminBranches = () => {
 
   // Gọi API xóa một chi nhánh khỏi hệ thống theo BranchID
   // sau khi người dùng xác nhận qua modal xác nhận xóa
-  const handleDeleteBranch = async () => {
+  const handleDeleteBranch = async () => { // DELETE /api/branches/:id xóa chi nhánh
     if (!deleteTarget) return;
 
     setDeleteError("");
     setIsDeleting(true);
     try {
-      await branchService.deleteBranch(deleteTarget.branchID);
+      await branchService.deleteBranch(deleteTarget.branchID); 
       if (selectedBranch?.branchID === deleteTarget.branchID) {
         setSelectedBranch(null);
       }
