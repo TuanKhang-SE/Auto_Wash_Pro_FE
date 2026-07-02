@@ -6,7 +6,6 @@ import {
   CalendarCheck,
   Car,
   DollarSign,
-  Shield,
 } from "lucide-react";
 import StatCard from "../../components/admin/AdminStatCard";
 import userService from "../../services/userService";
@@ -30,7 +29,6 @@ interface AdminStats {
   totalStaff: number;
   totalBookings: number;
   monthlyRevenue: number;
-  activeUsers: number;
 }
 
 const AdminDashboard = () => {
@@ -40,7 +38,6 @@ const AdminDashboard = () => {
     totalStaff: 0,
     totalBookings: 0,
     monthlyRevenue: 0,
-    activeUsers: 0,
   });
   const [branchStats, setBranchStats] = useState<BranchStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -55,19 +52,19 @@ const AdminDashboard = () => {
       try {
         const [branchesData, managersData, staffData] = await Promise.all([
           branchService.getAllBranches(),
-          userService.getAllUsers({ Role: "Manager" }),
-          userService.getAllUsers({ Role: "Staff" }),
+          userService.getAllUsers({ Role: "Manager" }), // GET /api/users?Role=Manager lấy managermanager
+          userService.getAllUsers({ Role: "Staff" }), // GET /api/users?Role=Staff lấy staff
         ]);
 
         const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1) 
           .toISOString()
           .split("T")[0];
         const today = now.toISOString().split("T")[0];
 
         let monthlyRevenue = 0;
         try {
-          const cashflow = await revenueService.getDailyCashflow({
+          const cashflow = await revenueService.getDailyCashflow({ // GET /api/dashboard/daily-cashflow thống kê
             StartDate: startOfMonth,
             EndDate: today,
           });
@@ -108,7 +105,6 @@ const AdminDashboard = () => {
           totalStaff: activeStaff.length,
           totalBookings: 0,
           monthlyRevenue,
-          activeUsers: managersData.filter((m) => m.Status === "Active").length + activeStaff.length,
         });
 
         setBranchStats(branchStatsData);
@@ -190,12 +186,6 @@ const AdminDashboard = () => {
           icon={<DollarSign size={24} />}
           trend={{ value: 8, isUp: true }}
           color="amber"
-        />
-        <StatCard
-          title="Người dùng hoạt động"
-          value={stats.activeUsers}
-          icon={<Shield size={24} />}
-          color="blue"
         />
       </div>
 
