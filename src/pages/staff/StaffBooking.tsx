@@ -34,3 +34,21 @@ const StaffBookings = () => {
     completed: 0,
     total: 0,
   });
+
+  async function fetchBookings() {
+    try {
+      setIsLoading(true);
+      setMessage("");
+
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        setMessage("Bạn cần đăng nhập bằng tài khoản staff");
+        return;
+      }
+
+      const res = await axiosClient.get("/api/staff-operations/today-bookings", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
