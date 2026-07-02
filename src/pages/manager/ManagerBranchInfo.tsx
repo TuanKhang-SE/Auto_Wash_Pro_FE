@@ -3,7 +3,6 @@ import {
   Building2,
   CalendarDays,
   Clock,
-  CreditCard,
   Loader2,
   MapPin,
   Phone,
@@ -62,7 +61,6 @@ interface StaffSchedule {
   } | null;
 }
 
-// Lấy token để gọi API cần đăng nhập
 const getAuthHeader = () => {
   const token = localStorage.getItem("token");
 
@@ -75,7 +73,6 @@ const getAuthHeader = () => {
   };
 };
 
-// Lấy BranchID của manager từ localStorage
 const getBranchIdFromLocalStorage = () => {
   const userText = localStorage.getItem("user");
 
@@ -99,7 +96,6 @@ const getBranchIdFromLocalStorage = () => {
   }
 };
 
-// Format Date thành yyyy-mm-dd cho input type date
 const formatDateInput = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -110,13 +106,6 @@ const formatDateInput = (date: Date) => {
 
 const getToday = () => {
   return formatDateInput(new Date());
-};
-
-const changeDate = (dateText: string, dayAmount: number) => {
-  const date = new Date(`${dateText}T00:00:00`);
-  date.setDate(date.getDate() + dayAmount);
-
-  return formatDateInput(date);
 };
 
 const formatTime = (value: string | null) => {
@@ -463,17 +452,6 @@ const ManagerBranchInfo = () => {
               {formatTime(branchInfo.CloseTime)}
             </p>
           </div>
-
-          <div className="rounded-lg bg-slate-50 p-4 md:col-span-2">
-            <div className="mb-1 flex items-center gap-2 text-sm text-slate-500">
-              <CreditCard size={16} />
-              Tài khoản ngân hàng
-            </div>
-
-            <p className="font-medium text-slate-800">
-              {branchInfo.BankAccount || "Chưa cập nhật"}
-            </p>
-          </div>
         </div>
       </div>
 
@@ -505,14 +483,10 @@ const ManagerBranchInfo = () => {
           </button>
         </div>
 
-        <div className="mb-5 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setSelectedDate(changeDate(selectedDate, -1))}
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50"
-          >
-            Hôm trước
-          </button>
+        <div className="mb-5">
+          <label className="mb-1 block text-sm font-medium text-slate-600">
+            Chọn ngày xem lịch
+          </label>
 
           <input
             type="date"
@@ -520,14 +494,6 @@ const ManagerBranchInfo = () => {
             onChange={(e) => setSelectedDate(e.target.value)}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
-
-          <button
-            type="button"
-            onClick={() => setSelectedDate(changeDate(selectedDate, 1))}
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50"
-          >
-            Hôm sau
-          </button>
         </div>
 
         <div className="mb-5 grid gap-4 md:grid-cols-3">
