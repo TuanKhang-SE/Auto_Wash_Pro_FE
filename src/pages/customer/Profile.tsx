@@ -1,23 +1,45 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../../components/Navbar";
 import axiosClient from "../../api/axiosClient";
 import avatarImg from "../../assets/avatar.png";
 
+type Vehicle = {
+  VehicleID: number;
+  LicensePlate: string;
+  VehicleType?: string | null;
+  Brand?: string | null;
+  Model?: string | null;
+  Color?: string | null;
+  Status?: string | null;
+};
+
 function Profile() {
   const navigate = useNavigate();
 
+  // Thông tin đang hiển thị trên màn hình
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
-  const [vehicles, setVehicles] = useState<any[]>([]);
+  // Thông tin trong form chỉnh sửa
+  const [editFullName, setEditFullName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+
+  // false = đang xem, true = đang chỉnh sửa
+  const [isEditing, setIsEditing] = useState(false);
+
+  // false = chưa lưu, true = đang gọi API lưu
+  const [saving, setSaving] = useState(false);
+
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
 
   const [totalVisits, setTotalVisits] = useState(0);
   const [totalSpent, setTotalSpent] = useState(0);
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
     async function loadProfile() {
@@ -36,15 +58,19 @@ function Profile() {
         });
 
         const data = res.data.data;
+        const user = data.Users || {};
 
-        setFullName(data.Users.FullName);
-        setEmail(data.Users.Email);
-        setPhone(data.Users.Phone || "Chưa cập nhật");
+        setFullName(user.FullName || "");
+        setEmail(user.Email || "");
+        setPhone(user.Phone || "");
+
+        setEditFullName(user.FullName || "");
+        setEditPhone(user.Phone || "");
 
         setVehicles(data.Vehicles || []);
 
         setTotalVisits(data.TotalVisits || 0);
-        setTotalSpent(data.TotalSpent || 0);
+        setTotalSpent(Number(data.TotalSpent || 0));
       } catch (error: any) {
         console.log(error.response?.data || error);
 
@@ -61,6 +87,111 @@ function Profile() {
 
   function formatMoney(value: number) {
     return value.toLocaleString("vi-VN") + "đ";
+  }
+
+  function handleStartEdit() {
+    setMessage("");
+    setSuccessMessage("");
+
+    setEditFullName(fullName);
+    setEditPhone(phone);
+
+    setIsEditing(true);
+  }
+
+  function handleCancelEdit() {
+    setMessage("");
+    setSuccessMessage("");
+
+    setEditFullName(fullName);
+    setEditPhone(phone);
+
+    setIsEditing(false);
+  }
+
+  async function handleUpdateProfile(e: FormEvent) {
+    e.preventDefault();
+
+    setMessage("");
+    setSuccessMessage("");
+
+    const trimmedName = editFullName.trim();
+    const trimmedPhone = editPhone.trim();
+
+    if (!trimmedName) {
+      setMessage("Họ và tên không được để trống");
+      return;
+    }
+
+    if (!trimmedPhone) {
+      setMessage("Số điện thoại không được để trống");
+      return;
+    }
+
+    if (trimmedPhone.length < 10) {
+      setMessage("Số điện thoại phải có ít nhất 10 số");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+
+      setSaving(true);
+
+      const res = await axiosClient.put(
+        "/api/customers/profile",
+        {
+          FullName: trimmedName,
+          Phone: trimmedPhone,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const updatedUser = res.data.data;
+
+      setFullName(updatedUser.FullName || trimmedName);
+      setPhone(updatedUser.Phone || trimmedPhone);
+
+      setEditFullName(updatedUser.FullName || trimmedName);
+      setEditPhone(updatedUser.Phone || trimmedPhone);
+
+      const oldUserString = localStorage.getItem("user");
+
+      if (oldUserString) {
+        const oldUser = JSON.parse(oldUserString);
+
+        localStorage.setItem(
+          "user",
+          JSON.stringify({
+            ...oldUser,
+            fullName: updatedUser.FullName || trimmedName,
+            phone: updatedUser.Phone || trimmedPhone,
+            FullName: updatedUser.FullName || trimmedName,
+            Phone: updatedUser.Phone || trimmedPhone,
+          })
+        );
+      }
+
+      setSuccessMessage("Cập nhật thông tin tài khoản thành công");
+      setIsEditing(false);
+    } catch (error: any) {
+      console.log(error.response?.data || error);
+
+      setMessage(
+        error.response?.data?.message || "Cập nhật thông tin tài khoản thất bại"
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (loading) {
@@ -93,6 +224,12 @@ function Profile() {
             </p>
           )}
 
+          {successMessage && (
+            <p className="mb-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+              {successMessage}
+            </p>
+          )}
+
           <div className="grid gap-6 lg:grid-cols-3">
             <section className="rounded-2xl bg-white p-6 shadow">
               <div className="flex flex-col items-center text-center">
@@ -117,39 +254,123 @@ function Profile() {
             </section>
 
             <section className="rounded-2xl bg-white p-6 shadow lg:col-span-2">
-              <h2 className="mb-6 text-xl font-bold text-slate-800">
-                Thông tin tài khoản
-              </h2>
+              <div className="mb-6 flex items-center justify-between gap-4">
+                <h2 className="text-xl font-bold text-slate-800">
+                  Thông tin tài khoản
+                </h2>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-xl border border-gray-100 p-4">
-                  <p className="text-sm text-slate-500">Họ và tên</p>
-                  <p className="mt-1 font-semibold text-slate-800">
-                    {fullName || "Chưa cập nhật"}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-gray-100 p-4">
-                  <p className="text-sm text-slate-500">Email</p>
-                  <p className="mt-1 font-semibold text-slate-800">
-                    {email || "Chưa cập nhật"}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-gray-100 p-4">
-                  <p className="text-sm text-slate-500">Số điện thoại</p>
-                  <p className="mt-1 font-semibold text-slate-800">
-                    {phone || "Chưa cập nhật"}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-gray-100 p-4">
-                  <p className="text-sm text-slate-500">Vai trò</p>
-                  <p className="mt-1 font-semibold text-slate-800">
-                    Customer
-                  </p>
-                </div>
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={handleStartEdit}
+                    className="rounded-lg bg-sky-600 px-4 py-2 font-semibold text-white transition hover:bg-sky-700"
+                  >
+                    Chỉnh sửa
+                  </button>
+                )}
               </div>
+
+              {isEditing ? (
+                <form onSubmit={handleUpdateProfile} className="space-y-4">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-600">
+                      Họ và tên
+                    </label>
+
+                    <input
+                      type="text"
+                      value={editFullName}
+                      onChange={(e) => setEditFullName(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                      placeholder="Nhập họ và tên"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-600">
+                      Email
+                    </label>
+
+                    <input
+                      type="email"
+                      value={email}
+                      disabled
+                      className="w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-100 px-4 py-2 text-slate-500"
+                    />
+
+                    <p className="mt-1 text-xs text-slate-400">
+                      Liên hệ quản trị viên để đổi email.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-600">
+                      Số điện thoại
+                    </label>
+
+                    <input
+                      type="tel"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                      placeholder="Nhập số điện thoại"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      disabled={saving}
+                      className="rounded-lg border border-gray-300 px-4 py-2 font-semibold text-slate-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Hủy
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="rounded-lg bg-sky-600 px-4 py-2 font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400"
+                    >
+                      {saving ? "Đang lưu..." : "Lưu thay đổi"}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-xl border border-gray-100 p-4">
+                    <p className="text-sm text-slate-500">Họ và tên</p>
+
+                    <p className="mt-1 font-semibold text-slate-800">
+                      {fullName || "Chưa cập nhật"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-100 p-4">
+                    <p className="text-sm text-slate-500">Email</p>
+
+                    <p className="mt-1 font-semibold text-slate-800">
+                      {email || "Chưa cập nhật"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-100 p-4">
+                    <p className="text-sm text-slate-500">Số điện thoại</p>
+
+                    <p className="mt-1 font-semibold text-slate-800">
+                      {phone || "Chưa cập nhật"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-100 p-4">
+                    <p className="text-sm text-slate-500">Vai trò</p>
+
+                    <p className="mt-1 font-semibold text-slate-800">
+                      Customer
+                    </p>
+                  </div>
+                </div>
+              )}
             </section>
           </div>
 
@@ -161,6 +382,7 @@ function Profile() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-xl bg-sky-50 p-5">
                 <p className="text-sm text-slate-500">Tổng lượt sử dụng</p>
+
                 <p className="mt-2 text-3xl font-bold text-sky-700">
                   {totalVisits}
                 </p>
@@ -168,6 +390,7 @@ function Profile() {
 
               <div className="rounded-xl bg-green-50 p-5">
                 <p className="text-sm text-slate-500">Tổng chi tiêu</p>
+
                 <p className="mt-2 text-3xl font-bold text-green-700">
                   {formatMoney(totalSpent)}
                 </p>
