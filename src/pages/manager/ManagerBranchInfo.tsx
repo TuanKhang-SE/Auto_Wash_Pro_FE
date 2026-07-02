@@ -11,7 +11,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
-import axiosClient, { getErrorMessage } from "../../api/axiosClient";
+import axiosClient from "../../api/axiosClient";
 
 interface BranchInfo {
   BranchID: number;
@@ -20,7 +20,6 @@ interface BranchInfo {
   Phone: string | null;
   OpenTime: string | null;
   CloseTime: string | null;
-  BankAccount: string | null;
   Status: string | null;
 }
 
@@ -73,6 +72,19 @@ const getAuthHeader = () => {
   };
 };
 
+const getErrorMessage = (error: unknown) => {
+  const err = error as {
+    response?: {
+      data?: {
+        message?: string;
+      };
+    };
+    message?: string;
+  };
+
+  return err.response?.data?.message || err.message || "Có lỗi xảy ra.";
+};
+
 const getBranchIdFromLocalStorage = () => {
   const userText = localStorage.getItem("user");
 
@@ -118,6 +130,18 @@ const formatTime = (value: string | null) => {
   }
 
   return value.slice(0, 5);
+};
+
+const getTimeNumber = (value: string | null) => {
+  const timeText = formatTime(value);
+
+  if (timeText === "Chưa có") {
+    return 0;
+  }
+
+  const [hour, minute] = timeText.split(":").map(Number);
+
+  return hour * 60 + minute;
 };
 
 const formatDate = (dateText: string) => {
@@ -245,6 +269,38 @@ const ManagerBranchInfo = () => {
     }
   };
 
+  const getBranchOpenTime = () => {
+    if (branchInfo?.OpenTime) {
+      return formatTime(branchInfo.OpenTime);
+    }
+
+    if (shiftList.length === 0) {
+      return "Chưa có";
+    }
+
+    const sortedShifts = [...shiftList].sort((a, b) => {
+      return getTimeNumber(a.StartTime) - getTimeNumber(b.StartTime);
+    });
+
+    return formatTime(sortedShifts[0].StartTime);
+  };
+
+  const getBranchCloseTime = () => {
+    if (branchInfo?.CloseTime) {
+      return formatTime(branchInfo.CloseTime);
+    }
+
+    if (shiftList.length === 0) {
+      return "Chưa có";
+    }
+
+    const sortedShifts = [...shiftList].sort((a, b) => {
+      return getTimeNumber(b.EndTime) - getTimeNumber(a.EndTime);
+    });
+
+    return formatTime(sortedShifts[0].EndTime);
+  };
+
   const getSchedulesOfShift = (shiftId: number) => {
     return scheduleList.filter((schedule) => {
       const isSameShift = schedule.ShiftID === shiftId;
@@ -310,6 +366,8 @@ const ManagerBranchInfo = () => {
         }));
 
         await loadSchedules();
+      } else {
+        setError(response.data?.message || "Xếp ca thất bại.");
       }
     } catch (err) {
       console.error(err);
@@ -340,6 +398,8 @@ const ManagerBranchInfo = () => {
       if (response.data?.success) {
         setSuccess("Xóa lịch thành công.");
         await loadSchedules();
+      } else {
+        setError(response.data?.message || "Xóa lịch thất bại.");
       }
     } catch (err) {
       console.error(err);
@@ -437,9 +497,7 @@ const ManagerBranchInfo = () => {
               Giờ mở cửa
             </div>
 
-            <p className="font-medium text-slate-800">
-              {formatTime(branchInfo.OpenTime)}
-            </p>
+            <p className="font-medium text-slate-800">{getBranchOpenTime()}</p>
           </div>
 
           <div className="rounded-lg bg-slate-50 p-4">
@@ -448,9 +506,7 @@ const ManagerBranchInfo = () => {
               Giờ đóng cửa
             </div>
 
-            <p className="font-medium text-slate-800">
-              {formatTime(branchInfo.CloseTime)}
-            </p>
+            <p className="font-medium text-slate-800">{getBranchCloseTime()}</p>
           </div>
         </div>
       </div>
