@@ -16,11 +16,16 @@ import {
   Check,
   Edit,
   Trash2,
+  Settings,
 } from "lucide-react";
 import branchService, {
   type CreateBranchPayload,
   type UpdateBranchPayload,
 } from "../../services/branchService";
+import branchConfigService, {
+  type BranchConfig,
+  type UpsertBranchConfigPayload,
+} from "../../services/branchConfigService";
 import userService, { type User } from "../../services/userService";
 import { getErrorMessage } from "../../api/axiosClient";
 
@@ -55,6 +60,33 @@ interface CreateBranchForm {
 // Form chỉnh sửa chi nhánh có cùng cấu trúc với form tạo
 type EditBranchForm = CreateBranchForm;
 
+// Cấu hình chi nhánh đang nhập trong form tạo/sửa (model cột cố định của BE).
+// Tất cả các trường optional, dùng string rỗng để người dùng chưa nhập.
+// (Đã bỏ MaxCarsPerBooking khỏi UI.)
+interface BranchConfigDraft {
+  SlotDuration: string;
+  TotalWashBays: string;
+  BufferMinutes: string;
+  CancelWindowHours: string;
+}
+
+const emptyConfigRow: BranchConfigDraft = {
+  SlotDuration: "",
+  TotalWashBays: "",
+  BufferMinutes: "",
+  CancelWindowHours: "",
+};
+
+// Map từ BranchConfig (BE trả về) sang BranchConfigDraft (form FE) –
+// null từ DB chuyển thành chuỗi rỗng để hiển thị trong <input>.
+const branchConfigToDraft = (cfg: BranchConfig | null): BranchConfigDraft => ({
+  SlotDuration: cfg?.SlotDuration != null ? String(cfg.SlotDuration) : "",
+  TotalWashBays: cfg?.TotalWashBays != null ? String(cfg.TotalWashBays) : "",
+  BufferMinutes: cfg?.BufferMinutes != null ? String(cfg.BufferMinutes) : "",
+  CancelWindowHours:
+    cfg?.CancelWindowHours != null ? String(cfg.CancelWindowHours) : "",
+});
+
 // Parse giờ mở/đóng cửa từ chuỗi ISO (vd: "2024-01-01T07:00:00.000Z")
 // hoặc chuỗi "HH:mm" về định dạng "HH:mm" hiển thị; trả về "—" nếu không hợp lệ
 const parseTime = (value: string | null | undefined): string => {
@@ -84,12 +116,21 @@ const AdminBranches = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createForm, setCreateForm] = useState<CreateBranchForm>(emptyForm);
+  const [createConfig, setCreateConfig] = useState<BranchConfigDraft>({
+    ...emptyConfigRow,
+  });
+  const [createConfigError, setCreateConfigError] = useState("");
   const [createError, setCreateError] = useState("");
   const [createSuccess, setCreateSuccess] = useState("");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [editingBranch, setEditingBranch] = useState<BranchDetail | null>(null);
   const [editForm, setEditForm] = useState<EditBranchForm>(emptyForm);
+  const [editConfig, setEditConfig] = useState<BranchConfigDraft>({
+    ...emptyConfigRow,
+  });
+  const [isLoadingEditConfig, setIsLoadingEditConfig] = useState(false);
+  const [editConfigError, setEditConfigError] = useState("");
   const [editError, setEditError] = useState("");
   const [editSuccess, setEditSuccess] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -179,6 +220,32 @@ const AdminBranches = () => {
     setCreateError("");
   };
 
+  // Cập nhật state createConfig khi người dùng nhập từng ô cấu hình (form tạo).
+  // Tất cả 4 trường (SlotDuration, TotalWashBays, BufferMinutes,
+  // CancelWindowHours) đều optional; nếu để trống thì BE sẽ không cập nhật trường đó.
+  const handleCreateConfigChange = (
+    field: keyof BranchConfigDraft,
+    value: string
+  ) => {
+    setCreateConfig((prev) => ({ ...prev, [field]: value }));
+    setCreateConfigError("");
+  };
+
+  // Cập nhật state editConfig khi người dùng nhập từng ô cấu hình (form sửa).
+  const handleEditConfigChange = (
+    field: keyof BranchConfigDraft,
+    value: string
+  ) => {
+    setEditConfig((prev) => ({ ...prev, [field]: value }));
+    setEditConfigError("");
+  };
+
+  // Reset form cấu hình trong modal tạo về trống
+  const resetCreateConfig = () => setCreateConfig({ ...emptyConfigRow });
+
+  // Reset form cấu hình trong modal sửa về trống
+  const resetEditConfig = () => setEditConfig({ ...emptyConfigRow });
+
   // Kiểm tra hợp lệ form tạo chi nhánh trước khi gửi API: tên chi nhánh
   // bắt buộc, SĐT đúng format (9-11 chữ số) nếu có, giờ đóng cửa phải
   // sau giờ mở cửa để đảm bảo khoảng thời gian hoạt động hợp lệ
@@ -200,15 +267,96 @@ const AdminBranches = () => {
     return true;
   };
 
-  // Gọi API tạo mới một chi nhánh trên backend với các thông tin:
-  // tên, địa chỉ, SĐT, giờ mở/đóng cửa, tài khoản ngân hàng và trạng thái
+// Chuyển BranchConfigDraft (form string) sang UpsertBranchConfigPayload
+  // (số nguyên, bỏ qua các trường rỗng). BE validate bằng zod, các trường
+  // optional chỉ cần là số nguyên ≥ 0.
+  const buildConfigPayload = (
+    draft: BranchConfigDraft,
+    branchID: number
+  ): UpsertBranchConfigPayload | null => {
+    const payload: UpsertBranchConfigPayload = { BranchID: branchID };
+    let hasAny = false;
+    const fields: Array<keyof BranchConfigDraft> = [
+      "SlotDuration",
+      "TotalWashBays",
+      "BufferMinutes",
+      "CancelWindowHours",
+    ];
+    for (const f of fields) {
+      const raw = draft[f].trim();
+      if (raw === "") continue;
+      const num = Number(raw);
+      if (!Number.isFinite(num) || num < 0 || !Number.isInteger(num)) {
+        // Trả về null và báo lỗi ở caller; field name dùng để hiển thị
+        return null;
+      }
+      (payload as any)[f] = num;
+      hasAny = true;
+    }
+    return hasAny ? payload : null;
+  };
+
+  // Trả về tên trường tiếng Việt nếu draft chứa giá trị không hợp lệ
+  const findInvalidConfigField = (
+    draft: BranchConfigDraft
+  ): string | null => {
+    const labels: Record<keyof BranchConfigDraft, string> = {
+      SlotDuration: "Thời lượng slot (phút)",
+      TotalWashBays: "Tổng số ô rửa",
+      BufferMinutes: "Thời gian đệm (phút)",
+      CancelWindowHours: "Thời hạn hủy (giờ)",
+    };
+    for (const f of Object.keys(labels) as Array<keyof BranchConfigDraft>) {
+      const raw = draft[f].trim();
+      if (raw === "") continue;
+      const num = Number(raw);
+      if (
+        !Number.isFinite(num) ||
+        !Number.isInteger(num) ||
+        num < 0
+      ) {
+        return labels[f];
+      }
+    }
+    return null;
+  };
+
+  // Validate cấu hình trong form tạo chi nhánh
+  const validateCreateConfig = (): boolean => {
+    const bad = findInvalidConfigField(createConfig);
+    if (bad) {
+      setCreateConfigError(
+        `Giá trị "${bad}" phải là số nguyên ≥ 0 (hoặc để trống)`
+      );
+      return false;
+    }
+    return true;
+  };
+
+  // Validate cấu hình trong form sửa chi nhánh
+  const validateEditConfig = (): boolean => {
+    const bad = findInvalidConfigField(editConfig);
+    if (bad) {
+      setEditConfigError(
+        `Giá trị "${bad}" phải là số nguyên ≥ 0 (hoặc để trống)`
+      );
+      return false;
+    }
+    return true;
+  };
+
+  // Tạo chi nhánh mới trên backend, sau đó lưu cấu hình (BranchConfig) của
+  // chi nhánh đó (nếu người dùng đã nhập ít nhất 1 trường). Nếu tạo chi nhánh
+  // thành công nhưng lưu config lỗi, vẫn giữ chi nhánh và hiển thị cảnh báo.
   const handleCreateBranch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateCreateForm()) return;
+    if (!validateCreateConfig()) return;
 
     setIsCreating(true);
     setCreateError("");
     setCreateSuccess("");
+    setCreateConfigError("");
 
     try {
       const payload: CreateBranchPayload = {
@@ -221,13 +369,35 @@ const AdminBranches = () => {
       if (createForm.OpenTime) payload.OpenTime = createForm.OpenTime;
       if (createForm.CloseTime) payload.CloseTime = createForm.CloseTime;
 
-      await branchService.createBranch(payload); // POST /api/branches tạo chi nhánh mới 
+      const newBranch = await branchService.createBranch(payload); // POST /api/branches tạo chi nhánh mới
+
+      // Chỉ gọi API lưu config khi có ít nhất 1 trường được nhập
+      const cfgPayload = buildConfigPayload(
+        createConfig,
+        newBranch.BranchID
+      );
+      if (cfgPayload) {
+        try {
+          await branchConfigService.upsertBranchConfig(cfgPayload); // POST /api/branch-configs upsert cấu hình
+        } catch (cfgErr) {
+          console.error(
+            "[AdminBranches] Lưu cấu hình chi nhánh thất bại:",
+            cfgPayload,
+            cfgErr
+          );
+          setCreateConfigError(
+            "Chi nhánh đã tạo nhưng lưu cấu hình thất bại, bạn có thể bổ sung sau trong mục Sửa."
+          );
+        }
+      }
 
       setCreateSuccess("Tạo chi nhánh thành công!");
       setTimeout(() => {
         setIsCreateModalOpen(false);
         setCreateForm(emptyForm);
+        resetCreateConfig();
         setCreateSuccess("");
+        setCreateConfigError("");
         fetchData();
       }, 1500);
     } catch (err) {
@@ -237,10 +407,12 @@ const AdminBranches = () => {
     }
   };
 
-  // Mở modal chỉnh sửa chi nhánh: lưu chi nhánh đang sửa vào state editingBranch,
+// Mở modal chỉnh sửa chi nhánh: lưu chi nhánh đang sửa vào state editingBranch,
   // đổ dữ liệu hiện tại vào editForm (chuyển giờ về "HH:mm" nếu parseTime trả "—"
-  // thì giữ nguyên giá trị cũ trong form trống) và reset thông báo cũ
-  const openEditModal = (branch: BranchDetail) => {
+  // thì giữ nguyên giá trị cũ trong form trống) và reset thông báo cũ.
+  // Đồng thời tải cấu hình (BranchConfigs) của chi nhánh đó qua
+  // GET /api/branch-configs?BranchID=X để chỉnh sửa inline.
+  const openEditModal = async (branch: BranchDetail) => {
     setEditingBranch(branch);
     setEditForm({
       BranchName: branch.branchName,
@@ -253,7 +425,35 @@ const AdminBranches = () => {
     });
     setEditError("");
     setEditSuccess("");
+    setEditConfigError("");
+    setEditConfig({ ...emptyConfigRow });
     setIsEditModalOpen(true);
+
+    setIsLoadingEditConfig(true);
+    try {
+      const cfg = await branchConfigService.getBranchConfigByBranch(
+        branch.branchID
+      ); // GET /api/branch-configs?BranchID=X
+      setEditConfig(branchConfigToDraft(cfg));
+    } catch (err) {
+      console.error(
+        "[AdminBranches] Không tải được cấu hình chi nhánh:",
+        err
+      );
+      // Hiển thị message thật từ BE (vd: "Table 'branch_configs' doesn't exist")
+      // để dev/admin biết nguyên nhân; form cấu hình vẫn hiển thị rỗng để user
+      // có thể nhập lại và thử POST upsert.
+      const beMessage =
+        (err as any)?.response?.data?.message ||
+        (err as any)?.message ||
+        "Lỗi không xác định";
+      setEditConfigError(
+        `Không tải được cấu hình chi nhánh: ${beMessage} (vẫn có thể nhập và lưu lại)`
+      );
+      setEditConfig({ ...emptyConfigRow });
+    } finally {
+      setIsLoadingEditConfig(false);
+    }
   };
 
   // Cập nhật state editForm khi người dùng nhập liệu trong form chỉnh sửa chi nhánh
@@ -288,18 +488,22 @@ const AdminBranches = () => {
   };
 
   // Gọi API cập nhật thông tin chi nhánh (tên, địa chỉ, SĐT, giờ mở/đóng,
-  // tài khoản ngân hàng, trạng thái) theo BranchID của chi nhánh đang sửa
-  const handleUpdateBranch = async (e: React.FormEvent) => { // PUT /api/branches/:id cập nhật thông tin chi nhánh
+  // tài khoản ngân hàng, trạng thái) theo BranchID của chi nhánh đang sửa.
+  // Sau đó upsert cấu hình (BranchConfig) của chi nhánh nếu người dùng đã
+  // nhập ít nhất 1 trường.
+  const handleUpdateBranch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingBranch) return;
     if (!validateEditForm()) return;
+    if (!validateEditConfig()) return;
 
     setIsUpdating(true);
     setEditError("");
     setEditSuccess("");
+    setEditConfigError("");
 
     try {
-      const payload: UpdateBranchPayload = { // PUT /api/branches/:id cập nhật thông tin chi nhánh
+      const payload: UpdateBranchPayload = {
         BranchName: editForm.BranchName.trim(),
         Status: editForm.Status,
       };
@@ -311,12 +515,37 @@ const AdminBranches = () => {
       payload.OpenTime = editForm.OpenTime ? editForm.OpenTime : null;
       payload.CloseTime = editForm.CloseTime ? editForm.CloseTime : null;
 
-      await branchService.updateBranch(editingBranch.branchID, payload); 
+      await branchService.updateBranch(editingBranch.branchID, payload); // PUT /api/branches/:id
 
-      setEditSuccess("Cập nhật chi nhánh thành công!");
+      // Upsert cấu hình chi nhánh (chỉ gọi khi có ít nhất 1 trường được nhập)
+      const cfgPayload = buildConfigPayload(
+        editConfig,
+        editingBranch.branchID
+      );
+      let configFailed = false;
+      if (cfgPayload) {
+        try {
+          await branchConfigService.upsertBranchConfig(cfgPayload); // POST /api/branch-configs
+        } catch (cfgErr) {
+          configFailed = true;
+          console.error(
+            "[AdminBranches] Lưu cấu hình chi nhánh thất bại:",
+            cfgPayload,
+            cfgErr
+          );
+        }
+      }
+
+      setEditSuccess(
+        configFailed
+          ? "Cập nhật chi nhánh thành công! (cấu hình chưa lưu được)"
+          : "Cập nhật chi nhánh thành công!"
+      );
       setTimeout(() => {
         setIsEditModalOpen(false);
         setEditingBranch(null);
+        resetEditConfig();
+        setEditConfigError("");
         setEditSuccess("");
         fetchData();
       }, 1500);
@@ -378,7 +607,9 @@ const AdminBranches = () => {
           <button
             onClick={() => {
               setCreateForm(emptyForm);
+              setCreateConfig({ ...emptyConfigRow });
               setCreateError("");
+              setCreateConfigError("");
               setCreateSuccess("");
               setIsCreateModalOpen(true);
             }}
@@ -776,7 +1007,11 @@ const AdminBranches = () => {
                 </div>
               </div>
               <button
-                onClick={() => setIsCreateModalOpen(false)}
+                onClick={() => {
+                  setIsCreateModalOpen(false);
+                  setCreateConfig({ ...emptyConfigRow });
+                  setCreateConfigError("");
+                }}
                 className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
               >
                 <X size={20} />
@@ -898,10 +1133,112 @@ const AdminBranches = () => {
                 </select>
               </div>
 
+              {/* Branch Config (Cấu hình chi nhánh) */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Settings size={16} className="text-slate-500" />
+                  <h3 className="text-sm font-semibold text-slate-700">
+                    Cấu hình chi nhánh (tùy chọn)
+                  </h3>
+                </div>
+
+                {createConfigError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-600">
+                    {createConfigError}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-600">
+                      Thời lượng slot (phút)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={createConfig.SlotDuration}
+                      onChange={(e) =>
+                        handleCreateConfigChange(
+                          "SlotDuration",
+                          e.target.value
+                        )
+                      }
+                      placeholder="VD: 30"
+                      className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-600">
+                      Tổng số ô rửa
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={createConfig.TotalWashBays}
+                      onChange={(e) =>
+                        handleCreateConfigChange(
+                          "TotalWashBays",
+                          e.target.value
+                        )
+                      }
+                      placeholder="VD: 8"
+                      className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-600">
+                      Thời gian đệm (phút)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={createConfig.BufferMinutes}
+                      onChange={(e) =>
+                        handleCreateConfigChange(
+                          "BufferMinutes",
+                          e.target.value
+                        )
+                      }
+                      placeholder="VD: 5"
+                      className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="mb-1 block text-xs font-medium text-slate-600">
+                      Thời hạn hủy (giờ trước giờ đặt)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={createConfig.CancelWindowHours}
+                      onChange={(e) =>
+                        handleCreateConfigChange(
+                          "CancelWindowHours",
+                          e.target.value
+                        )
+                      }
+                      placeholder="VD: 24"
+                      className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500 italic">
+                  Để trống các ô nếu không muốn thiết lập.
+                </p>
+              </div>
+
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
+                  onClick={() => {
+                    setIsCreateModalOpen(false);
+                    resetCreateConfig();
+                    setCreateConfigError("");
+                  }}
                   className="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
                 >
                   Hủy
@@ -945,7 +1282,11 @@ const AdminBranches = () => {
                 </div>
               </div>
               <button
-                onClick={() => setIsEditModalOpen(false)}
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditConfig({ ...emptyConfigRow });
+                  setEditConfigError("");
+                }}
                 className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
               >
                 <X size={20} />
@@ -1066,10 +1407,119 @@ const AdminBranches = () => {
                 </select>
               </div>
 
+              {/* Branch Config (Cấu hình chi nhánh) */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Settings size={16} className="text-slate-500" />
+                  <h3 className="text-sm font-semibold text-slate-700">
+                    Cấu hình chi nhánh
+                  </h3>
+                </div>
+
+                {editConfigError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-600">
+                    {editConfigError}
+                  </div>
+                )}
+
+                {isLoadingEditConfig ? (
+                  <div className="flex items-center justify-center py-4 text-xs text-slate-500">
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-rose-500 border-t-transparent"></div>
+                    Đang tải cấu hình...
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-slate-600">
+                        Thời lượng slot (phút)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={editConfig.SlotDuration}
+                        onChange={(e) =>
+                          handleEditConfigChange(
+                            "SlotDuration",
+                            e.target.value
+                          )
+                        }
+                        placeholder="VD: 30"
+                        className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-slate-600">
+                        Tổng số ô rửa
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={editConfig.TotalWashBays}
+                        onChange={(e) =>
+                          handleEditConfigChange(
+                            "TotalWashBays",
+                            e.target.value
+                          )
+                        }
+                        placeholder="VD: 8"
+                        className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-slate-600">
+                        Thời gian đệm (phút)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={editConfig.BufferMinutes}
+                        onChange={(e) =>
+                          handleEditConfigChange(
+                            "BufferMinutes",
+                            e.target.value
+                          )
+                        }
+                        placeholder="VD: 5"
+                        className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="mb-1 block text-xs font-medium text-slate-600">
+                        Thời hạn hủy (giờ trước giờ đặt)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={editConfig.CancelWindowHours}
+                        onChange={(e) =>
+                          handleEditConfigChange(
+                            "CancelWindowHours",
+                            e.target.value
+                          )
+                        }
+                        placeholder="VD: 24"
+                        className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                      />
+                    </div>
+                  </div>
+                )}
+                <p className="text-xs text-slate-500 italic">
+                  Để trống các ô nếu không muốn thay đổi.
+                </p>
+              </div>
+
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsEditModalOpen(false)}
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    resetEditConfig();
+                    setEditConfigError("");
+                  }}
                   className="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
                 >
                   Hủy
