@@ -50,6 +50,8 @@ type Slot = {
   Status: string;
 };
 
+const MAX_CARS_PER_SLOT = 4;
+
 function formatMoney(value: number | string | null | undefined) {
   return Number(value || 0).toLocaleString("vi-VN") + "đ";
 }
@@ -80,7 +82,7 @@ function Booking() {
   const [slots, setSlots] = useState<Slot[]>([]);
 
   const [branchId, setBranchId] = useState("");
-  const [vehicleId, setVehicleId] = useState("");
+  const [selectedVehicleIds, setSelectedVehicleIds] = useState<string[]>([]);
   const [serviceId, setServiceId] = useState("");
   const [bookingDate, setBookingDate] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -99,15 +101,18 @@ function Booking() {
     (branch) => branch.BranchID === Number(branchId)
   );
 
-  const selectedVehicle = vehicles.find(
-    (vehicle) => vehicle.VehicleID === Number(vehicleId)
+  const selectedVehicles = vehicles.filter((vehicle) =>
+    selectedVehicleIds.includes(String(vehicle.VehicleID))
   );
+
+  const selectedVehicleCount = selectedVehicles.length;
 
   const selectedService = services.find(
     (service) => service.ServiceID === Number(serviceId)
   );
 
   const servicePrice = Number(selectedService?.ActualPrice || 0);
+  const totalServicePrice = servicePrice * selectedVehicleCount;
 
   useEffect(() => {
     async function loadBookingData() {
@@ -216,6 +221,24 @@ function Booking() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function toggleVehicle(vehicleId: number) {
+    const value = String(vehicleId);
+
+    setStartTime("");
+
+    if (selectedVehicleIds.includes(value)) {
+      setSelectedVehicleIds((prev) => prev.filter((id) => id !== value));
+      return;
+    }
+
+    if (selectedVehicleIds.length >= MAX_CARS_PER_SLOT) {
+      showMessage(`Mỗi khung giờ chỉ được đặt tối đa ${MAX_CARS_PER_SLOT} xe`);
+      return;
+    }
+
+    setSelectedVehicleIds((prev) => [...prev, value]);
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
 
@@ -236,8 +259,13 @@ function Booking() {
       return;
     }
 
-    if (!vehicleId) {
-      showMessage("Vui lòng chọn xe");
+    if (selectedVehicleIds.length === 0) {
+      showMessage("Vui lòng chọn ít nhất 1 xe");
+      return;
+    }
+
+    if (selectedVehicleIds.length > MAX_CARS_PER_SLOT) {
+      showMessage(`Mỗi khung giờ chỉ được đặt tối đa ${MAX_CARS_PER_SLOT} xe`);
       return;
     }
 
@@ -256,6 +284,15 @@ function Booking() {
       return;
     }
 
+    const selectedSlot = slots.find((slot) => slot.StartTime === startTime);
+
+    if (selectedSlot && selectedSlot.Available < selectedVehicleIds.length) {
+      showMessage(
+        `Khung giờ này chỉ còn ${selectedSlot.Available} chỗ, không đủ cho ${selectedVehicleIds.length} xe`
+      );
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
@@ -270,16 +307,14 @@ function Booking() {
         BranchID: Number(branchId),
         BookingDate: bookingDate,
         StartTime: startTime,
-        Items: [
-          {
-            VehicleID: Number(vehicleId),
-            Services: [
-              {
-                ServiceID: Number(serviceId),
-              },
-            ],
-          },
-        ],
+        Items: selectedVehicleIds.map((id) => ({
+          VehicleID: Number(id),
+          Services: [
+            {
+              ServiceID: Number(serviceId),
+            },
+          ],
+        })),
       };
 
       const res = await axiosClient.post("/api/bookings", bookingPayload, {
@@ -288,6 +323,12 @@ function Booking() {
         },
       });
 
+      const vehicleNames = selectedVehicles.map(
+        (vehicle) =>
+          `${vehicle.LicensePlate} - ${vehicle.Brand || "Chưa cập nhật"} ${vehicle.Model || ""
+          }`
+      );
+
       navigate("/booking-success", {
         state: {
           booking: res.data.data,
@@ -295,15 +336,17 @@ function Booking() {
             customerName: fullName,
             phone,
             branchName: selectedBranch?.BranchName || "",
-            vehicleName: selectedVehicle
-              ? `${selectedVehicle.LicensePlate} - ${selectedVehicle.Brand || "Chưa cập nhật"
-              } ${selectedVehicle.Model || ""}`
-              : "",
+
+            vehicleName: vehicleNames.join(", "),
+            vehicleNames,
+            vehicleCount: selectedVehicles.length,
+
             serviceName: selectedService?.ServiceName || "",
             serviceDuration: selectedService?.DurationMinutes || 0,
             servicePrice,
             discountAmount: 0,
-            finalPrice: servicePrice,
+            finalPrice: totalServicePrice,
+
             bookingDate,
             startTime,
             note,
@@ -346,7 +389,7 @@ function Booking() {
             <h1 className="mt-3 text-3xl font-bold">Đặt lịch rửa xe</h1>
 
             <p className="mt-2 text-slate-300">
-              Chọn chi nhánh, xe, dịch vụ và khung giờ phù hợp.
+              Chọn chi nhánh, một hoặc nhiều xe, dịch vụ và khung giờ phù hợp.
             </p>
           </div>
         </section>
@@ -427,27 +470,6 @@ function Booking() {
 
               <div>
                 <label className="mb-2 block font-semibold text-slate-700">
-                  Xe <span className="text-red-500">*</span>
-                </label>
-
-                <select
-                  value={vehicleId}
-                  onChange={(e) => setVehicleId(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                >
-                  <option value="">Chọn xe</option>
-
-                  {vehicles.map((vehicle) => (
-                    <option key={vehicle.VehicleID} value={vehicle.VehicleID}>
-                      {vehicle.LicensePlate} -{" "}
-                      {vehicle.Brand || "Chưa cập nhật"} {vehicle.Model || ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-2 block font-semibold text-slate-700">
                   Ngày đặt lịch <span className="text-red-500">*</span>
                 </label>
 
@@ -463,7 +485,61 @@ function Booking() {
                 />
               </div>
 
-              <div>
+              <div className="md:col-span-2">
+                <label className="mb-2 block font-semibold text-slate-700">
+                  Xe <span className="text-red-500">*</span>
+                </label>
+
+                <div className="rounded-lg border border-gray-300 p-3">
+                  {vehicles.length === 0 ? (
+                    <p className="text-sm text-slate-500">
+                      Bạn chưa có xe nào. Vui lòng đăng ký xe trước.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {vehicles.map((vehicle) => {
+                        const value = String(vehicle.VehicleID);
+                        const checked = selectedVehicleIds.includes(value);
+                        const disabled =
+                          !checked &&
+                          selectedVehicleIds.length >= MAX_CARS_PER_SLOT;
+
+                        return (
+                          <label
+                            key={vehicle.VehicleID}
+                            className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm ${checked
+                                ? "border-sky-500 bg-sky-50 text-sky-700"
+                                : "border-gray-200 bg-white text-slate-700"
+                              } ${disabled ? "cursor-not-allowed opacity-50" : ""
+                              }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={disabled}
+                              onChange={() => toggleVehicle(vehicle.VehicleID)}
+                              className="h-4 w-4"
+                            />
+
+                            <span className="font-semibold">
+                              {vehicle.LicensePlate} -{" "}
+                              {vehicle.Brand || "Chưa cập nhật"}{" "}
+                              {vehicle.Model || ""}
+                            </span>
+                          </label>
+                        );
+                      })}
+
+                      <p className="text-xs text-slate-500">
+                        Đã chọn {selectedVehicleIds.length}/
+                        {MAX_CARS_PER_SLOT} xe
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
                 <label className="mb-2 block font-semibold text-slate-700">
                   Dịch vụ <span className="text-red-500">*</span>
                 </label>
@@ -511,28 +587,41 @@ function Booking() {
               </div>
             )}
 
-            {selectedVehicle && (
+            {selectedVehicles.length > 0 && (
               <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
-                <p>
-                  <span className="font-semibold">Xe đã chọn:</span>{" "}
-                  {selectedVehicle.LicensePlate}
+                <p className="font-semibold text-slate-700">
+                  Xe đã chọn: {selectedVehicles.length}/{MAX_CARS_PER_SLOT}
                 </p>
 
-                <p className="mt-1">
-                  <span className="font-semibold">Loại xe:</span>{" "}
-                  {selectedVehicle.VehicleType || "Chưa cập nhật"}
-                </p>
+                <div className="mt-3 space-y-2">
+                  {selectedVehicles.map((vehicle) => (
+                    <div
+                      key={vehicle.VehicleID}
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-2"
+                    >
+                      <p>
+                        <span className="font-semibold">Biển số:</span>{" "}
+                        {vehicle.LicensePlate}
+                      </p>
 
-                <p className="mt-1">
-                  <span className="font-semibold">Hãng / model:</span>{" "}
-                  {selectedVehicle.Brand || "Chưa cập nhật"}{" "}
-                  {selectedVehicle.Model || ""}
-                </p>
+                      <p className="mt-1">
+                        <span className="font-semibold">Loại xe:</span>{" "}
+                        {vehicle.VehicleType || "Chưa cập nhật"}
+                      </p>
 
-                <p className="mt-1">
-                  <span className="font-semibold">Màu xe:</span>{" "}
-                  {selectedVehicle.Color || "Chưa cập nhật"}
-                </p>
+                      <p className="mt-1">
+                        <span className="font-semibold">Hãng / model:</span>{" "}
+                        {vehicle.Brand || "Chưa cập nhật"}{" "}
+                        {vehicle.Model || ""}
+                      </p>
+
+                      <p className="mt-1">
+                        <span className="font-semibold">Màu xe:</span>{" "}
+                        {vehicle.Color || "Chưa cập nhật"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -555,7 +644,7 @@ function Booking() {
 
                 <p className="mt-1">
                   <span className="font-semibold">Giá:</span>{" "}
-                  {formatMoney(selectedService.ActualPrice)}
+                  {formatMoney(selectedService.ActualPrice)} / xe
                 </p>
               </div>
             )}
@@ -580,14 +669,13 @@ function Booking() {
               ) : (
                 <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-4">
                   {slots.map((slot) => {
-                    let isSelected = false;
-
-                    if (startTime === slot.StartTime) {
-                      isSelected = true;
-                    }
+                    const isSelected = startTime === slot.StartTime;
 
                     const isDisabled =
-                      slot.Available <= 0 || slot.Status !== "Available";
+                      slot.Available <= 0 ||
+                      slot.Status !== "Available" ||
+                      (selectedVehicleCount > 0 &&
+                        slot.Available < selectedVehicleCount);
 
                     return (
                       <button
@@ -606,6 +694,10 @@ function Booking() {
 
                         <div className="text-xs font-normal">
                           {slot.ShiftName} | Còn {slot.Available} chỗ
+                          {selectedVehicleCount > 0 &&
+                            slot.Available < selectedVehicleCount
+                            ? " | Không đủ chỗ"
+                            : ""}
                         </div>
                       </button>
                     );
@@ -675,9 +767,16 @@ function Booking() {
 
               <div>
                 <p className="text-slate-500">Xe</p>
-                <p className="font-semibold text-slate-800">
-                  {selectedVehicle?.LicensePlate || "Chưa chọn"}
-                </p>
+
+                {selectedVehicles.length === 0 ? (
+                  <p className="font-semibold text-slate-800">Chưa chọn</p>
+                ) : (
+                  <ul className="list-inside list-disc font-semibold text-slate-800">
+                    {selectedVehicles.map((vehicle) => (
+                      <li key={vehicle.VehicleID}>{vehicle.LicensePlate}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               <div>
@@ -698,7 +797,11 @@ function Booking() {
               <div className="border-t pt-4">
                 <p className="text-slate-500">Thanh toán dự kiến</p>
                 <p className="text-2xl font-bold text-sky-700">
-                  {formatMoney(servicePrice)}
+                  {formatMoney(totalServicePrice)}
+                </p>
+
+                <p className="mt-1 text-xs text-slate-500">
+                  {selectedVehicleCount || 0} xe x {formatMoney(servicePrice)}
                 </p>
               </div>
             </div>
