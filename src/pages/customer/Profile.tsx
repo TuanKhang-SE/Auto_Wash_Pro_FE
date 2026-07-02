@@ -299,7 +299,7 @@ function Profile() {
                     />
 
                     <p className="mt-1 text-xs text-slate-400">
-                      Email đang để chỉ xem vì BE hiện chưa có API đổi email.
+                      Liên hệ quản trị viên để đổi email.
                     </p>
                   </div>
 
