@@ -15,6 +15,8 @@ axiosClient.interceptors.request.use((config) => {
     url.includes("/api/users") ||
     url.includes("/api/customers") ||
     url.includes("/api/tier-configs") ||
+    url.includes("/api/services") ||
+    url.includes("/api/branch-services") ||
     url.includes("/api/dashboard") ||
     url.includes("/api/dashboard")
   ) {
@@ -33,7 +35,9 @@ axiosClient.interceptors.response.use(
       url.includes("/api/branches") ||
       url.includes("/api/users") ||
       url.includes("/api/customers") ||
-      url.includes("/api/tier-configs")
+      url.includes("/api/tier-configs") ||
+      url.includes("/api/services") ||
+      url.includes("/api/branch-services")
     ) {
       console.log("[axios] ←", response.status, url, {
         data: response.data,
@@ -47,13 +51,18 @@ axiosClient.interceptors.response.use(
       url.includes("/api/branches") ||
       url.includes("/api/users") ||
       url.includes("/api/customers") ||
-      url.includes("/api/tier-configs")
+      url.includes("/api/tier-configs") ||
+      url.includes("/api/services") ||
+      url.includes("/api/branch-services")
     ) {
       console.log(
         "[axios] ✕",
         error.response?.status,
         url,
-        error.response?.data
+        {
+          requestPayload: error.config?.data,
+          responseData: error.response?.data,
+        }
       );
     }
     return Promise.reject(error);
