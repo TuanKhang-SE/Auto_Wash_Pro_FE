@@ -68,8 +68,8 @@ const AdminCustomers = () => {
     setError(null);
     try {
       const [customerList, tiers] = await Promise.all([
-        customerService.getAllCustomers(),
-        tierConfigService.getAllTierConfigs(),
+        customerService.getAllCustomers(), // GET /api/users?Role=Customer lấy danh sách khách hàng
+        tierConfigService.getAllTierConfigs(), // GET /api/tier-configs lấy danh sách hạng thành viên
       ]);
 
       const tierMap = new Map<number, TierConfig>();
