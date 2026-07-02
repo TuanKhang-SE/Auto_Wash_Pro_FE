@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import HomePage from "../pages/HomePage";
@@ -63,7 +64,7 @@ function getCurrentRole() {
   return localStorage.getItem("userRole");
 }
 
-function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
+function PublicOnlyRoute({ children }: { children: ReactNode }) {
   const token = localStorage.getItem("token");
   const role = getCurrentRole();
 
@@ -127,6 +128,7 @@ const AppRoutes = () => {
           }
         >
           <Route index element={<StaffDashboard />} />
+          <Route path="bookings" element={<StaffBookings />} />
         </Route>
 
         {/* Manager */}
@@ -211,6 +213,7 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/customer/bookings"
           element={
@@ -228,6 +231,9 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+
+        {/* Nếu nhập URL không tồn tại */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
