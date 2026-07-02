@@ -24,7 +24,7 @@ export interface CustomerDetail {
 }
 
 const customerService = {
-  async getAllCustomers(): Promise<CustomerDetail[]> {
+  async getAllCustomers(): Promise<CustomerDetail[]> { // GET /api/users?Role=Customer lấy danh sách khách hàng
     const response = await axiosClient.get("/api/users", {
       headers: getAuthHeader(),
       params: { Role: "Customer" },
