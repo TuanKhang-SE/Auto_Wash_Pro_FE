@@ -124,14 +124,14 @@ function Profile() {
     }
 
     if (!trimmedPhone) {
-      setMessage("Số điện thoại không được để trống");
-      return;
-    }
+  setMessage("Số điện thoại không được để trống");
+  return;
+}
 
-    if (trimmedPhone.length < 10) {
-      setMessage("Số điện thoại phải có ít nhất 10 số");
-      return;
-    }
+if (!/^0\d{9}$/.test(trimmedPhone)) {
+  setMessage("Số điện thoại phải bắt đầu bằng 0 và có đúng 10 chữ số");
+  return;
+}
 
     try {
       const token = localStorage.getItem("token");
@@ -308,12 +308,17 @@ function Profile() {
                       Số điện thoại
                     </label>
 
-                    <input
+                    <input  
                       type="tel"
-                      value={editPhone}
-                      onChange={(e) => setEditPhone(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                      placeholder="Nhập số điện thoại"
+  inputMode="numeric"
+  maxLength={10}
+  value={editPhone}
+  onChange={(e) => {
+    const onlyNumbers = e.target.value.replace(/\D/g, "");
+    setEditPhone(onlyNumbers);
+  }}
+  className="w-full rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+  placeholder="Nhập số điện thoại"
                     />
                   </div>
 
