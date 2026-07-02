@@ -38,6 +38,7 @@ import MyVehicles from "../pages/customer/MyVehicles";
 import Booking from "../pages/customer/Booking";
 import BookingSuccess from "../pages/customer/BookingSuccess";
 import BookingHistory from "../pages/customer/BookingHistory";
+import StaffShiftHistory from "../pages/staff/StaffShiftHistory";
 
 import ProtectedRoute, { ManagerRoute, AdminRoute } from "./ProtectedRoute";
 
@@ -129,6 +130,7 @@ const AppRoutes = () => {
         >
           <Route index element={<StaffDashboard />} />
           <Route path="bookings" element={<StaffBookings />} />
+          <Route path="history" element={<StaffShiftHistory />} />
         </Route>
 
         {/* Manager */}
