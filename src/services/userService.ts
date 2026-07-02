@@ -73,7 +73,7 @@ const userService = {
     return null;
   },
 
-  async createUser(payload: CreateUserPayload): Promise<User> {
+  async createUser(payload: CreateUserPayload): Promise<User> { //POST /api/users - Tạo người dùng mới (AdminStaffManagement, ManagerStaffManagement)
     const response = await axiosClient.post("/api/users", payload, {
       headers: getAuthHeader(),
     });
@@ -83,7 +83,7 @@ const userService = {
     return response.data.data as User;
   },
 
-  async updateUser(id: number, payload: UpdateUserPayload): Promise<User> {
+  async updateUser(id: number, payload: UpdateUserPayload): Promise<User> {   //PUT /api/users/:id - Cập nhật thông tin người dùng (AdminStaffManagement, ManagerStaffManagement)
     const response = await axiosClient.put(`/api/users/${id}`, payload, {
       headers: getAuthHeader(),
     });
@@ -93,7 +93,7 @@ const userService = {
     return response.data.data as User;
   },
 
-  async deleteUser(id: number): Promise<void> {
+  async deleteUser(id: number): Promise<void> {    //DELETE /api/users/:id - Xóa người dùng (AdminStaffManagement, ManagerStaffManagement)
     const response = await axiosClient.delete(`/api/users/${id}`, {
       headers: getAuthHeader(),
     });
