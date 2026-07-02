@@ -33,7 +33,7 @@ interface AdminStats {
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState<AdminStats>({
-    totalBranches: 3,
+    totalBranches: 0,
     totalManagers: 0,
     totalStaff: 0,
     totalBookings: 0,
