@@ -1,9 +1,8 @@
 import React from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import ManagerSidebar from "../components/manager/ManagerSidebar";
 
 const ManagerLayout: React.FC = () => {
-  const navigate = useNavigate();
 
   const getUserFromStorage = () => {
     try {

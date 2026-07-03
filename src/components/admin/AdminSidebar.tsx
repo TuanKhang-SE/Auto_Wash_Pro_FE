@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Car, LogOut, Shield, User } from "lucide-react";
+import { LogOut, Shield, User } from "lucide-react";
 import { adminMenu } from "../../constants/adminMenu";
 
 const AdminSidebar: React.FC = () => {

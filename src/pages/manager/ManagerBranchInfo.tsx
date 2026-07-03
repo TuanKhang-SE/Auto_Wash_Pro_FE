@@ -245,29 +245,29 @@ const ManagerBranchInfo = () => {
   };
 
   const loadSchedules = async () => {
-    setIsScheduleLoading(true);
-    setError("");
+  setIsScheduleLoading(true);
+  setError("");
 
-    try {
-      const response = await axiosClient.get("/api/staff-schedules", {
-        params: {
-          from: selectedDate,
-          to: selectedDate,
-          Status: "Active",
-        },
-        headers: getAuthHeader(),
-      });
+  try {
+    const response = await axiosClient.get("/api/staff-schedules", {
+      params: {
+        Status: "Active",
+      },
+      headers: getAuthHeader(),
+    });
 
-      if (response.data?.success) {
-        setScheduleList(response.data.data);
-      }
-    } catch (err) {
-      console.error(err);
-      setError(getErrorMessage(err));
-    } finally {
-      setIsScheduleLoading(false);
+    if (response.data?.success) {
+      setScheduleList(response.data.data);
+    } else {
+      setError(response.data?.message || "Không tải được lịch làm việc.");
     }
-  };
+  } catch (err) {
+    console.error(err);
+    setError(getErrorMessage(err));
+  } finally {
+    setIsScheduleLoading(false);
+  }
+};
 
   const getBranchOpenTime = () => {
     if (branchInfo?.OpenTime) {

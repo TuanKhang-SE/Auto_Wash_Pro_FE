@@ -17,30 +17,46 @@ function BookingHistory() {
     loadBookings();
   }, []);
 
+  function getAuthHeader() {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      return null;
+    }
+
+    return {
+      Authorization: `Bearer ${token}`,
+    };
+  }
+
+  function getErrorMessage(error: any, defaultMessage: string) {
+    return error.response?.data?.message || defaultMessage;
+  }
+
   async function loadBookings() {
+    setLoading(true);
+    setMessage("");
+
     try {
-      setLoading(true);
-      setMessage("");
+      const headers = getAuthHeader();
 
-      const token = localStorage.getItem("token");
-
-      if (!token) {
+      if (!headers) {
         navigate("/login");
         return;
       }
 
-      const res = await axiosClient.get("/api/bookings/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await axiosClient.get("/api/bookings/me", {
+        headers,
       });
 
-      setBookings(res.data.data || []);
+      if (response.data?.success) {
+        setBookings(response.data.data || []);
+      } else {
+        setMessage(response.data?.message || "Không thể tải lịch sử đặt lịch");
+      }
     } catch (error: any) {
       console.log(error.response?.data || error);
-      setMessage(
-        error.response?.data?.message || "Không thể tải lịch sử đặt lịch"
-      );
+      setMessage(getErrorMessage(error, "Không thể tải lịch sử đặt lịch"));
     } finally {
       setLoading(false);
     }
@@ -53,54 +69,71 @@ function BookingHistory() {
       return;
     }
 
+    setMessage("");
+    setCancelingId(bookingId);
+
     try {
-      setMessage("");
-      setCancelingId(bookingId);
+      const headers = getAuthHeader();
 
-      const token = localStorage.getItem("token");
-
-      if (!token) {
+      if (!headers) {
         navigate("/login");
         return;
       }
 
-      await axiosClient.patch(
+      const response = await axiosClient.patch(
         `/api/bookings/${bookingId}/cancel`,
         {},
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers,
         }
       );
 
-      setBookings((oldBookings) =>
-        oldBookings.map((booking) =>
-          booking.BookingGroupID === bookingId
-            ? { ...booking, Status: "Cancelled" }
-            : booking
-        )
-      );
+      if (response.data?.success) {
+        setBookings((oldBookings) =>
+          oldBookings.map((booking) => {
+            if (booking.BookingGroupID === bookingId) {
+              return {
+                ...booking,
+                Status: "Cancelled",
+              };
+            }
 
-      setMessage("Hủy lịch thành công");
+            return booking;
+          })
+        );
+
+        setMessage("Hủy lịch thành công");
+      } else {
+        setMessage(response.data?.message || "Hủy lịch thất bại");
+      }
     } catch (error: any) {
       console.log(error.response?.data || error);
-      setMessage(error.response?.data?.message || "Hủy lịch thất bại");
+      setMessage(getErrorMessage(error, "Hủy lịch thất bại"));
     } finally {
       setCancelingId(null);
     }
   }
 
-  function formatDate(dateValue: string) {
-    if (!dateValue) return "Chưa cập nhật";
+  function formatDate(dateValue: string | null | undefined) {
+    if (!dateValue) {
+      return "Chưa cập nhật";
+    }
 
     return new Date(dateValue).toLocaleDateString("vi-VN");
   }
 
-  function formatTime(timeValue: string) {
-    if (!timeValue) return "Chưa cập nhật";
+  function formatTime(timeValue: string | null | undefined) {
+    if (!timeValue) {
+      return "Chưa cập nhật";
+    }
 
-    return timeValue.slice(0, 5);
+    const text = String(timeValue);
+
+    if (text.includes("T")) {
+      return text.slice(11, 16);
+    }
+
+    return text.slice(0, 5);
   }
 
   function getStatusText(status: string) {
@@ -128,6 +161,28 @@ function BookingHistory() {
     });
 
     return total.toLocaleString("vi-VN") + "đ";
+  }
+
+  function getServiceNames(booking: any) {
+    const serviceNames: string[] = [];
+
+    booking.BookingItems?.forEach((item: any) => {
+      item.ServiceLineItems?.forEach((line: any) => {
+        const serviceName = line.Services?.ServiceName;
+
+        if (!serviceName) {
+          return;
+        }
+
+        const isAlreadyAdded = serviceNames.includes(serviceName);
+
+        if (!isAlreadyAdded) {
+          serviceNames.push(serviceName);
+        }
+      });
+    });
+
+    return serviceNames;
   }
 
   const filteredBookings =
@@ -246,9 +301,11 @@ function BookingHistory() {
 
                     <div>
                       <p className="text-sm text-gray-500">Chi nhánh</p>
+
                       <p className="font-semibold text-gray-800">
                         {booking.branches?.BranchName || "Chưa cập nhật"}
                       </p>
+
                       <p className="text-sm text-gray-500">
                         {booking.branches?.Address || ""}
                       </p>
@@ -256,6 +313,7 @@ function BookingHistory() {
 
                     <div>
                       <p className="text-sm text-gray-500">Tổng tiền</p>
+
                       <p className="font-semibold text-blue-700">
                         {getTotalMoney(booking)}
                       </p>
@@ -286,17 +344,14 @@ function BookingHistory() {
                     <p className="mb-2 font-semibold text-gray-700">Dịch vụ</p>
 
                     <div className="flex flex-wrap gap-2">
-                      {booking.BookingItems?.map((item: any) =>
-                        item.ServiceLineItems?.map((line: any) => (
-                          <span
-                            key={line.ServiceLineItemID}
-                            className="rounded-full bg-sky-50 px-3 py-1 text-sm text-sky-700"
-                          >
-                            {line.Services?.ServiceName ||
-                              "Dịch vụ chưa cập nhật"}
-                          </span>
-                        ))
-                      )}
+                      {getServiceNames(booking).map((serviceName) => (
+                        <span
+                          key={serviceName}
+                          className="rounded-full bg-sky-50 px-3 py-1 text-sm text-sky-700"
+                        >
+                          {serviceName}
+                        </span>
+                      ))}
                     </div>
                   </div>
 
