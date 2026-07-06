@@ -1,189 +1,176 @@
-import { useEffect, useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
-import { Car, LogOut, Menu, User, X } from "lucide-react";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
-type UserInfo = {
-  FullName?: string;
-  fullName?: string;
-  Email?: string;
-  email?: string;
-  Role?: string;
-  role?: string;
-};
-
-function getUserFromStorage(): UserInfo | null {
-  try {
-    const userStr = localStorage.getItem("user");
-
-    if (userStr) {
-      return JSON.parse(userStr);
-    }
-  } catch (error) {
-    console.log(error);
-  }
-
-  return null;
-}
-
-function Navbar() {
+const Navbar = () => {
   const navigate = useNavigate();
-
-  const [user, setUser] = useState<UserInfo | null>(null);
-  const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    const storedUser = getUserFromStorage();
-    setUser(storedUser);
-  }, []);
+  const [showMenu, setShowMenu] = useState(false);
 
   const token = localStorage.getItem("token");
+  const userString = localStorage.getItem("user");
 
-  const displayName =
-    user?.FullName || user?.fullName || user?.Email || user?.email || "Guest";
+  let user = null;
 
-  const role = user?.Role || user?.role || localStorage.getItem("userRole");
+  if (token && userString) {
+    try {
+      user = JSON.parse(userString);
+    } catch {
+      user = null;
+    }
+  }
+
+  function closeMenu() {
+    setShowMenu(false);
+  }
 
   function handleLogout() {
+    closeMenu();
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("userRole");
-
     navigate("/login");
   }
 
-  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `font-semibold transition ${
-      isActive ? "text-sky-600" : "text-slate-700 hover:text-sky-600"
-    }`;
-
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
-      <div className="mx-auto flex h-24 max-w-7xl items-center justify-between px-6">
-        <Link to={token ? "/home" : "/"} className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-600 text-white shadow-lg shadow-sky-500/30">
-            <Car size={24} />
-          </div>
-
-          <span className="text-2xl font-black text-sky-600">
-            Auto Wash Pro
-          </span>
+    <nav className="sticky top-0 z-50 bg-white shadow-md">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <Link
+          to={user ? "/home" : "/"}
+          onClick={closeMenu}
+          className="text-2xl font-bold text-sky-600"
+        >
+          Auto Wash Pro
         </Link>
 
-        <nav className="hidden items-center gap-10 md:flex">
-          <NavLink to="/home" className={navLinkClass}>
-            Home
-          </NavLink>
+        <div className="flex items-center gap-8">
+          <Link
+            to={user ? "/home" : "/"}
+            onClick={closeMenu}
+            className="font-medium text-gray-700 hover:text-sky-600"
+          >
+            Trang chủ
+          </Link>
 
-          <NavLink to="/about" className={navLinkClass}>
-            About Auto Wash Pro
-          </NavLink>
+          <Link
+            to="/about"
+            onClick={closeMenu}
+            className="font-medium text-gray-700 hover:text-sky-600"
+          >
+            Về Auto Wash Pro
+          </Link>
 
-          <NavLink to="/booking" className={navLinkClass}>
-            Booking
-          </NavLink>
-        </nav>
-
-        <div className="hidden items-center gap-4 md:flex">
-          {token ? (
-            <>
-              <Link
-                to="/customer/profile"
-                className="rounded-xl border border-sky-200 bg-sky-50 px-5 py-3 transition hover:bg-sky-100"
-              >
-                <p className="font-bold text-slate-800">{displayName}</p>
-                <p className="text-xs font-semibold text-sky-600">
-                  Rank: {role === "Customer" ? "Member" : role || "Member"}
-                </p>
-              </Link>
-
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="flex items-center gap-2 rounded-xl border border-red-200 px-4 py-3 font-semibold text-red-500 transition hover:bg-red-50"
-              >
-                <LogOut size={18} />
-                Logout
-              </button>
-            </>
-          ) : (
-            <Link
-              to="/login"
-              className="rounded-xl bg-sky-600 px-6 py-3 font-bold text-white shadow-lg shadow-sky-500/30 transition hover:bg-sky-700"
-            >
-              Login
-            </Link>
-          )}
+          <Link
+            to="/booking"
+            onClick={closeMenu}
+            className="font-medium text-gray-700 hover:text-sky-600"
+          >
+            Đặt lịch
+          </Link>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsOpen((prev) => !prev)}
-          className="rounded-xl border border-slate-200 p-3 text-slate-700 md:hidden"
-        >
-          {isOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
-      </div>
-
-      {isOpen && (
-        <div className="border-t border-slate-200 bg-white px-6 py-5 md:hidden">
-          <nav className="flex flex-col gap-4">
-            <NavLink
-              to="/home"
-              onClick={() => setIsOpen(false)}
-              className={navLinkClass}
+        {user ? (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowMenu(!showMenu)}
+              className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 text-left transition hover:bg-sky-100"
             >
-              Home
-            </NavLink>
+              <p className="text-sm font-semibold text-slate-800">
+                {user.fullName || user.FullName || user.email || user.Email || "Người dùng"}
+              </p>
 
-            <NavLink
-              to="/about"
-              onClick={() => setIsOpen(false)}
-              className={navLinkClass}
-            >
-              About Auto Wash Pro
-            </NavLink>
+              <p className="text-xs text-sky-600">Hạng: Thành viên</p>
+            </button>
 
-            <NavLink
-              to="/booking"
-              onClick={() => setIsOpen(false)}
-              className={navLinkClass}
-            >
-              Booking
-            </NavLink>
+            {showMenu && (
+              <div className="absolute right-0 top-full z-50 mt-3 w-80 rounded-2xl border border-gray-100 bg-white p-3 shadow-2xl">
+                <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sky-200 text-lg font-bold text-sky-700">
+                    {(
+                      user.fullName ||
+                      user.FullName ||
+                      user.email ||
+                      user.Email ||
+                      "N"
+                    )
+                      .charAt(0)
+                      .toUpperCase()}
+                  </div>
 
-            {token ? (
-              <>
-                <NavLink
+                  <div>
+                    <p className="font-semibold text-slate-800">
+                      {user.fullName || user.FullName || "Người dùng"}
+                    </p>
+
+                    <p className="text-sm text-slate-500">
+                      {user.email || user.Email}
+                    </p>
+                  </div>
+                </div>
+
+                <hr className="my-2" />
+
+                <Link
                   to="/customer/profile"
-                  onClick={() => setIsOpen(false)}
-                  className={navLinkClass}
+                  onClick={closeMenu}
+                  className="block rounded-lg px-4 py-3 font-medium text-slate-700 hover:bg-gray-100"
                 >
-                  Profile
-                </NavLink>
+                  Thông tin cá nhân
+                </Link>
+
+                <Link
+                  to="/customer/bookings"
+                  onClick={closeMenu}
+                  className="block rounded-lg px-4 py-3 font-medium text-slate-700 hover:bg-gray-100"
+                >
+                  Lịch sử đặt lịch
+                </Link>
+
+                <Link
+                  to="/register-car"
+                  onClick={closeMenu}
+                  className="block rounded-lg px-4 py-3 font-medium text-slate-700 hover:bg-gray-100"
+                >
+                  Đăng ký xe
+                </Link>
+
+                <Link
+                  to="/customer/vehicles"
+                  onClick={closeMenu}
+                  className="block rounded-lg px-4 py-3 font-medium text-slate-700 hover:bg-gray-100"
+                >
+                  Thông tin xe
+                </Link>
 
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 font-semibold text-red-500"
+                  className="w-full rounded-lg px-4 py-3 text-left font-medium text-red-600 hover:bg-red-50"
                 >
-                  <LogOut size={18} />
-                  Logout
+                  Đăng xuất
                 </button>
-              </>
-            ) : (
-              <Link
-                to="/login"
-                onClick={() => setIsOpen(false)}
-                className="rounded-xl bg-sky-600 px-5 py-3 text-center font-bold text-white"
-              >
-                Login
-              </Link>
+              </div>
             )}
-          </nav>
-        </div>
-      )}
-    </header>
+          </div>
+        ) : (
+          <div className="flex gap-3">
+            <Link
+              to="/login"
+              className="rounded-lg border border-sky-600 px-4 py-2 text-sky-600 transition hover:bg-sky-50"
+            >
+              Đăng nhập
+            </Link>
+
+            <Link
+              to="/register"
+              className="rounded-lg bg-sky-600 px-4 py-2 text-white transition hover:bg-sky-700"
+            >
+              Đăng ký
+            </Link>
+          </div>
+        )}
+      </div>
+    </nav>
   );
-}
+};
 
 export default Navbar;
