@@ -1,5 +1,17 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import {
+  CalendarDays,
+  Car,
+  CheckCircle2,
+  Clock3,
+  MapPin,
+  Phone,
+  Sparkles,
+  Wallet,
+  Wrench,
+  ArrowRight,
+} from "lucide-react";
 import Navbar from "../../components/Navbar";
 import axiosClient, { getErrorMessage } from "../../api/axiosClient";
 
@@ -366,8 +378,8 @@ function Booking() {
       <>
         <Navbar />
 
-        <main className="min-h-screen bg-gray-100 px-6 py-10">
-          <div className="mx-auto max-w-6xl rounded-xl bg-white p-6 shadow">
+        <main className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-blue-100 px-6 py-10">
+          <div className="mx-auto max-w-6xl rounded-3xl border border-sky-100 bg-white p-8 shadow-xl">
             Đang tải dữ liệu đặt lịch...
           </div>
         </main>
@@ -379,72 +391,155 @@ function Booking() {
     <>
       <Navbar />
 
-      <main className="min-h-screen bg-gray-100">
-        <section className="bg-slate-800 px-6 py-10 text-white">
-          <div className="mx-auto max-w-6xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-sky-300">
-              Auto Wash Pro
-            </p>
+      <main className="min-h-screen bg-gradient-to-b from-sky-50 via-white to-blue-50">
+        <section className="relative overflow-hidden bg-sky-600">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(255,255,255,0.25),transparent_18%),radial-gradient(circle_at_80%_20%,rgba(255,255,255,0.22),transparent_16%),radial-gradient(circle_at_70%_85%,rgba(255,255,255,0.18),transparent_20%)]" />
 
-            <h1 className="mt-3 text-3xl font-bold">Đặt lịch rửa xe</h1>
+          <div className="absolute left-10 top-10 h-28 w-28 rounded-full bg-white/10" />
+          <div className="absolute bottom-10 right-20 h-40 w-40 rounded-full bg-white/10" />
+          <div className="absolute right-1/3 top-20 h-20 w-20 rounded-full bg-yellow-300/20" />
 
-            <p className="mt-2 text-slate-300">
-              Chọn chi nhánh, một hoặc nhiều xe, dịch vụ và khung giờ phù hợp.
-            </p>
+          <div className="relative mx-auto grid max-w-7xl gap-10 px-6 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+            <div className="text-white">
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-bold uppercase tracking-[0.25em] backdrop-blur">
+                <Sparkles size={16} className="text-yellow-300" />
+                Auto Wash Pro
+              </div>
+
+              <h1 className="max-w-3xl text-4xl font-black leading-tight md:text-6xl">
+                Book your car wash in minutes.
+              </h1>
+
+              <p className="mt-5 max-w-2xl text-lg leading-8 text-sky-50">
+                Choose your branch, vehicles, service package and available time
+                slot. Fast, simple and convenient.
+              </p>
+
+              <div className="mt-8 flex flex-wrap gap-4">
+                <div className="rounded-2xl bg-white/15 px-5 py-4 backdrop-blur">
+                  <p className="text-2xl font-black">{branches.length}</p>
+                  <p className="text-sm text-sky-100">Active branches</p>
+                </div>
+
+                <div className="rounded-2xl bg-white/15 px-5 py-4 backdrop-blur">
+                  <p className="text-2xl font-black">{vehicles.length}</p>
+                  <p className="text-sm text-sky-100">Your vehicles</p>
+                </div>
+
+                <div className="rounded-2xl bg-yellow-300 px-5 py-4 text-slate-900 shadow-lg shadow-yellow-500/30">
+                  <p className="text-2xl font-black">4</p>
+                  <p className="text-sm font-semibold">Cars per slot</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-white/30 bg-white/15 p-6 text-white shadow-2xl backdrop-blur">
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-yellow-300 text-slate-900">
+                  <Car size={28} />
+                </div>
+
+                <div>
+                  <p className="text-sm uppercase tracking-[0.2em] text-sky-100">
+                    Smart Booking
+                  </p>
+                  <h2 className="text-2xl font-black">Wash appointment</h2>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-3">
+                <div className="flex items-center gap-3 rounded-2xl bg-white/15 p-4">
+                  <CheckCircle2 className="text-yellow-300" />
+                  <span>Select multiple vehicles in one booking</span>
+                </div>
+
+                <div className="flex items-center gap-3 rounded-2xl bg-white/15 p-4">
+                  <Clock3 className="text-yellow-300" />
+                  <span>View available time slots instantly</span>
+                </div>
+
+                <div className="flex items-center gap-3 rounded-2xl bg-white/15 p-4">
+                  <Wallet className="text-yellow-300" />
+                  <span>See estimated payment before confirming</span>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
-        <section className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-3">
+        <section className="mx-auto grid max-w-7xl gap-8 px-6 py-10 lg:grid-cols-[1fr_380px]">
           <form
             onSubmit={handleSubmit}
-            className="rounded-2xl bg-white p-6 shadow lg:col-span-2"
+            className="rounded-[2rem] border border-sky-100 bg-white p-6 shadow-xl shadow-sky-100/70"
           >
             {message && (
-              <div className="mb-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
                 {message}
               </div>
             )}
 
-            <h2 className="text-xl font-bold text-slate-800">
-              Thông tin khách hàng
-            </h2>
+            <div className="mb-6 flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
+                <Phone size={24} />
+              </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-2 block font-semibold text-slate-700">
-                  Họ và tên <span className="text-red-500">*</span>
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-sky-600">
+                  Step 1
+                </p>
+                <h2 className="text-2xl font-black text-slate-900">
+                  Customer Information
+                </h2>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block font-bold text-slate-700">
+                  Full name <span className="text-red-500">*</span>
                 </label>
 
                 <input
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Nhập họ và tên"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                  placeholder="Enter full name"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-100"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block font-semibold text-slate-700">
-                  Số điện thoại <span className="text-red-500">*</span>
+                <label className="mb-2 block font-bold text-slate-700">
+                  Phone number <span className="text-red-500">*</span>
                 </label>
 
                 <input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="Nhập số điện thoại"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                  placeholder="Enter phone number"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-100"
                 />
               </div>
             </div>
 
-            <h2 className="mt-8 text-xl font-bold text-slate-800">
-              Thông tin đặt lịch
-            </h2>
+            <div className="mt-10 mb-6 flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100 text-yellow-700">
+                <CalendarDays size={24} />
+              </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-2 block font-semibold text-slate-700">
-                  Chi nhánh <span className="text-red-500">*</span>
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-yellow-600">
+                  Step 2
+                </p>
+                <h2 className="text-2xl font-black text-slate-900">
+                  Booking Details
+                </h2>
+              </div>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block font-bold text-slate-700">
+                  Branch <span className="text-red-500">*</span>
                 </label>
 
                 <select
@@ -456,9 +551,9 @@ function Booking() {
                     setStartTime("");
                     setSlots([]);
                   }}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-100"
                 >
-                  <option value="">Chọn chi nhánh</option>
+                  <option value="">Select branch</option>
 
                   {branches.map((branch) => (
                     <option key={branch.BranchID} value={branch.BranchID}>
@@ -469,8 +564,8 @@ function Booking() {
               </div>
 
               <div>
-                <label className="mb-2 block font-semibold text-slate-700">
-                  Ngày đặt lịch <span className="text-red-500">*</span>
+                <label className="mb-2 block font-bold text-slate-700">
+                  Booking date <span className="text-red-500">*</span>
                 </label>
 
                 <input
@@ -481,22 +576,22 @@ function Booking() {
                     setBookingDate(e.target.value);
                     setStartTime("");
                   }}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-100"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-2 block font-semibold text-slate-700">
-                  Xe <span className="text-red-500">*</span>
+                <label className="mb-2 block font-bold text-slate-700">
+                  Vehicles <span className="text-red-500">*</span>
                 </label>
 
-                <div className="rounded-lg border border-gray-300 p-3">
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
                   {vehicles.length === 0 ? (
                     <p className="text-sm text-slate-500">
-                      Bạn chưa có xe nào. Vui lòng đăng ký xe trước.
+                      You have not registered any vehicles yet.
                     </p>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="grid gap-3 md:grid-cols-2">
                       {vehicles.map((vehicle) => {
                         const value = String(vehicle.VehicleID);
                         const checked = selectedVehicleIds.includes(value);
@@ -507,9 +602,9 @@ function Booking() {
                         return (
                           <label
                             key={vehicle.VehicleID}
-                            className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm ${checked
-                                ? "border-sky-500 bg-sky-50 text-sky-700"
-                                : "border-gray-200 bg-white text-slate-700"
+                            className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-4 text-sm transition ${checked
+                                ? "border-sky-500 bg-sky-100 text-sky-800 shadow-md shadow-sky-100"
+                                : "border-slate-200 bg-white text-slate-700 hover:border-sky-300"
                               } ${disabled ? "cursor-not-allowed opacity-50" : ""
                               }`}
                           >
@@ -518,44 +613,48 @@ function Booking() {
                               checked={checked}
                               disabled={disabled}
                               onChange={() => toggleVehicle(vehicle.VehicleID)}
-                              className="h-4 w-4"
+                              className="h-5 w-5"
                             />
 
-                            <span className="font-semibold">
-                              {vehicle.LicensePlate} -{" "}
-                              {vehicle.Brand || "Chưa cập nhật"}{" "}
-                              {vehicle.Model || ""}
-                            </span>
+                            <div>
+                              <p className="font-black">
+                                {vehicle.LicensePlate}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {vehicle.Brand || "Unknown"}{" "}
+                                {vehicle.Model || ""}
+                              </p>
+                            </div>
                           </label>
                         );
                       })}
-
-                      <p className="text-xs text-slate-500">
-                        Đã chọn {selectedVehicleIds.length}/
-                        {MAX_CARS_PER_SLOT} xe
-                      </p>
                     </div>
                   )}
+
+                  <p className="mt-3 text-sm font-semibold text-slate-500">
+                    Selected {selectedVehicleIds.length}/{MAX_CARS_PER_SLOT}{" "}
+                    vehicles
+                  </p>
                 </div>
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-2 block font-semibold text-slate-700">
-                  Dịch vụ <span className="text-red-500">*</span>
+                <label className="mb-2 block font-bold text-slate-700">
+                  Service <span className="text-red-500">*</span>
                 </label>
 
                 <select
                   value={serviceId}
                   disabled={!branchId || loadingServices}
                   onChange={(e) => setServiceId(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:bg-gray-100"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-100 disabled:bg-slate-100"
                 >
                   <option value="">
                     {!branchId
-                      ? "Chọn chi nhánh trước"
+                      ? "Select branch first"
                       : loadingServices
-                        ? "Đang tải dịch vụ..."
-                        : "Chọn dịch vụ"}
+                        ? "Loading services..."
+                        : "Select service"}
                   </option>
 
                   {services.map((service) => (
@@ -568,19 +667,24 @@ function Booking() {
             </div>
 
             {selectedBranch && (
-              <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
+              <div className="mt-6 rounded-3xl border border-sky-100 bg-sky-50 p-5 text-sm text-slate-700">
+                <div className="mb-3 flex items-center gap-2 font-black text-sky-800">
+                  <MapPin size={18} />
+                  Branch information
+                </div>
+
                 <p>
-                  <span className="font-semibold">Địa chỉ:</span>{" "}
-                  {selectedBranch.Address || "Chưa cập nhật"}
+                  <span className="font-bold">Address:</span>{" "}
+                  {selectedBranch.Address || "Not updated"}
                 </p>
 
                 <p className="mt-1">
-                  <span className="font-semibold">Số điện thoại:</span>{" "}
-                  {selectedBranch.Phone || "Chưa cập nhật"}
+                  <span className="font-bold">Phone:</span>{" "}
+                  {selectedBranch.Phone || "Not updated"}
                 </p>
 
                 <p className="mt-1">
-                  <span className="font-semibold">Giờ mở cửa:</span>{" "}
+                  <span className="font-bold">Opening hours:</span>{" "}
                   {formatTime(selectedBranch.OpenTime)} -{" "}
                   {formatTime(selectedBranch.CloseTime)}
                 </p>
@@ -588,36 +692,37 @@ function Booking() {
             )}
 
             {selectedVehicles.length > 0 && (
-              <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
-                <p className="font-semibold text-slate-700">
-                  Xe đã chọn: {selectedVehicles.length}/{MAX_CARS_PER_SLOT}
-                </p>
+              <div className="mt-6 rounded-3xl border border-indigo-100 bg-indigo-50 p-5 text-sm text-slate-700">
+                <div className="mb-3 flex items-center gap-2 font-black text-indigo-800">
+                  <Car size={18} />
+                  Selected vehicles: {selectedVehicles.length}/
+                  {MAX_CARS_PER_SLOT}
+                </div>
 
-                <div className="mt-3 space-y-2">
+                <div className="grid gap-3 md:grid-cols-2">
                   {selectedVehicles.map((vehicle) => (
                     <div
                       key={vehicle.VehicleID}
-                      className="rounded-lg border border-gray-200 bg-white px-3 py-2"
+                      className="rounded-2xl bg-white p-4 shadow-sm"
                     >
                       <p>
-                        <span className="font-semibold">Biển số:</span>{" "}
+                        <span className="font-bold">Plate:</span>{" "}
                         {vehicle.LicensePlate}
                       </p>
 
                       <p className="mt-1">
-                        <span className="font-semibold">Loại xe:</span>{" "}
-                        {vehicle.VehicleType || "Chưa cập nhật"}
+                        <span className="font-bold">Type:</span>{" "}
+                        {vehicle.VehicleType || "Not updated"}
                       </p>
 
                       <p className="mt-1">
-                        <span className="font-semibold">Hãng / model:</span>{" "}
-                        {vehicle.Brand || "Chưa cập nhật"}{" "}
-                        {vehicle.Model || ""}
+                        <span className="font-bold">Brand / model:</span>{" "}
+                        {vehicle.Brand || "Not updated"} {vehicle.Model || ""}
                       </p>
 
                       <p className="mt-1">
-                        <span className="font-semibold">Màu xe:</span>{" "}
-                        {vehicle.Color || "Chưa cập nhật"}
+                        <span className="font-bold">Color:</span>{" "}
+                        {vehicle.Color || "Not updated"}
                       </p>
                     </div>
                   ))}
@@ -626,45 +731,61 @@ function Booking() {
             )}
 
             {selectedService && (
-              <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
+              <div className="mt-6 rounded-3xl border border-yellow-200 bg-yellow-50 p-5 text-sm text-slate-700">
+                <div className="mb-3 flex items-center gap-2 font-black text-yellow-800">
+                  <Wrench size={18} />
+                  Selected service
+                </div>
+
                 <p>
-                  <span className="font-semibold">Dịch vụ đã chọn:</span>{" "}
+                  <span className="font-bold">Service:</span>{" "}
                   {selectedService.ServiceName}
                 </p>
 
                 <p className="mt-1">
-                  <span className="font-semibold">Mô tả:</span>{" "}
-                  {selectedService.Description || "Chưa có mô tả"}
+                  <span className="font-bold">Description:</span>{" "}
+                  {selectedService.Description || "No description"}
                 </p>
 
                 <p className="mt-1">
-                  <span className="font-semibold">Thời lượng:</span>{" "}
-                  {selectedService.DurationMinutes || 0} phút
+                  <span className="font-bold">Duration:</span>{" "}
+                  {selectedService.DurationMinutes || 0} minutes
                 </p>
 
                 <p className="mt-1">
-                  <span className="font-semibold">Giá:</span>{" "}
-                  {formatMoney(selectedService.ActualPrice)} / xe
+                  <span className="font-bold">Price:</span>{" "}
+                  {formatMoney(selectedService.ActualPrice)} / vehicle
                 </p>
               </div>
             )}
 
-            <div className="mt-8">
-              <label className="mb-3 block font-semibold text-slate-700">
-                Khung giờ <span className="text-red-500">*</span>
-              </label>
+            <div className="mt-10">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                  <Clock3 size={24} />
+                </div>
+
+                <div>
+                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-emerald-600">
+                    Step 3
+                  </p>
+                  <h2 className="text-2xl font-black text-slate-900">
+                    Available Time Slots
+                  </h2>
+                </div>
+              </div>
 
               {!branchId || !bookingDate ? (
-                <p className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-slate-500">
-                  Vui lòng chọn chi nhánh và ngày trước.
+                <p className="rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-500">
+                  Please select a branch and booking date first.
                 </p>
               ) : loadingSlots ? (
-                <p className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-slate-500">
-                  Đang tải khung giờ...
+                <p className="rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-500">
+                  Loading available slots...
                 </p>
               ) : slots.length === 0 ? (
-                <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-                  Không có khung giờ trống.
+                <p className="rounded-2xl bg-red-50 px-4 py-4 text-sm font-semibold text-red-700">
+                  No available time slots.
                 </p>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -683,20 +804,20 @@ function Booking() {
                         type="button"
                         disabled={isDisabled}
                         onClick={() => setStartTime(slot.StartTime)}
-                        className={`rounded-xl border px-4 py-3 font-semibold transition disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 ${isSelected
-                            ? "border-sky-600 bg-sky-600 text-white"
-                            : "border-gray-300 bg-white text-slate-700 hover:border-sky-500 hover:text-sky-600"
+                        className={`rounded-2xl border px-4 py-4 text-left font-bold transition disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 ${isSelected
+                            ? "border-sky-600 bg-sky-600 text-white shadow-lg shadow-sky-300"
+                            : "border-slate-200 bg-white text-slate-700 hover:border-sky-400 hover:bg-sky-50"
                           }`}
                       >
                         <div>
                           {slot.StartTime} - {slot.EndTime}
                         </div>
 
-                        <div className="text-xs font-normal">
-                          {slot.ShiftName} | Còn {slot.Available} chỗ
+                        <div className="mt-1 text-xs font-semibold opacity-80">
+                          {slot.ShiftName} | {slot.Available} seats left
                           {selectedVehicleCount > 0 &&
                             slot.Available < selectedVehicleCount
-                            ? " | Không đủ chỗ"
+                            ? " | Not enough"
                             : ""}
                         </div>
                       </button>
@@ -707,16 +828,16 @@ function Booking() {
             </div>
 
             <div className="mt-8">
-              <label className="mb-2 block font-semibold text-slate-700">
-                Ghi chú
+              <label className="mb-2 block font-bold text-slate-700">
+                Note
               </label>
 
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Ví dụ: Xe nhiều bụi, cần rửa kỹ phần nội thất..."
+                placeholder="Example: Please clean the interior carefully..."
                 rows={4}
-                className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-100"
               />
             </div>
 
@@ -724,54 +845,64 @@ function Booking() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="rounded-lg bg-sky-600 px-6 py-3 font-semibold text-white hover:bg-sky-700 disabled:bg-gray-400"
+                className="group flex items-center justify-center gap-2 rounded-2xl bg-yellow-300 px-7 py-4 font-black text-slate-900 shadow-lg shadow-yellow-300/40 transition hover:bg-yellow-400 disabled:bg-slate-300"
               >
-                {isSubmitting ? "Đang đặt lịch..." : "Đặt lịch"}
+                {isSubmitting ? "Booking..." : "Confirm Booking"}
+                <ArrowRight
+                  size={18}
+                  className="transition group-hover:translate-x-1"
+                />
               </button>
 
               <Link
                 to="/register-car"
-                className="rounded-lg border border-gray-300 px-6 py-3 text-center font-semibold text-slate-700 hover:bg-gray-50"
+                className="rounded-2xl border border-slate-300 px-7 py-4 text-center font-black text-slate-700 transition hover:bg-slate-50"
               >
-                Đăng ký xe mới
+                Register New Vehicle
               </Link>
             </div>
           </form>
 
-          <aside className="rounded-2xl bg-white p-6 shadow">
-            <h2 className="text-xl font-bold text-slate-800">
-              Tóm tắt lịch hẹn
-            </h2>
+          <aside className="h-fit rounded-[2rem] border border-sky-100 bg-white p-6 shadow-xl shadow-sky-100/70 lg:sticky lg:top-28">
+            <div className="rounded-3xl bg-gradient-to-br from-sky-600 to-indigo-600 p-6 text-white">
+              <p className="text-sm font-bold uppercase tracking-[0.25em] text-sky-100">
+                Summary
+              </p>
 
-            <div className="mt-5 space-y-4 text-sm">
+              <h2 className="mt-2 text-2xl font-black">
+                Your Wash Appointment
+              </h2>
+            </div>
+
+            <div className="mt-6 space-y-5 text-sm">
               <div>
-                <p className="text-slate-500">Khách hàng</p>
-                <p className="font-semibold text-slate-800">
-                  {fullName || "Chưa nhập"}
+                <p className="text-slate-500">Customer</p>
+                <p className="font-black text-slate-900">
+                  {fullName || "Not entered"}
                 </p>
               </div>
 
               <div>
-                <p className="text-slate-500">Số điện thoại</p>
-                <p className="font-semibold text-slate-800">
-                  {phone || "Chưa nhập"}
+                <p className="text-slate-500">Phone</p>
+                <p className="font-black text-slate-900">
+                  {phone || "Not entered"}
                 </p>
               </div>
 
               <div>
-                <p className="text-slate-500">Chi nhánh</p>
-                <p className="font-semibold text-slate-800">
-                  {selectedBranch?.BranchName || "Chưa chọn"}
+                <p className="text-slate-500">Branch</p>
+                <p className="font-black text-slate-900">
+                  {selectedBranch?.BranchName || "Not selected"}
                 </p>
               </div>
 
               <div>
-                <p className="text-slate-500">Xe</p>
+                <p className="text-slate-500">Vehicles</p>
 
                 {selectedVehicles.length === 0 ? (
-                  <p className="font-semibold text-slate-800">Chưa chọn</p>
+                  <p className="font-black text-slate-900">Not selected</p>
                 ) : (
-                  <ul className="list-inside list-disc font-semibold text-slate-800">
+                  <ul className="list-inside list-disc font-black text-slate-900">
                     {selectedVehicles.map((vehicle) => (
                       <li key={vehicle.VehicleID}>{vehicle.LicensePlate}</li>
                     ))}
@@ -780,28 +911,29 @@ function Booking() {
               </div>
 
               <div>
-                <p className="text-slate-500">Dịch vụ</p>
-                <p className="font-semibold text-slate-800">
-                  {selectedService?.ServiceName || "Chưa chọn"}
+                <p className="text-slate-500">Service</p>
+                <p className="font-black text-slate-900">
+                  {selectedService?.ServiceName || "Not selected"}
                 </p>
               </div>
 
               <div>
-                <p className="text-slate-500">Ngày giờ</p>
-                <p className="font-semibold text-slate-800">
-                  {bookingDate || "Chưa chọn"}{" "}
-                  {startTime && `lúc ${startTime}`}
+                <p className="text-slate-500">Date & time</p>
+                <p className="font-black text-slate-900">
+                  {bookingDate || "Not selected"}{" "}
+                  {startTime && `at ${startTime}`}
                 </p>
               </div>
 
-              <div className="border-t pt-4">
-                <p className="text-slate-500">Thanh toán dự kiến</p>
-                <p className="text-2xl font-bold text-sky-700">
+              <div className="border-t border-slate-200 pt-5">
+                <p className="text-slate-500">Estimated payment</p>
+                <p className="mt-1 text-4xl font-black text-sky-700">
                   {formatMoney(totalServicePrice)}
                 </p>
 
-                <p className="mt-1 text-xs text-slate-500">
-                  {selectedVehicleCount || 0} xe x {formatMoney(servicePrice)}
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  {selectedVehicleCount || 0} vehicles x{" "}
+                  {formatMoney(servicePrice)}
                 </p>
               </div>
             </div>
