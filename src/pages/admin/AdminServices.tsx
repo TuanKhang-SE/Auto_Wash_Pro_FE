@@ -89,42 +89,43 @@ const AdminServices = () => {
     fetchData();
   }, [fetchData]);
 
+  // Lọc dịch vụ theo tên và mô tả
   const filteredServices = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = searchQuery.trim().toLowerCase(); 
     return services.filter((s) => {
       const matchStatus =
-        statusFilter === "All" || s.Status === statusFilter;
-      if (!q) return matchStatus;
+        statusFilter === "All" || s.Status === statusFilter; // Lọc theo trạng thái
+      if (!q) return matchStatus; // Nếu không có từ khóa tìm kiếm, trả về tất cả dịch vụ theo trạng thái
       return (
         matchStatus &&
-        (s.ServiceName?.toLowerCase().includes(q) ||
-          (s.Description ?? "").toLowerCase().includes(q))
+        (s.ServiceName?.toLowerCase().includes(q) || // Lọc theo tên dịch vụ
+          (s.Description ?? "").toLowerCase().includes(q)) // Lọc theo mô tả
       );
     });
-  }, [services, searchQuery, statusFilter]);
+  }, [services, searchQuery, statusFilter]); // Trả về danh sách dịch vụ đã lọc
 
   // ----- Create -----
   const handleCreateInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> 
   ) => {
-    const { name, value } = e.target;
-    setCreateForm((prev) => ({
+    const { name, value } = e.target; // Lấy tên và giá trị của input
+    setCreateForm((prev) => ({ // Cập nhật form tạo dịch vụ
       ...prev,
-      [name]: value,
+      [name]: value, // Cập nhật giá trị của input
     }));
-    setCreateError("");
+    setCreateError(""); // Xóa lỗi
   };
 
-  const parseNumeric = (
-    raw: string,
-    fallback: number
+  const parseNumeric = ( // Chuyển đổi chuỗi thành số
+    raw: string, // Chuỗi cần chuyển đổi
+    fallback: number // Giá trị mặc định nếu chuyển đổi thất bại
   ): number => {
-    if (raw.trim() === "") return fallback;
-    const n = Number(raw);
-    return isNaN(n) ? fallback : n;
+    if (raw.trim() === "") return fallback; // Nếu chuỗi rỗng, trả về giá trị mặc định
+    const n = Number(raw); // Chuyển đổi chuỗi thành số
+    return isNaN(n) ? fallback : n; // Nếu chuyển đổi thất bại, trả về giá trị mặc định
   };
 
-  const validateCreateForm = (): boolean => {
+  const validateCreateForm = (): boolean => { 
     if (!createForm.ServiceName.trim()) {
       setCreateError("Tên dịch vụ không được để trống");
       return false;
@@ -133,7 +134,7 @@ const AdminServices = () => {
       setCreateError("Giá dịch vụ phải là số không âm");
       return false;
     }
-    const durationNum = Number(createForm.Duration);
+    const durationNum = Number(createForm.Duration); 
     if (
       createForm.Duration.trim() === "" ||
       isNaN(durationNum) ||
@@ -145,25 +146,28 @@ const AdminServices = () => {
     return true;
   };
 
+  // Tạo dịch vụ
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateCreateForm()) return;
     setIsCreating(true);
     setCreateError("");
-    setCreateSuccess("");
+    setCreateSuccess(""); 
     try {
-      const trimmedDescription = createForm.Description?.trim() ?? "";
-      const payload: CreateServicePayload = {
-        ServiceName: createForm.ServiceName.trim(),
+      const trimmedDescription = createForm.Description?.trim() ?? ""; // Xóa khoảng trắng ở đầu và cuối mô tả
+      const payload: CreateServicePayload = {  // Tạo payload tạo dịch vụ
+        ServiceName: createForm.ServiceName.trim(), // Xóa khoảng trắng ở đầu và cuối tên dịch vụ
         Description: trimmedDescription === "" ? null : trimmedDescription,
-        BasePrice: parseNumeric(createForm.Price, 0),
-        DurationMinutes: parseNumeric(createForm.Duration, 30),
-        Status: createForm.Status,
+        BasePrice: parseNumeric(createForm.Price, 0), // Chuyển đổi giá dịch vụ thành số
+        DurationMinutes: parseNumeric(createForm.Duration, 30), // Chuyển đổi thời lượng dịch vụ thành số
+        Status: createForm.Status, // Trạng thái dịch vụ
       };
+
+      // Tạo dịch vụ 
       await serviceService.createService(payload); // POST /api/services
       setCreateSuccess("Tạo dịch vụ thành công!");
       setTimeout(() => {
-        setIsCreateModalOpen(false);
+        setIsCreateModalOpen(false); 
         setCreateForm(emptyForm);
         setCreateSuccess("");
         fetchData();
