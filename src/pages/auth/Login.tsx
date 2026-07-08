@@ -37,7 +37,7 @@ function LoginPage() {
       console.log("LOGIN RESPONSE:", res.data);
 
       const payload = res.data?.data as
-        | { token?: string; user?: { role?: string; [k: string]: unknown } }
+        | { token?: string; user?: { role?: string;[k: string]: unknown } }
         | undefined;
       const token = payload?.token;
       const user = payload?.user;
@@ -70,13 +70,13 @@ function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
-                <button
-    type="button"
-    onClick={() => navigate(-1)}
-    className="mb-4 text-sm font-medium text-gray-600 hover:text-blue-600"
-  >
-    ← Quay lại
-  </button>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="mb-4 text-sm font-medium text-gray-600 hover:text-blue-600"
+        >
+          ← Quay lại
+        </button>
         <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">
           Đăng nhập
         </h1>
@@ -114,14 +114,14 @@ function LoginPage() {
             />
           </div>
 
-<div className="text-right">
-  <Link
-    to="/forgot-password"
-    className="text-sm font-medium text-blue-600 hover:underline"
-  >
-    Quên mật khẩu?
-  </Link>
-</div>
+          <div className="text-right">
+            <Link
+              to="/forgot-password"
+              className="text-sm font-medium text-blue-600 hover:underline"
+            >
+              Quên mật khẩu?
+            </Link>
+          </div>
 
           <button
             type="submit"

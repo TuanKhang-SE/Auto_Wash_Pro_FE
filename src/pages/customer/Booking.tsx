@@ -508,8 +508,8 @@ function Booking() {
                           <label
                             key={vehicle.VehicleID}
                             className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm ${checked
-                                ? "border-sky-500 bg-sky-50 text-sky-700"
-                                : "border-gray-200 bg-white text-slate-700"
+                              ? "border-sky-500 bg-sky-50 text-sky-700"
+                              : "border-gray-200 bg-white text-slate-700"
                               } ${disabled ? "cursor-not-allowed opacity-50" : ""
                               }`}
                           >
@@ -684,8 +684,8 @@ function Booking() {
                         disabled={isDisabled}
                         onClick={() => setStartTime(slot.StartTime)}
                         className={`rounded-xl border px-4 py-3 font-semibold transition disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 ${isSelected
-                            ? "border-sky-600 bg-sky-600 text-white"
-                            : "border-gray-300 bg-white text-slate-700 hover:border-sky-500 hover:text-sky-600"
+                          ? "border-sky-600 bg-sky-600 text-white"
+                          : "border-gray-300 bg-white text-slate-700 hover:border-sky-500 hover:text-sky-600"
                           }`}
                       >
                         <div>
