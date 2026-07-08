@@ -11,7 +11,7 @@ const axiosClient = axios.create({
 axiosClient.interceptors.request.use((config) => {
   const url = config.url || "";
   if (
-    url.includes("/api/branches") ||
+    url.includes("/api/branches") || 
     url.includes("/api/branch-configs") ||
     url.includes("/api/users") ||
     url.includes("/api/customers") ||
@@ -29,6 +29,7 @@ axiosClient.interceptors.request.use((config) => {
   return config;
 });
 
+// Log mọi response liên quan đến branches/users/customers/tier-configs để dễ debug
 axiosClient.interceptors.response.use(
   (response) => {
     const url = response.config.url || "";
@@ -48,7 +49,8 @@ axiosClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    const url = error?.config?.url || "";
+    const url = error?.config?.url || ""; 
+    // Log mọi error liên quan đến branches/users/customers/tier-configs để dễ debug
     if (
       url.includes("/api/branches") ||
       url.includes("/api/branch-configs") ||
