@@ -70,7 +70,7 @@ interface BranchConfigDraft {
   CancelWindowHours: string;
 }
 
-const emptyConfigRow: BranchConfigDraft = {
+const emptyConfigRow: BranchConfigDraft = { 
   SlotDuration: "",
   TotalWashBays: "",
   BufferMinutes: "",
@@ -108,32 +108,33 @@ const emptyForm: CreateBranchForm = {
   Status: "Active",
 };
 
-const AdminBranches = () => {
-  const [branches, setBranches] = useState<BranchDetail[]>([]);
-  const [selectedBranch, setSelectedBranch] = useState<BranchDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [createForm, setCreateForm] = useState<CreateBranchForm>(emptyForm);
-  const [createConfig, setCreateConfig] = useState<BranchConfigDraft>({
+//hàm khai báo toàn bộ state (dữ liệu, trạng thái) mà component AdminBranches cần sử dụng
+const AdminBranches = () => { // Trang quản lý chi nhánh
+  const [branches, setBranches] = useState<BranchDetail[]>([]); // Danh sách chi nhánh
+  const [selectedBranch, setSelectedBranch] = useState<BranchDetail | null>(null); // Chi nhánh đang được chọn
+  const [isLoading, setIsLoading] = useState(true); // Trạng thái loading
+  const [error, setError] = useState<string | null>(null); // Lỗi
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false); // Modal tạo chi nhánh
+  const [isCreating, setIsCreating] = useState(false); // Trạng thái tạo chi nhánh
+  const [createForm, setCreateForm] = useState<CreateBranchForm>(emptyForm); // Form tạo chi nhánh
+  const [createConfig, setCreateConfig] = useState<BranchConfigDraft>({ // Form cấu hình tạo chi nhánh
     ...emptyConfigRow,
   });
-  const [createConfigError, setCreateConfigError] = useState("");
-  const [createError, setCreateError] = useState("");
-  const [createSuccess, setCreateSuccess] = useState("");
+  const [createConfigError, setCreateConfigError] = useState(""); 
+  const [createError, setCreateError] = useState(""); 
+  const [createSuccess, setCreateSuccess] = useState(""); // Thông báo thành công tạo chi nhánh
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [editingBranch, setEditingBranch] = useState<BranchDetail | null>(null);
-  const [editForm, setEditForm] = useState<EditBranchForm>(emptyForm);
-  const [editConfig, setEditConfig] = useState<BranchConfigDraft>({
-    ...emptyConfigRow,
+  const [isUpdating, setIsUpdating] = useState(false); // Trạng thái cập nhật chi nhánh
+  const [editingBranch, setEditingBranch] = useState<BranchDetail | null>(null); // Chi nhánh đang được sửa
+  const [editForm, setEditForm] = useState<EditBranchForm>(emptyForm); // Form sửa chi nhánh
+  const [editConfig, setEditConfig] = useState<BranchConfigDraft>({ 
+    ...emptyConfigRow, 
   });
-  const [isLoadingEditConfig, setIsLoadingEditConfig] = useState(false);
-  const [editConfigError, setEditConfigError] = useState("");
-  const [editError, setEditError] = useState("");
-  const [editSuccess, setEditSuccess] = useState("");
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoadingEditConfig, setIsLoadingEditConfig] = useState(false); 
+  const [editConfigError, setEditConfigError] = useState(""); 
+  const [editError, setEditError] = useState(""); 
+  const [editSuccess, setEditSuccess] = useState(""); 
+  const [isDeleting, setIsDeleting] = useState(false); 
   const [deleteError, setDeleteError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<BranchDetail | null>(null);
 
@@ -149,18 +150,20 @@ const AdminBranches = () => {
         userService.getAllUsers(), // GET /api/users lấy danh sách user
       ]); 
 
-      const enriched: BranchDetail[] = branchList.map((b) => {
-        const branchUsers = userList.filter(
+      // Map danh sách chi nhánh và danh sách user để tạo danh sách BranchDetail
+      // BranchDetail là interface chứa thông tin chi nhánh và thông tin manager, staff
+      const enriched: BranchDetail[] = branchList.map((b) => { // Map danh sách chi nhánh
+        const branchUsers = userList.filter( // Lọc danh sách user theo BranchID
           (u: User) => u.BranchID === b.BranchID
         );
-        const manager = branchUsers.find((u: User) => u.Role === "Manager");
-        const staff = branchUsers.filter(
-          (u: User) => u.Role === "Staff" && u.Status === "Active"
+        const manager = branchUsers.find((u: User) => u.Role === "Manager"); // Tìm manager theo Role
+        const staff = branchUsers.filter( // Lọc danh sách staff theo Role và Status
+          (u: User) => u.Role === "Staff" && u.Status === "Active" 
         );
 
         return {
-          branchID: b.BranchID,
-          branchName: b.BranchName,
+          branchID: b.BranchID, 
+          branchName: b.BranchName, 
           address: b.Address ?? "Chưa cập nhật",
           phone: b.Phone ?? "Chưa cập nhật",
           openTime: parseTime(b.OpenTime),
@@ -183,11 +186,11 @@ const AdminBranches = () => {
         };
       });
 
-      setBranches(enriched);
-      if (enriched.length > 0) {
+      setBranches(enriched); // Hiển thị danh sách chi nhánh
+      if (enriched.length > 0) { // Nếu có chi nhánh, chọn chi nhánh đầu tiên
         setSelectedBranch(enriched[0]);
       }
-    } catch (err) {
+    } catch (err) { 
       setError(getErrorMessage(err));
       console.error("Error fetching branches:", err);
     } finally {
@@ -195,7 +198,7 @@ const AdminBranches = () => {
     }
   }, []);
 
-  useEffect(() => {
+  useEffect(() => { // Gọi fetchData khi component mount
     fetchData();
   }, [fetchData]);
 
@@ -359,11 +362,11 @@ const AdminBranches = () => {
     setCreateConfigError("");
 
     try {
-      const payload: CreateBranchPayload = {
+      const payload: CreateBranchPayload = { // Tạo payload tạo chi nhánh
         BranchName: createForm.BranchName.trim(),
         Status: createForm.Status,
       };
-      if (createForm.Address.trim()) payload.Address = createForm.Address.trim();
+      if (createForm.Address.trim()) payload.Address = createForm.Address.trim(); 
       if (createForm.Phone.trim()) payload.Phone = createForm.Phone.trim();
       if (createForm.BankAccount.trim()) payload.BankAccount = createForm.BankAccount.trim();
       if (createForm.OpenTime) payload.OpenTime = createForm.OpenTime;
