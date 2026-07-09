@@ -23,7 +23,7 @@ interface BranchStats {
   status: "Active" | "Inactive";
 }
 
-interface AdminStats {
+interface AdminStats { 
   totalBranches: number;
   totalManagers: number;
   totalStaff: number;
@@ -47,17 +47,17 @@ const AdminDashboard = () => {
     // - branchService.getAllBranches(): GET /api/branches - tổng số chi nhánh
     // - userService.getAllUsers({Role:"Manager"}): GET /api/users?Role=Manager - số Manager
     // - userService.getAllUsers({Role:"Staff"}): GET /api/users?Role=Staff - số Staff active
-    const fetchStats = async () => {
-      setIsLoading(true);
-      try {
+    const fetchStats = async () => { 
+      setIsLoading(true); 
+      try { 
         const [branchesData, managersData, staffData] = await Promise.all([
-          branchService.getAllBranches(),
+          branchService.getAllBranches(), // GET /api/branches lấy tất cả chi nhánh
           userService.getAllUsers({ Role: "Manager" }), // GET /api/users?Role=Manager lấy managermanager
           userService.getAllUsers({ Role: "Staff" }), // GET /api/users?Role=Staff lấy staff
         ]);
 
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1) 
+        const now = new Date(); // Lấy ngày hiện tại
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1) // Lấy ngày đầu tháng
           .toISOString()
           .split("T")[0];
         const today = now.toISOString().split("T")[0];
@@ -88,18 +88,18 @@ const AdminDashboard = () => {
           activeBranches.forEach((b) => branchRevenueMap.set(b.BranchID, perBranch));
         }
 
-        const branchStatsData = branchesData.map((b) => ({
-          branchID: b.BranchID,
-          branchName: b.BranchName,
-          address: b.Address,
-          totalStaff: branchStaffMap.get(b.BranchID) || 0,
-          todayBookings: 0,
-          revenue: branchRevenueMap.get(b.BranchID) || 0,
-          occupancy: 0,
-          status: b.Status,
+        const branchStatsData = branchesData.map((b) => ({ // Lấy dữ liệu chi nhánh từ database
+          branchID: b.BranchID, // ID của chi nhánh
+          branchName: b.BranchName, // Tên của chi nhánh
+          address: b.Address, // Địa chỉ của chi nhánh
+          totalStaff: branchStaffMap.get(b.BranchID) || 0, // Số lượng nhân viên của chi nhánh
+          todayBookings: 0, // Số lượng lịch hẹn hôm nay của chi nhánh
+          revenue: branchRevenueMap.get(b.BranchID) || 0, // Doanh thu của chi nhánh
+          occupancy: 0, // Tỷ lệ chiếm đóng của chi nhánh
+          status: b.Status, // Trạng thái của chi nhánh
         }));
 
-        setStats({
+        setStats({ // Hiển thị dữ liệu tổng quan trên dashboard
           totalBranches: activeBranches.length,
           totalManagers: managersData.length,
           totalStaff: activeStaff.length,
@@ -107,7 +107,7 @@ const AdminDashboard = () => {
           monthlyRevenue,
         });
 
-        setBranchStats(branchStatsData);
+        setBranchStats(branchStatsData); // Hiển thị dữ liệu chi nhánh trên dashboard
       } catch (err) {
         console.error("Error fetching dashboard stats:", err);
       } finally {
