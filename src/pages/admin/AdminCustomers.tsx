@@ -22,7 +22,7 @@ import tierConfigService, {
 } from "../../services/tierConfigService";
 import { getErrorMessage } from "../../api/axiosClient";
 
-const TIER_ICONS: Record<string, React.ReactNode> = {
+const TIER_ICONS: Record<string, React.ReactNode> = { // Icon của từng hạng thành viên
   "VIP": <Crown size={16} className="text-amber-500" />,
   "Gold": <Trophy size={16} className="text-yellow-500" />,
   "Silver": <Medal size={16} className="text-slate-400" />,
@@ -30,7 +30,7 @@ const TIER_ICONS: Record<string, React.ReactNode> = {
   "Default": <ShieldCheck size={16} className="text-slate-400" />,
 };
 
-const getTierIcon = (tierName: string) => {
+const getTierIcon = (tierName: string) => { 
   const upper = tierName.toUpperCase();
   if (upper.includes("VIP")) return TIER_ICONS["VIP"];
   if (upper.includes("GOLD")) return TIER_ICONS["Gold"];
@@ -39,10 +39,11 @@ const getTierIcon = (tierName: string) => {
   return TIER_ICONS["Default"];
 };
 
-const formatNumber = (value: number): string =>
-  new Intl.NumberFormat("vi-VN").format(value);
+const formatNumber = (value: number): string => 
+  new Intl.NumberFormat("vi-VN").format(value); // Format số thành dạng 1.000.000.000
 
-const formatDate = (dateStr: string): string => {
+// Format ngày thành dạng 01/01/2026
+const formatDate = (dateStr: string): string => { 
   if (!dateStr) return "—";
   const d = new Date(dateStr);
   return d.toLocaleDateString("vi-VN", {
@@ -52,18 +53,18 @@ const formatDate = (dateStr: string): string => {
   });
 };
 
-const AdminCustomers = () => {
-  const [customers, setCustomers] = useState<CustomerDetail[]>([]);
+const AdminCustomers = () => { 
+  const [customers, setCustomers] = useState<CustomerDetail[]>([]); 
   const [tierConfigs, setTierConfigs] = useState<TierConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [tierFilter, setTierFilter] = useState<string>("all");
-  const [sortField, setSortField] = useState<"fullName" | "lifetimePoints" | "createdAt">("fullName");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [expandedCustomer, setExpandedCustomer] = useState<number | null>(null);
+  const [sortField, setSortField] = useState<"fullName" | "lifetimePoints" | "createdAt">("fullName"); // Sắp xếp theo tên khách hàng
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc"); // Sắp xếp theo thứ tự tăng dần hoặc giảm dần
+  const [expandedCustomer, setExpandedCustomer] = useState<number | null>(null); // Khách hàng đang được mở rộng
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async () => { 
     setIsLoading(true);
     setError(null);
     try {
