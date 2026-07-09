@@ -33,12 +33,12 @@ interface EditFormData {
 
 const AdminManagerManagement = () => {
   const [managers, setManagers] = useState<User[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]); // Danh sách chi nhánh
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterBranch, setFilterBranch] = useState<number | "all">("all");
+  const [searchTerm, setSearchTerm] = useState(""); 
+  const [filterBranch, setFilterBranch] = useState<number | "all">("all"); // Lọc theo chi nhánh
   const [formData, setFormData] = useState<RegisterFormData>({
     password: "",
     confirmPassword: "",
@@ -71,7 +71,7 @@ const AdminManagerManagement = () => {
         userService.getAllUsers({ Role: "Manager" }), // GET /api/users?Role=Manager lấy danh sách manager
         branchService.getAllBranches(), // GET /api/branches lấy danh sách chi nhánh
       ]);
-      setManagers(data);
+      setManagers(data); 
       setBranches(branchList);
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -135,9 +135,10 @@ const AdminManagerManagement = () => {
       return false;
     }
 
-    const existing = managers.find((m) => m.BranchID === formData.branchID);
+    const existing = managers.find((m) => m.BranchID === formData.branchID); // Tìm manager theo BranchID để kiểm tra xem chi nhánh đã có Manager hay chưa
     if (existing) {
       setError(
+        // Hiển thị tên chi nhánh và tên Manager đã có trong chi nhánh đó
         `Chi nhánh ${branches.find(b => b.BranchID === formData.branchID)?.BranchName || formData.branchID} đã có Manager: ${existing.FullName}. Vui lòng chọn chi nhánh khác.`
       );
       return false;
@@ -148,8 +149,8 @@ const AdminManagerManagement = () => {
 
   // Gọi API tạo mới một tài khoản Manager trên backend với các thông tin:
   // họ tên, mật khẩu, email, số điện thoại và chi nhánh mà Manager sẽ phụ trách
-  const handleCreateManager = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateManager = async (e: React.FormEvent) => { 
+    e.preventDefault(); 
     if (!validateForm()) return;
 
     setIsLoading(true);
@@ -175,10 +176,10 @@ const AdminManagerManagement = () => {
         phone: "",
         branchID: 0,
       });
-      setTimeout(() => {
-        setIsModalOpen(false);
-        setSuccess("");
-        fetchManagers();
+      setTimeout(() => { // Hiển thị thông báo thành công và đóng modal
+        setIsModalOpen(false); 
+        setSuccess(""); 
+        fetchManagers(); // Gọi fetchManagers để lấy danh sách manager mới nhất
       }, 1500);
     } catch (err: unknown) {
       setError(getErrorMessage(err));
@@ -230,7 +231,7 @@ const AdminManagerManagement = () => {
       setSuccess("Cập nhật Manager thành công!");
       setTimeout(() => {
         setIsEditModalOpen(false);
-        setEditingManager(null);
+        setEditingManager(null); 
         setSuccess("");
         fetchManagers();
       }, 1500);
