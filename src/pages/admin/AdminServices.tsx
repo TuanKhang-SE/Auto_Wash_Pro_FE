@@ -130,8 +130,8 @@ const AdminServices = () => {
       setCreateError("Tên dịch vụ không được để trống");
       return false;
     }
-    if (createForm.Price.trim() === "" || Number(createForm.Price) < 0) {
-      setCreateError("Giá dịch vụ phải là số không âm");
+    if (createForm.Price.trim() === "" || Number(createForm.Price) <= 0) {
+      setCreateError("Giá dịch vụ phải lớn hơn 0");
       return false;
     }
     const durationNum = Number(createForm.Duration); 
@@ -154,13 +154,13 @@ const AdminServices = () => {
     setCreateError("");
     setCreateSuccess(""); 
     try {
-      const trimmedDescription = createForm.Description?.trim() ?? ""; // Xóa khoảng trắng ở đầu và cuối mô tả
-      const payload: CreateServicePayload = {  // Tạo payload tạo dịch vụ
-        ServiceName: createForm.ServiceName.trim(), // Xóa khoảng trắng ở đầu và cuối tên dịch vụ
-        Description: trimmedDescription === "" ? null : trimmedDescription,
-        BasePrice: parseNumeric(createForm.Price, 0), // Chuyển đổi giá dịch vụ thành số
-        DurationMinutes: parseNumeric(createForm.Duration, 30), // Chuyển đổi thời lượng dịch vụ thành số
-        Status: createForm.Status, // Trạng thái dịch vụ
+      const trimmedDescription = createForm.Description?.trim() ?? "";
+      const payload: CreateServicePayload = {
+        ServiceName: createForm.ServiceName.trim(),
+        ...(trimmedDescription !== "" && { Description: trimmedDescription }),
+        BasePrice: parseNumeric(createForm.Price, 0),
+        DurationMinutes: parseNumeric(createForm.Duration, 30),
+        Status: createForm.Status,
       };
 
       // Tạo dịch vụ 
@@ -168,7 +168,7 @@ const AdminServices = () => {
       setCreateSuccess("Tạo dịch vụ thành công!");
       setTimeout(() => {
         setIsCreateModalOpen(false); 
-        setCreateForm(emptyForm);
+        setCreateForm(emptyForm); 
         setCreateSuccess("");
         fetchData();
       }, 1200);
@@ -194,7 +194,7 @@ const AdminServices = () => {
     setIsEditModalOpen(true);
   };
 
-  const handleEditInputChange = (
+  const handleEditInputChange = ( // Cập nhật form sửa dịch vụ
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
@@ -210,8 +210,8 @@ const AdminServices = () => {
       setEditError("Tên dịch vụ không được để trống");
       return false;
     }
-    if (editForm.Price.trim() === "" || Number(editForm.Price) < 0) {
-      setEditError("Giá dịch vụ phải là số không âm");
+    if (editForm.Price.trim() === "" || Number(editForm.Price) <= 0) {
+      setEditError("Giá dịch vụ phải lớn hơn 0");
       return false;
     }
     const durationNum = Number(editForm.Duration);
@@ -241,6 +241,8 @@ const AdminServices = () => {
         DurationMinutes: parseNumeric(editForm.Duration, 30),
         Status: editForm.Status,
       };
+
+      // Cập nhật dịch vụ
       await serviceService.updateService(editingService.ServiceID, payload); // PUT /api/services/:id
       setEditSuccess("Cập nhật dịch vụ thành công!");
       setTimeout(() => {
@@ -273,11 +275,12 @@ const AdminServices = () => {
   };
 
   // ----- Quick toggle status -----
+// Chuyển đổi trạng thái dịch vụ
   const toggleStatus = async (svc: Service) => {
-    const newStatus = svc.Status === "Active" ? "Inactive" : "Active";
+    const newStatus = svc.Status === "Active" ? "Inactive" : "Active"; // Chuyển đổi trạng thái dịch vụ
     try {
-      await serviceService.updateService(svc.ServiceID, {
-        Status: newStatus as "Active" | "Inactive",
+      await serviceService.updateService(svc.ServiceID, { // Cập nhật trạng thái dịch vụ
+        Status: newStatus as "Active" | "Inactive", // Chuyển đổi trạng thái dịch vụ
       });
       fetchData();
     } catch (err) {
