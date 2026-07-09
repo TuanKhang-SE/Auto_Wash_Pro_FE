@@ -170,6 +170,8 @@ const AdminStaffManagement = () => {
     const branchHasManager = managers.some(
       (m) => m.branchID === formData.branchID
     );
+
+    // Nếu chi nhánh chưa có Manager, hiển thị thông báo lỗi
     if (!branchHasManager) {
       setError(
         `Chi nhánh ${getBranchName(
