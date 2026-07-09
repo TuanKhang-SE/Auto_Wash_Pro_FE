@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Sparkles,
   Plus,
@@ -79,11 +79,30 @@ const ManagerServices = () => {
     [branchServices]
   );
 
+  const servicesMap = useRef<Record<number, Service>>({});
+
+  const mergeBranchServicesWithCatalog = useCallback(
+    (bs: BranchService[]): BranchService[] => {
+      const catalog = servicesMap.current;
+      return bs.map((item) => ({
+        ...item,
+        ServiceName: item.ServiceName || catalog[item.ServiceID]?.ServiceName || "",
+        Description: item.Description ?? catalog[item.ServiceID]?.Description ?? null,
+        ImageURL: item.ImageURL ?? catalog[item.ServiceID]?.ImageURL ?? null,
+        BasePrice: item.BasePrice ?? catalog[item.ServiceID]?.BasePrice ?? catalog[item.ServiceID]?.Price ?? 0,
+        DurationMinutes: item.DurationMinutes ?? catalog[item.ServiceID]?.DurationMinutes ?? catalog[item.ServiceID]?.Duration ?? 0,
+        Duration: item.Duration ?? catalog[item.ServiceID]?.Duration ?? catalog[item.ServiceID]?.DurationMinutes ?? 0,
+      }));
+    },
+    []
+  );
+
   const fetchCatalog = useCallback(async () => {
     setIsLoadingCatalog(true);
     try {
-      const data = await serviceService.getAllServices(); // GET /api/services
+      const data = await serviceService.getAllServices();
       setServices(data);
+      servicesMap.current = Object.fromEntries(data.map((s) => [s.ServiceID, s]));
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -98,24 +117,26 @@ const ManagerServices = () => {
     }
     setIsLoadingBranch(true);
     try {
-      const data = await branchServiceService.getServicesByBranch(branchId); // GET /api/branches/:id/services
-      setBranchServices(data);
+      const data = await branchServiceService.getServicesByBranch(branchId);
+      setBranchServices(mergeBranchServicesWithCatalog(data));
     } catch (err) {
       console.error("Error fetching branch services:", err);
     } finally {
       setIsLoadingBranch(false);
     }
-  }, [branchId]);
+  }, [branchId, mergeBranchServicesWithCatalog]);
 
   useEffect(() => {
     fetchCatalog();
   }, [fetchCatalog]);
 
   useEffect(() => {
-    fetchBranchServices();
-  }, [fetchBranchServices]);
+    if (services.length > 0) {
+      fetchBranchServices();
+    }
+  }, [services, fetchBranchServices]);
 
-  const visibleServices = useMemo(() => {
+  const visibleServices = useMemo(() => { 
     const q = searchQuery.trim().toLowerCase();
     const source =
       activeTab === "available"
@@ -173,7 +194,9 @@ const ManagerServices = () => {
       setTimeout(async () => {
         setAddTarget(null);
         setAddSuccess("");
+        setSearchQuery("");
         await Promise.all([fetchCatalog(), fetchBranchServices()]);
+        setActiveTab("applied");
       }, 1000);
     } catch (err) {
       setAddError(getErrorMessage(err));
