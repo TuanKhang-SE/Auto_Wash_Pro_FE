@@ -69,11 +69,18 @@ function PublicOnlyRoute({ children }: { children: ReactNode }) {
   const token = localStorage.getItem("token");
   const role = getCurrentRole();
 
-  if (token) {
-    return <Navigate to={getRedirectPath(role)} replace />;
+  // Không có token -> hiển thị children.
+  if (!token) {
+    return <>{children}</>;
   }
 
-  return children;
+  // Có token nhưng role rỗng/không xác định -> KHÔNG chuyển hướng để tránh loop.
+  // Hiển thị children, người dùng có thể tự đăng xuất/đăng nhập lại.
+  if (!role || role.trim() === "") {
+    return <>{children}</>;
+  }
+
+  return <Navigate to={getRedirectPath(role)} replace />;
 }
 
 const AppRoutes = () => {
@@ -234,8 +241,17 @@ const AppRoutes = () => {
           }
         />
 
-        {/* Nếu nhập URL không tồn tại */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Nếu nhập URL không tồn tại - tránh Navigate về "/" nếu đã đăng nhập (gây loop với PublicOnlyRoute) */}
+        <Route
+          path="*"
+          element={
+            localStorage.getItem("token") ? (
+              <Navigate to={getRedirectPath(getCurrentRole())} replace />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
