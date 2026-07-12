@@ -11,7 +11,7 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/login" replace />;
   }
 
-  return children;
+  return <>{children}</>;
 }
 
 // Protected route cho Manager - chỉ cho phép Manager truy cập
@@ -26,13 +26,15 @@ export function ManagerRoute({ children }: ProtectedRouteProps) {
   try {
     const user = userStr ? JSON.parse(userStr) : null;
     if (user?.role !== "Manager") {
-      return <Navigate to="/" replace />;
+      // KHÔNG redirect về "/" vì "/" là PublicOnlyRoute và nếu có token sẽ gây loop.
+      // Chuyển về /home (trang an toàn, không trigger PublicOnlyRoute).
+      return <Navigate to="/home" replace />;
     }
   } catch (e) {
     return <Navigate to="/login" replace />;
   }
 
-  return children;
+  return <>{children}</>;
 }
 
 // Protected route cho Admin - chỉ cho phép Admin truy cập
@@ -47,13 +49,13 @@ export function AdminRoute({ children }: ProtectedRouteProps) {
   try {
     const user = userStr ? JSON.parse(userStr) : null;
     if (user?.role !== "Admin") {
-      return <Navigate to="/" replace />;
+      return <Navigate to="/home" replace />;
     }
   } catch (e) {
     return <Navigate to="/login" replace />;
   }
 
-  return children;
+  return <>{children}</>;
 }
 
 // Logout - xóa toàn bộ data đăng nhập
