@@ -1,20 +1,62 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../../components/Navbar";
-import axiosClient from "../../api/axiosClient";
+import axiosClient, { getErrorMessage } from "../../api/axiosClient";
+
+type BookingServiceLine = {
+  ServiceLineItemID?: number;
+  ServiceID: number;
+  UnitPrice?: number | string | null;
+  LineTotal?: number | string | null;
+  Services?: { ServiceName?: string | null } | null;
+};
+
+type CustomerBookingItem = {
+  BookingItemID: number;
+  Status: string;
+  Vehicles?: {
+    LicensePlate?: string | null;
+    Brand?: string | null;
+    Make?: string | null;
+    Model?: string | null;
+  } | null;
+  ServiceLineItems?: BookingServiceLine[];
+};
+
+type CustomerBooking = {
+  BookingGroupID: number;
+  BookingCode?: string | null;
+  BookingDate?: string | null;
+  StartTime?: string | null;
+  CreatedAt?: string | null;
+  Status: string;
+  branches?: { BranchName?: string | null; Address?: string | null } | null;
+  BookingItems?: CustomerBookingItem[];
+  Transactions?: Array<{
+    TransactionID: number;
+    Subtotal?: number | string | null;
+    DiscountAmount?: number | string | null;
+    FinalAmount?: number | string | null;
+    Status?: string | null;
+  }>;
+};
 
 function BookingHistory() {
   const navigate = useNavigate();
 
-  const [bookings, setBookings] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<CustomerBooking[]>([]);
   const [statusFilter, setStatusFilter] = useState("All");
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [cancelingId, setCancelingId] = useState<number | null>(null);
+  const [memberTierName, setMemberTierName] = useState("");
+  const [tierDiscountPercent, setTierDiscountPercent] = useState(0);
 
   useEffect(() => {
     loadBookings();
+    // loadBookings chỉ cần chạy khi trang lịch sử được mở lần đầu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function getAuthHeader() {
@@ -29,10 +71,6 @@ function BookingHistory() {
     };
   }
 
-  function getErrorMessage(error: any, defaultMessage: string) {
-    return error.response?.data?.message || defaultMessage;
-  }
-
   async function loadBookings() {
     setLoading(true);
     setMessage("");
@@ -45,18 +83,30 @@ function BookingHistory() {
         return;
       }
 
-      const response = await axiosClient.get("/api/bookings/me", {
-        headers,
-      });
+      const [response, profileResponse] = await Promise.all([
+        axiosClient.get("/api/bookings/me", { headers }),
+        axiosClient.get("/api/customers/profile", { headers }),
+      ]);
+
+      const loyaltyAccount = profileResponse.data?.data?.LoyaltyAccounts?.[0];
+      const tierConfig = loyaltyAccount?.tier_configs;
+      const discountPercent = Number(tierConfig?.DiscountPercent || 0);
+
+      setMemberTierName(tierConfig?.TierName || "");
+      setTierDiscountPercent(
+        Number.isFinite(discountPercent)
+          ? Math.min(100, Math.max(0, discountPercent))
+          : 0
+      );
 
       if (response.data?.success) {
         setBookings(response.data.data || []);
       } else {
         setMessage(response.data?.message || "Không thể tải lịch sử đặt lịch");
       }
-    } catch (error: any) {
-      console.log(error.response?.data || error);
-      setMessage(getErrorMessage(error, "Không thể tải lịch sử đặt lịch"));
+    } catch (error: unknown) {
+      console.log(error);
+      setMessage(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -106,9 +156,9 @@ function BookingHistory() {
       } else {
         setMessage(response.data?.message || "Hủy lịch thất bại");
       }
-    } catch (error: any) {
-      console.log(error.response?.data || error);
-      setMessage(getErrorMessage(error, "Hủy lịch thất bại"));
+    } catch (error: unknown) {
+      console.log(error);
+      setMessage(getErrorMessage(error));
     } finally {
       setCancelingId(null);
     }
@@ -151,38 +201,38 @@ function BookingHistory() {
     return status === "Pending" || status === "Confirmed";
   }
 
-  function getTotalMoney(booking: any) {
-    let total = 0;
+  function getBookingPricing(booking: CustomerBooking) {
+    let subtotal = 0;
 
-    booking.BookingItems?.forEach((item: any) => {
-      item.ServiceLineItems?.forEach((line: any) => {
-        total += Number(line.LineTotal || 0);
+    booking.BookingItems?.forEach((item) => {
+      item.ServiceLineItems?.forEach((line) => {
+        subtotal += Number(line.LineTotal || 0);
       });
     });
 
-    return total.toLocaleString("vi-VN") + "đ";
+    const transaction = booking.Transactions?.[0];
+    if (transaction?.FinalAmount !== null && transaction?.FinalAmount !== undefined) {
+      return {
+        subtotal: Number(transaction.Subtotal ?? subtotal),
+        discount: Number(transaction.DiscountAmount || 0),
+        final: Number(transaction.FinalAmount),
+        discountLabel: "Đã giảm",
+      };
+    }
+
+    const discount = (subtotal * tierDiscountPercent) / 100;
+    return {
+      subtotal,
+      discount,
+      final: Math.max(0, subtotal - discount),
+      discountLabel: memberTierName
+        ? `Hạng ${memberTierName} giảm ${tierDiscountPercent}%`
+        : "Giảm hạng thành viên",
+    };
   }
 
-  function getServiceNames(booking: any) {
-    const serviceNames: string[] = [];
-
-    booking.BookingItems?.forEach((item: any) => {
-      item.ServiceLineItems?.forEach((line: any) => {
-        const serviceName = line.Services?.ServiceName;
-
-        if (!serviceName) {
-          return;
-        }
-
-        const isAlreadyAdded = serviceNames.includes(serviceName);
-
-        if (!isAlreadyAdded) {
-          serviceNames.push(serviceName);
-        }
-      });
-    });
-
-    return serviceNames;
+  function formatMoney(value: number | string | null | undefined) {
+    return Number(value || 0).toLocaleString("vi-VN") + "đ";
   }
 
   const filteredBookings =
@@ -315,15 +365,27 @@ function BookingHistory() {
                       <p className="text-sm text-gray-500">Tổng tiền</p>
 
                       <p className="font-semibold text-blue-700">
-                        {getTotalMoney(booking)}
+                        {formatMoney(getBookingPricing(booking).final)}
                       </p>
+
+                      {getBookingPricing(booking).discount > 0 && (
+                        <div className="mt-1 text-xs">
+                          <p className="text-gray-400 line-through">
+                            {formatMoney(getBookingPricing(booking).subtotal)}
+                          </p>
+                          <p className="font-medium text-emerald-600">
+                            {getBookingPricing(booking).discountLabel}: -
+                            {formatMoney(getBookingPricing(booking).discount)}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   <div className="mt-4">
                     <p className="mb-2 font-semibold text-gray-700">Xe</p>
 
-                    {booking.BookingItems?.map((item: any) => (
+                    {booking.BookingItems?.map((item) => (
                       <div
                         key={item.BookingItemID}
                         className="mb-2 rounded-lg bg-gray-50 p-3"
@@ -336,23 +398,30 @@ function BookingHistory() {
                           {item.Vehicles?.Brand || item.Vehicles?.Make || ""}{" "}
                           {item.Vehicles?.Model || ""}
                         </p>
+
+                        <div className="mt-3 border-t border-gray-200 pt-3">
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            Dịch vụ hiện tại
+                          </p>
+
+                          <div className="space-y-2">
+                            {item.ServiceLineItems?.map((line) => (
+                              <div
+                                key={line.ServiceLineItemID || `${item.BookingItemID}-${line.ServiceID}`}
+                                className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-sm"
+                              >
+                                <span className="font-medium text-sky-700">
+                                  {line.Services?.ServiceName || "Dịch vụ"}
+                                </span>
+                                <span className="font-semibold text-gray-700">
+                                  {formatMoney(line.LineTotal ?? line.UnitPrice)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     ))}
-                  </div>
-
-                  <div className="mt-4">
-                    <p className="mb-2 font-semibold text-gray-700">Dịch vụ</p>
-
-                    <div className="flex flex-wrap gap-2">
-                      {getServiceNames(booking).map((serviceName) => (
-                        <span
-                          key={serviceName}
-                          className="rounded-full bg-sky-50 px-3 py-1 text-sm text-sky-700"
-                        >
-                          {serviceName}
-                        </span>
-                      ))}
-                    </div>
                   </div>
 
                   {canCancel(booking.Status) && (

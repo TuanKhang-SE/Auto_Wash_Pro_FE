@@ -9,15 +9,33 @@ import {
     Banknote,
     Landmark,
     CreditCard,
+    Pencil,
+    Plus,
+    Trash2,
     X,
 } from "lucide-react";
 import StatCard from "../../components/staff/StatCard";
 import axiosClient, { getErrorMessage } from "../../api/axiosClient";
 
 type ServiceLineItem = {
+    ServiceID: number;
+    UnitPrice?: number | string | null;
+    LineTotal?: number | string | null;
     Services?: {
         ServiceName: string;
     };
+};
+
+type BranchServiceOption = {
+    ServiceID: number;
+    ServiceName: string;
+    ActualPrice: number | string;
+};
+
+type ServiceEditorState = {
+    booking: StaffBooking;
+    item: BookingItem;
+    mode: "add" | "edit";
 };
 
 type BookingItem = {
@@ -132,6 +150,18 @@ function formatTime(value: string | null | undefined) {
 
 function formatMoney(value: number | string | null | undefined) {
     return `${Number(value || 0).toLocaleString("vi-VN")} ₫`;
+}
+
+function getLocalDateValue(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+function formatSelectedDate(value: string) {
+    if (!value) return "";
+    return new Date(`${value}T00:00:00`).toLocaleDateString("vi-VN");
 }
 
 function escapeHtml(value: unknown) {
@@ -321,6 +351,7 @@ function getUpdatedTimeFields(status: string) {
 }
 
 const StaffBookings = () => {
+    const [selectedDate, setSelectedDate] = useState(getLocalDateValue);
     const [bookings, setBookings] = useState<StaffBooking[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [updatingItemId, setUpdatingItemId] = useState<number | null>(null);
@@ -335,6 +366,12 @@ const StaffBookings = () => {
     const [isPaying, setIsPaying] = useState(false);
     const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
     const [invoicePreviewHtml, setInvoicePreviewHtml] = useState("");
+    const [serviceEditor, setServiceEditor] = useState<ServiceEditorState | null>(null);
+    const [branchServiceOptions, setBranchServiceOptions] = useState<BranchServiceOption[]>([]);
+    const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([]);
+    const [isLoadingServices, setIsLoadingServices] = useState(false);
+    const [isSavingServices, setIsSavingServices] = useState(false);
+    const [serviceError, setServiceError] = useState("");
 
     const [stats, setStats] = useState<StaffStats>({
         waiting: 0,
@@ -345,11 +382,13 @@ const StaffBookings = () => {
 
     useEffect(() => {
         fetchBookings();
+        // Chỉ tải ngày mặc định một lần khi mở trang.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    async function fetchBookings() {
+    async function fetchBookings(silent = false, bookingDate = selectedDate) {
         try {
-            setIsLoading(true);
+            if (!silent) setIsLoading(true);
             setMessage("");
 
             const token = localStorage.getItem("token");
@@ -363,6 +402,7 @@ const StaffBookings = () => {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
+                params: { bookingDate },
             });
 
             const data: StaffBooking[] = res.data.data || [];
@@ -373,7 +413,7 @@ const StaffBookings = () => {
             console.log(error);
             setMessage(getErrorMessage(error));
         } finally {
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
         }
     }
 
@@ -446,9 +486,155 @@ const StaffBookings = () => {
         }
     }
 
+    async function handleDateChange(value: string) {
+        const nextDate = value || getLocalDateValue();
+        setSelectedDate(nextDate);
+        await fetchBookings(false, nextDate);
+    }
+
     function getAuthHeader() {
         const token = localStorage.getItem("token");
         return token ? { Authorization: `Bearer ${token}` } : null;
+    }
+
+    async function openServiceEditor(
+        booking: StaffBooking,
+        item: BookingItem,
+        mode: "add" | "edit"
+    ) {
+        if (item.Status !== "CheckedIn") {
+            setMessage("Chỉ có thể thay đổi dịch vụ khi xe đang ở bước Check-in");
+            return;
+        }
+
+        const headers = getAuthHeader();
+        if (!headers) {
+            setMessage("Bạn cần đăng nhập bằng tài khoản Staff");
+            return;
+        }
+
+        setServiceEditor({ booking, item, mode });
+        setSelectedServiceIds(
+            mode === "edit"
+                ? item.ServiceLineItems?.map((line) => line.ServiceID) || []
+                : []
+        );
+        setBranchServiceOptions([]);
+        setServiceError("");
+        setIsLoadingServices(true);
+
+        try {
+            const response = await axiosClient.get(
+                `/api/branches/${booking.BranchID}/services`,
+                { headers }
+            );
+            setBranchServiceOptions(response.data?.data || []);
+        } catch (error) {
+            setServiceError(getErrorMessage(error));
+        } finally {
+            setIsLoadingServices(false);
+        }
+    }
+
+    function closeServiceEditor() {
+        if (isSavingServices) return;
+        setServiceEditor(null);
+        setBranchServiceOptions([]);
+        setSelectedServiceIds([]);
+        setServiceError("");
+    }
+
+    function toggleServiceSelection(serviceId: number) {
+        setSelectedServiceIds((current) =>
+            current.includes(serviceId)
+                ? current.filter((id) => id !== serviceId)
+                : [...current, serviceId]
+        );
+    }
+
+    async function saveServices() {
+        if (!serviceEditor) return;
+
+        if (selectedServiceIds.length === 0) {
+            setServiceError(
+                serviceEditor.mode === "add"
+                    ? "Vui lòng chọn ít nhất một dịch vụ cần thêm"
+                    : "Mỗi xe phải có ít nhất một dịch vụ"
+            );
+            return;
+        }
+
+        const headers = getAuthHeader();
+        if (!headers) {
+            setServiceError("Bạn cần đăng nhập bằng tài khoản Staff");
+            return;
+        }
+
+        try {
+            setIsSavingServices(true);
+            setServiceError("");
+
+            const path = `/api/staff-operations/booking-items/${serviceEditor.item.BookingItemID}`;
+            if (serviceEditor.mode === "add") {
+                await axiosClient.post(
+                    `${path}/add-services`,
+                    { serviceIds: selectedServiceIds },
+                    { headers }
+                );
+            } else {
+                await axiosClient.put(
+                    `${path}/update-services`,
+                    { serviceIds: selectedServiceIds },
+                    { headers }
+                );
+            }
+
+            closeServiceEditor();
+            await fetchBookings(true);
+        } catch (error) {
+            setServiceError(getErrorMessage(error));
+        } finally {
+            setIsSavingServices(false);
+        }
+    }
+
+    async function deleteService(item: BookingItem, serviceId: number) {
+        const currentServiceIds = Array.from(
+            new Set(item.ServiceLineItems?.map((line) => line.ServiceID) || [])
+        );
+
+        if (item.Status !== "CheckedIn") {
+            setMessage("Chỉ có thể xóa dịch vụ khi xe đang ở bước Check-in");
+            return;
+        }
+
+        if (currentServiceIds.length <= 1) {
+            setMessage("Không thể xóa dịch vụ cuối cùng của xe");
+            return;
+        }
+
+        if (!window.confirm("Bạn có chắc muốn xóa dịch vụ này khỏi xe?")) return;
+
+        const headers = getAuthHeader();
+        if (!headers) {
+            setMessage("Bạn cần đăng nhập bằng tài khoản Staff");
+            return;
+        }
+
+        try {
+            setUpdatingItemId(item.BookingItemID);
+            setMessage("");
+            await axiosClient.put(
+                `/api/staff-operations/booking-items/${item.BookingItemID}/update-services`,
+                { serviceIds: currentServiceIds.filter((id) => id !== serviceId) },
+                { headers }
+            );
+            await fetchBookings(true);
+        } catch (error) {
+            setMessage(getErrorMessage(error));
+        } finally {
+            setUpdatingItemId(null);
+        }
     }
 
     async function preparePayment(booking: StaffBooking) {
@@ -665,31 +851,33 @@ const StaffBookings = () => {
         );
     }
 
-    function getServicesText(item: BookingItem) {
-        const serviceNames =
-            item.ServiceLineItems?.map((line) => line.Services?.ServiceName).filter(
-                Boolean
-            ) || [];
-
-        if (serviceNames.length === 0) {
-            return "—";
-        }
-
-        return serviceNames.join(", ");
-    }
-
     function isItemUpdating(itemId: number) {
         return updatingItemId === itemId;
     }
 
     return (
         <div className="space-y-6">
-            <div className="rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white shadow-xl shadow-blue-500/20">
-                <h2 className="text-2xl font-bold">Quản lý đặt lịch hôm nay</h2>
+            <div className="flex flex-col gap-5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white shadow-xl shadow-blue-500/20 md:flex-row md:items-end md:justify-between">
+                <div>
+                    <h2 className="text-2xl font-bold">Quản lý đặt lịch</h2>
 
-                <p className="mt-1 text-blue-100">
-                    Staff chỉ xem và xử lý booking tại chi nhánh của mình.
-                </p>
+                    <p className="mt-1 text-blue-100">
+                        Đang xem booking ngày {formatSelectedDate(selectedDate)} tại chi nhánh của bạn.
+                    </p>
+                </div>
+
+                <label className="w-full md:w-auto">
+                    <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-blue-100">
+                        Chọn ngày cần xem
+                    </span>
+                    <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(event) => handleDateChange(event.target.value)}
+                        disabled={isLoading || updatingItemId !== null}
+                        className="w-full rounded-xl border border-white/30 bg-white px-4 py-2.5 font-semibold text-slate-800 outline-none ring-white/30 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-70 md:w-48"
+                    />
+                </label>
             </div>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -706,13 +894,13 @@ const StaffBookings = () => {
                 />
 
                 <StatCard
-                    title="Hoàn thành hôm nay"
+                    title="Xe hoàn thành"
                     value={stats.completed}
                     icon={<CircleCheckBig className="text-green-500" />}
                 />
 
                 <StatCard
-                    title="Tổng xe hôm nay"
+                    title="Tổng xe trong ngày"
                     value={stats.total}
                     icon={<ClipboardList className="text-purple-500" />}
                 />
@@ -720,10 +908,13 @@ const StaffBookings = () => {
 
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-4 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold">Danh sách booking hôm nay</h2>
+                    <div>
+                        <h2 className="text-lg font-semibold">Danh sách booking</h2>
+                        <p className="text-sm text-slate-500">Ngày {formatSelectedDate(selectedDate)}</p>
+                    </div>
 
                     <button
-                        onClick={fetchBookings}
+                        onClick={() => fetchBookings()}
                         disabled={isLoading || updatingItemId !== null}
                         className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-600 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
                     >
@@ -744,7 +935,7 @@ const StaffBookings = () => {
                     </div>
                 ) : bookings.length === 0 ? (
                     <div className="py-8 text-center text-sm text-slate-500">
-                        Hôm nay chưa có booking nào
+                        Không có booking nào trong ngày {formatSelectedDate(selectedDate)}
                     </div>
                 ) : (
                     <div className="space-y-5">
@@ -817,14 +1008,65 @@ const StaffBookings = () => {
                                                         </div>
                                                     </td>
 
-                                                    <td className="px-4 text-sm text-slate-600">
-                                                        {getServicesText(item)}
+                                                    <td className="px-4 py-3 text-sm text-slate-600">
+                                                        <div className="flex max-w-sm flex-wrap gap-2">
+                                                            {item.ServiceLineItems?.length ? (
+                                                                item.ServiceLineItems.map((line) => (
+                                                                    <span
+                                                                        key={line.ServiceID}
+                                                                        className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700"
+                                                                    >
+                                                                        {line.Services?.ServiceName || "Dịch vụ"}
+                                                                        {item.Status === "CheckedIn" && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => deleteService(item, line.ServiceID)}
+                                                                                disabled={
+                                                                                    (item.ServiceLineItems?.length || 0) <= 1 ||
+                                                                                    isItemUpdating(item.BookingItemID)
+                                                                                }
+                                                                                title={
+                                                                                    (item.ServiceLineItems?.length || 0) <= 1
+                                                                                        ? "Xe phải còn ít nhất một dịch vụ"
+                                                                                        : "Xóa dịch vụ"
+                                                                                }
+                                                                                className="rounded-full p-0.5 text-sky-500 hover:bg-red-100 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30"
+                                                                            >
+                                                                                <Trash2 size={12} />
+                                                                            </button>
+                                                                        )}
+                                                                    </span>
+                                                                ))
+                                                            ) : (
+                                                                <span>Chưa có dịch vụ</span>
+                                                            )}
+                                                        </div>
                                                     </td>
 
                                                     <td className="px-4">{getStatusBadge(item.Status)}</td>
 
                                                     <td className="px-4">
                                                         <div className="flex flex-wrap gap-2">
+                                                            {item.Status === "CheckedIn" && (
+                                                                <>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => openServiceEditor(booking, item, "add")}
+                                                                        disabled={isItemUpdating(item.BookingItemID)}
+                                                                        className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                                                                    >
+                                                                        <Plus size={14} /> Thêm dịch vụ
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => openServiceEditor(booking, item, "edit")}
+                                                                        disabled={isItemUpdating(item.BookingItemID)}
+                                                                        className="inline-flex items-center gap-1 rounded-lg border border-amber-300 px-3 py-1.5 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                                                                    >
+                                                                        <Pencil size={14} /> Sửa dịch vụ
+                                                                    </button>
+                                                                </>
+                                                            )}
                                                             <button
                                                                 type="button"
                                                                 disabled={
@@ -893,6 +1135,132 @@ const StaffBookings = () => {
                     </div>
                 )}
             </div>
+
+            {serviceEditor && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4">
+                    <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
+                        <div className="flex items-start justify-between border-b border-slate-200 p-5">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-800">
+                                    {serviceEditor.mode === "add"
+                                        ? "Thêm dịch vụ"
+                                        : "Sửa danh sách dịch vụ"}
+                                </h2>
+                                <p className="mt-1 text-sm text-slate-500">
+                                    Xe {serviceEditor.item.Vehicles?.LicensePlate || "—"} · Chỉ thao tác tại bước Check-in
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={closeServiceEditor}
+                                disabled={isSavingServices}
+                                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+                                aria-label="Đóng"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="p-5">
+                            {serviceError && (
+                                <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                                    {serviceError}
+                                </div>
+                            )}
+
+                            {serviceEditor.mode === "edit" && (
+                                <p className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                                    Bỏ chọn để xóa dịch vụ. Mỗi xe bắt buộc phải còn ít nhất một dịch vụ.
+                                </p>
+                            )}
+
+                            {isLoadingServices ? (
+                                <div className="flex justify-center py-10">
+                                    <div className="h-7 w-7 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                                </div>
+                            ) : (
+                                <div className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
+                                    {branchServiceOptions
+                                        .filter((service) =>
+                                            serviceEditor.mode === "edit" ||
+                                            !serviceEditor.item.ServiceLineItems?.some(
+                                                (line) => line.ServiceID === service.ServiceID
+                                            )
+                                        )
+                                        .map((service) => {
+                                            const checked = selectedServiceIds.includes(service.ServiceID);
+                                            const isLastSelected =
+                                                serviceEditor.mode === "edit" &&
+                                                checked &&
+                                                selectedServiceIds.length === 1;
+
+                                            return (
+                                                <label
+                                                    key={service.ServiceID}
+                                                    className={`flex items-center justify-between gap-3 rounded-xl border p-3 ${
+                                                        checked
+                                                            ? "border-blue-400 bg-blue-50"
+                                                            : "border-slate-200 hover:bg-slate-50"
+                                                    } ${isLastSelected ? "cursor-not-allowed" : "cursor-pointer"}`}
+                                                >
+                                                    <span className="flex items-center gap-3">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={checked}
+                                                            disabled={isLastSelected}
+                                                            onChange={() => toggleServiceSelection(service.ServiceID)}
+                                                            className="h-4 w-4"
+                                                        />
+                                                        <span className="font-medium text-slate-700">
+                                                            {service.ServiceName}
+                                                        </span>
+                                                    </span>
+                                                    <span className="text-sm font-semibold text-blue-700">
+                                                        {formatMoney(service.ActualPrice)}
+                                                    </span>
+                                                </label>
+                                            );
+                                        })}
+
+                                    {serviceEditor.mode === "add" &&
+                                        branchServiceOptions.every((service) =>
+                                            serviceEditor.item.ServiceLineItems?.some(
+                                                (line) => line.ServiceID === service.ServiceID
+                                            )
+                                        ) && (
+                                            <div className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">
+                                                Xe đã sử dụng tất cả dịch vụ đang có tại chi nhánh.
+                                            </div>
+                                        )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end gap-3 border-t border-slate-200 p-5">
+                            <button
+                                type="button"
+                                onClick={closeServiceEditor}
+                                disabled={isSavingServices}
+                                className="rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                type="button"
+                                onClick={saveServices}
+                                disabled={isSavingServices || isLoadingServices || selectedServiceIds.length === 0}
+                                className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {isSavingServices
+                                    ? "Đang lưu..."
+                                    : serviceEditor.mode === "add"
+                                      ? "Thêm dịch vụ"
+                                      : "Lưu thay đổi"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {paymentBooking && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">

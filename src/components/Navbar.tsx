@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import axiosClient from "../api/axiosClient";
 
 const Navbar = () => {
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
+  const [tierName, setTierName] = useState("Thành viên");
 
   const token = localStorage.getItem("token");
   const userString = localStorage.getItem("user");
@@ -17,6 +19,25 @@ const Navbar = () => {
       user = null;
     }
   }
+
+  useEffect(() => {
+    async function loadTierName() {
+      if (!token || localStorage.getItem("userRole") !== "Customer") return;
+
+      try {
+        const response = await axiosClient.get("/api/customers/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const name =
+          response.data?.data?.LoyaltyAccounts?.[0]?.tier_configs?.TierName;
+        if (name) setTierName(name);
+      } catch {
+        // Giữ tên hạng mặc định nếu hồ sơ thành viên chưa được tạo.
+      }
+    }
+
+    loadTierName();
+  }, [token]);
 
   function closeMenu() {
     setShowMenu(false);
@@ -41,7 +62,7 @@ const Navbar = () => {
           Auto Wash Pro
         </Link>
 
-        <div className="flex items-center gap-8">
+        <div className="flex items-center gap-6">
           <Link
             to={user ? "/home" : "/"}
             onClick={closeMenu}
@@ -65,6 +86,26 @@ const Navbar = () => {
           >
             Đặt lịch
           </Link>
+
+          {user && (
+            <>
+              <Link
+                to="/customer/bookings"
+                onClick={closeMenu}
+                className="font-medium text-gray-700 hover:text-sky-600"
+              >
+                Lịch hẹn
+              </Link>
+
+              <Link
+                to="/customer/points"
+                onClick={closeMenu}
+                className="font-medium text-gray-700 hover:text-sky-600"
+              >
+                Điểm thành viên
+              </Link>
+            </>
+          )}
         </div>
 
         {user ? (
@@ -78,7 +119,7 @@ const Navbar = () => {
                 {user.fullName || user.FullName || user.email || user.Email || "Người dùng"}
               </p>
 
-              <p className="text-xs text-sky-600">Hạng: Thành viên</p>
+              <p className="text-xs text-sky-600">Hạng: {tierName}</p>
             </button>
 
             {showMenu && (
@@ -123,6 +164,22 @@ const Navbar = () => {
                   className="block rounded-lg px-4 py-3 font-medium text-slate-700 hover:bg-gray-100"
                 >
                   Lịch sử đặt lịch
+                </Link>
+
+                <Link
+                  to="/customer/points"
+                  onClick={closeMenu}
+                  className="block rounded-lg px-4 py-3 font-medium text-slate-700 hover:bg-gray-100"
+                >
+                  Điểm thành viên
+                </Link>
+
+                <Link
+                  to="/customer/vouchers"
+                  onClick={closeMenu}
+                  className="block rounded-lg px-4 py-3 font-medium text-slate-700 hover:bg-gray-100"
+                >
+                  Mã giảm giá của tôi
                 </Link>
 
                 <Link

@@ -42,6 +42,9 @@ import MyVehicles from "../pages/customer/MyVehicles";
 import Booking from "../pages/customer/Booking";
 import BookingSuccess from "../pages/customer/BookingSuccess";
 import BookingHistory from "../pages/customer/BookingHistory";
+import MembershipPoints from "../pages/customer/MembershipPoints";
+import RewardExchange from "../pages/customer/RewardExchange";
+import MyVouchers from "../pages/customer/MyVouchers";
 import StaffShiftHistory from "../pages/staff/StaffShiftHistory";
 
 import ProtectedRoute, { ManagerRoute, AdminRoute } from "./ProtectedRoute";
@@ -236,6 +239,33 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <BookingHistory />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/customer/points"
+          element={
+            <ProtectedRoute>
+              <MembershipPoints />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/customer/rewards"
+          element={
+            <ProtectedRoute>
+              <RewardExchange />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/customer/vouchers"
+          element={
+            <ProtectedRoute>
+              <MyVouchers />
             </ProtectedRoute>
           }
         />
