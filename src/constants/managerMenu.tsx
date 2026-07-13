@@ -5,6 +5,7 @@ import {
   BarChart3,
   Building2,
   Sparkles,
+  TicketPercent,
 } from "lucide-react";
 
 export const managerMenu = [
@@ -27,6 +28,11 @@ export const managerMenu = [
     path: "/manager/services",
     name: "Dịch vụ của Chi nhánh",
     icon: <Sparkles size={20} />,
+  },
+  {
+    path: "/manager/promotions",
+    name: "Khuyến mãi",
+    icon: <TicketPercent size={20} />,
   },
   {
     path: "/manager/statistics",
