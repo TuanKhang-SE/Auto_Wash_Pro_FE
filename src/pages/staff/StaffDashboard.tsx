@@ -1,10 +1,13 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   CalendarCheck,
   ClipboardList,
   UserCheck,
   ArrowRight,
+  Star,
 } from "lucide-react";
+import axiosClient from "../../api/axiosClient";
 
 function getUserFromStorage() {
   try {
@@ -25,6 +28,25 @@ const StaffDashboard = () => {
 
   const staffName =
     user?.fullName || user?.FullName || user?.email || "Nhân viên";
+  const branchId = Number(user?.branchId || user?.BranchID || 0);
+  const [averageRating, setAverageRating] = useState(0);
+  const [totalReviews, setTotalReviews] = useState(0);
+
+  useEffect(() => {
+    async function loadReviewSummary() {
+      if (!branchId) return;
+      try {
+        const response = await axiosClient.get(`/api/reviews/branch/${branchId}`);
+        setAverageRating(Number(response.data?.data?.averageRating || 0));
+        setTotalReviews(Number(response.data?.data?.totalReviews || 0));
+      } catch {
+        setAverageRating(0);
+        setTotalReviews(0);
+      }
+    }
+
+    loadReviewSummary();
+  }, [branchId]);
 
   return (
     <div className="space-y-6">
@@ -36,7 +58,7 @@ const StaffDashboard = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-blue-50 p-3">
@@ -53,6 +75,25 @@ const StaffDashboard = () => {
 
           <p className="mt-4 text-sm text-slate-500">
             Xem lịch đặt hôm nay, check-in xe, bắt đầu rửa và hoàn thành dịch vụ.
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-amber-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-amber-50 p-3">
+              <Star className="fill-amber-400 text-amber-500" />
+            </div>
+
+            <div>
+              <p className="text-sm text-slate-500">Đánh giá trung bình</p>
+              <p className="text-lg font-bold text-slate-800">
+                {averageRating.toFixed(1)}/5 sao
+              </p>
+            </div>
+          </div>
+
+          <p className="mt-4 text-sm text-slate-500">
+            Tổng hợp từ {totalReviews.toLocaleString("vi-VN")} lượt đánh giá tại chi nhánh.
           </p>
         </div>
 

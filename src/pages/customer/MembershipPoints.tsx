@@ -124,6 +124,9 @@ const MembershipPoints = () => {
         <section className="bg-[#020617] text-white">
           <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-14 md:flex-row md:items-end md:justify-between">
             <div>
+              <button type="button" onClick={() => navigate(-1)} className="mb-5 text-sm font-semibold text-slate-300 hover:text-white">
+                ← Quay lại
+              </button>
               <p className="text-xs font-bold uppercase tracking-[0.32em] text-sky-300">
                 Bảng điểm thành viên
               </p>

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axiosClient from "../../api/axiosClient";
+import { Eye, EyeOff } from "lucide-react";
+import axiosClient, { getErrorMessage } from "../../api/axiosClient";
 
 function ForgotPassword() {
   const navigate = useNavigate();
@@ -11,6 +12,8 @@ function ForgotPassword() {
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -33,11 +36,9 @@ function ForgotPassword() {
 
       setMessage(res.data?.message || "Mã xác minh đã được gửi đến email");
       setStep(2);
-    } catch (error: any) {
-      console.log(error.response?.data || error);
-      setMessage(
-        error.response?.data?.message || "Gửi mã xác minh thất bại"
-      );
+    } catch (error: unknown) {
+      console.log(error);
+      setMessage(getErrorMessage(error) || "Gửi mã xác minh thất bại");
     } finally {
       setLoading(false);
     }
@@ -81,11 +82,9 @@ function ForgotPassword() {
       setTimeout(() => {
         navigate("/login");
       }, 1200);
-    } catch (error: any) {
-      console.log(error.response?.data || error);
-      setMessage(
-        error.response?.data?.message || "Đặt lại mật khẩu thất bại"
-      );
+    } catch (error: unknown) {
+      console.log(error);
+      setMessage(getErrorMessage(error) || "Đặt lại mật khẩu thất bại");
     } finally {
       setLoading(false);
     }
@@ -165,13 +164,23 @@ function ForgotPassword() {
                 Mật khẩu mới
               </label>
 
-              <input
-                type="password"
-                placeholder="Nhập mật khẩu mới"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
+              <div className="relative">
+                <input
+                  type={showNewPassword ? "text" : "password"}
+                  placeholder="Nhập mật khẩu mới"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 pr-11 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword((current) => !current)}
+                  className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-gray-500 hover:text-blue-600"
+                  aria-label={showNewPassword ? "Ẩn mật khẩu mới" : "Hiện mật khẩu mới"}
+                >
+                  {showNewPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                </button>
+              </div>
             </div>
 
             <div>
@@ -179,13 +188,23 @@ function ForgotPassword() {
                 Xác nhận mật khẩu mới
               </label>
 
-              <input
-                type="password"
-                placeholder="Nhập lại mật khẩu mới"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Nhập lại mật khẩu mới"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 pr-11 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((current) => !current)}
+                  className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-gray-500 hover:text-blue-600"
+                  aria-label={showConfirmPassword ? "Ẩn mật khẩu xác nhận" : "Hiện mật khẩu xác nhận"}
+                >
+                  {showConfirmPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                </button>
+              </div>
             </div>
 
             <button

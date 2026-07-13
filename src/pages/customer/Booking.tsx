@@ -59,6 +59,14 @@ type LoyaltyAccount = {
   tier_configs?: MemberTierConfig | null;
 };
 
+type ExistingBooking = {
+  BranchID: number;
+  BookingDate?: string | null;
+  StartTime?: string | null;
+  Status?: string | null;
+  BookingItems?: Array<{ VehicleID?: number | null; Status?: string | null }>;
+};
+
 function formatMoney(value: number | string | null | undefined) {
   return `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 }
@@ -99,6 +107,7 @@ function Booking() {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [memberTierName, setMemberTierName] = useState("");
   const [tierDiscountPercent, setTierDiscountPercent] = useState(0);
+  const [myBookings, setMyBookings] = useState<ExistingBooking[]>([]);
 
   // Dữ liệu người dùng lựa chọn
   const [branchId, setBranchId] = useState("");
@@ -129,6 +138,24 @@ function Booking() {
 
   const selectedSlot = slots.find(
     (slot) => slot.StartTime === startTime
+  );
+
+  const bookedVehicleIdsInSelectedSlot = new Set(
+    myBookings
+      .filter((booking) => {
+        const existingDate = booking.BookingDate?.substring(0, 10);
+        return (
+          booking.Status !== "Cancelled" &&
+          existingDate === bookingDate &&
+          formatTime(booking.StartTime) === formatTime(startTime)
+        );
+      })
+      .flatMap((booking) =>
+        (booking.BookingItems || [])
+          .filter((item) => item.Status !== "Cancelled")
+          .map((item) => item.VehicleID)
+          .filter((vehicleId): vehicleId is number => Boolean(vehicleId))
+      )
   );
 
   const selectedVehicles = vehicles.filter((vehicle) =>
@@ -187,9 +214,10 @@ function Booking() {
           Authorization: `Bearer ${token}`,
         };
 
-        const [branchResponse, profileResponse] = await Promise.all([
+        const [branchResponse, profileResponse, bookingResponse] = await Promise.all([
           axiosClient.get("/api/branches?status=Active"),
           axiosClient.get("/api/customers/profile", { headers }),
+          axiosClient.get("/api/bookings/me", { headers }),
         ]);
 
         const profile = profileResponse.data.data;
@@ -198,6 +226,7 @@ function Booking() {
         setFullName(profile?.Users?.FullName || "");
         setPhone(profile?.Users?.Phone || "");
         setVehicles(profile?.Vehicles || []);
+        setMyBookings(bookingResponse.data?.data || []);
 
         const loyaltyAccount = Array.isArray(profile?.LoyaltyAccounts)
           ? (profile.LoyaltyAccounts[0] as LoyaltyAccount | undefined)
@@ -335,6 +364,12 @@ function Booking() {
   function toggleVehicle(vehicleId: number) {
     if (!selectedSlot) {
       showMessage("Vui lòng chọn khung giờ trước");
+      return;
+    }
+
+
+    if (bookedVehicleIdsInSelectedSlot.has(vehicleId)) {
+      showMessage("Xe này đã được đăng ký trong cùng khung giờ. Vui lòng chọn xe hoặc khung giờ khác.");
       return;
     }
 
@@ -516,6 +551,9 @@ function Booking() {
       <main className="min-h-screen bg-gray-100">
         <section className="bg-slate-800 px-6 py-10 text-white">
           <div className="mx-auto max-w-6xl">
+            <button type="button" onClick={() => navigate(-1)} className="mb-5 text-sm font-semibold text-slate-300 hover:text-white">
+              ← Quay lại
+            </button>
             <p className="text-sm font-semibold uppercase tracking-[0.3em] text-sky-300">
               Auto Wash Pro
             </p>
@@ -554,9 +592,9 @@ function Booking() {
 
                 <input
                   value={fullName}
-                  onChange={(event) => setFullName(event.target.value)}
+                  readOnly
                   placeholder="Nhập họ và tên"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                  className="w-full cursor-not-allowed rounded-lg border border-gray-300 bg-gray-100 px-4 py-3 text-slate-600 outline-none"
                 />
               </div>
 
@@ -567,9 +605,9 @@ function Booking() {
 
                 <input
                   value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
+                  readOnly
                   placeholder="Nhập số điện thoại"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                  className="w-full cursor-not-allowed rounded-lg border border-gray-300 bg-gray-100 px-4 py-3 text-slate-600 outline-none"
                 />
               </div>
             </div>
@@ -830,8 +868,13 @@ function Booking() {
                         selectedVehicleIds.length >=
                         maxSelectableVehicles;
 
+                      const alreadyBooked = bookedVehicleIdsInSelectedSlot.has(
+                        vehicle.VehicleID
+                      );
+
                       const disabled =
                         !selectedSlot ||
+                        alreadyBooked ||
                         (!checked && reachedLimit);
 
                       return (
@@ -861,6 +904,11 @@ function Booking() {
                             {vehicle.LicensePlate} -{" "}
                             {vehicle.Brand || "Chưa cập nhật"}{" "}
                             {vehicle.Model || ""}
+                            {alreadyBooked && (
+                              <span className="ml-2 text-xs font-medium text-amber-600">
+                                (Đã đặt trong khung giờ này)
+                              </span>
+                            )}
                           </span>
                         </label>
                       );

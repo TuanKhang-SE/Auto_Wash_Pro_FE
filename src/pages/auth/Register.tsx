@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import axiosClient from "../../api/axiosClient";
+import axiosClient, { getErrorMessage } from "../../api/axiosClient";
 
 const phoneRegex = /^0\d{9}$/;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -38,8 +38,8 @@ function Register() {
 
     setIsCodeSent(true);
     setMessage("Mã xác minh đã được gửi đến email");
-  } catch (error: any) {
-    setMessage(error.response?.data?.message || "Gửi mã xác minh thất bại");
+  } catch (error: unknown) {
+    setMessage(getErrorMessage(error) || "Gửi mã xác minh thất bại");
   }
 }
 
@@ -106,8 +106,8 @@ function Register() {
     setTimeout(() => {
       navigate("/login");
     }, 1500);
-  } catch (error: any) {
-    setMessage(error.response?.data?.message || "Đăng ký thất bại");
+  } catch (error: unknown) {
+    setMessage(getErrorMessage(error) || "Đăng ký thất bại");
   }
 }
 
@@ -132,7 +132,7 @@ function Register() {
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Họ và tên
+              Họ và tên <span className="text-red-500">*</span>
             </label>
 
             <input
@@ -146,7 +146,7 @@ function Register() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Số điện thoại
+              Số điện thoại <span className="text-red-500">*</span>
             </label>
 
             <input
@@ -169,7 +169,7 @@ function Register() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
+              Email <span className="text-red-500">*</span>
             </label>
 
             <input
@@ -199,7 +199,7 @@ function Register() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Mã xác minh
+              Mã xác minh <span className="text-red-500">*</span>
             </label>
 
             <input
@@ -217,7 +217,7 @@ function Register() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Mật khẩu
+              Mật khẩu <span className="text-red-500">*</span>
             </label>
 
             <input
@@ -235,7 +235,7 @@ function Register() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nhập lại mật khẩu
+              Nhập lại mật khẩu <span className="text-red-500">*</span>
             </label>
 
             <input

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Star, X } from "lucide-react";
 import Navbar from "../../components/Navbar";
 import axiosClient, { getErrorMessage } from "../../api/axiosClient";
 
@@ -23,6 +24,13 @@ type CustomerBookingItem = {
   ServiceLineItems?: BookingServiceLine[];
 };
 
+type BookingReview = {
+  ReviewID: number;
+  Rating: number;
+  Comment?: string | null;
+  CreatedAt?: string | null;
+};
+
 type CustomerBooking = {
   BookingGroupID: number;
   BookingCode?: string | null;
@@ -39,6 +47,7 @@ type CustomerBooking = {
     FinalAmount?: number | string | null;
     Status?: string | null;
   }>;
+  Reviews?: BookingReview | null;
 };
 
 function BookingHistory() {
@@ -52,6 +61,10 @@ function BookingHistory() {
   const [cancelingId, setCancelingId] = useState<number | null>(null);
   const [memberTierName, setMemberTierName] = useState("");
   const [tierDiscountPercent, setTierDiscountPercent] = useState(0);
+  const [reviewDetail, setReviewDetail] = useState<{
+    review: BookingReview;
+    bookingCode: string;
+  } | null>(null);
 
   useEffect(() => {
     loadBookings();
@@ -246,6 +259,9 @@ function BookingHistory() {
 
       <main className="min-h-screen bg-gray-100 px-6 py-10">
         <div className="mx-auto max-w-5xl">
+          <button type="button" onClick={() => navigate(-1)} className="mb-5 text-sm font-semibold text-slate-500 hover:text-sky-600">
+            ← Quay lại
+          </button>
           <div className="mb-6 flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-800">
@@ -424,8 +440,25 @@ function BookingHistory() {
                     ))}
                   </div>
 
-                  {canCancel(booking.Status) && (
-                    <div className="mt-5 flex justify-end">
+                  <div className="mt-5 flex flex-wrap justify-end gap-3">
+                    <button
+                      type="button"
+                      disabled={!booking.Reviews}
+                      onClick={() => {
+                        if (!booking.Reviews) return;
+                        setReviewDetail({
+                          review: booking.Reviews,
+                          bookingCode:
+                            booking.BookingCode || `BK-${booking.BookingGroupID}`,
+                        });
+                      }}
+                      className="inline-flex items-center gap-2 rounded-lg border border-amber-300 px-4 py-2 font-semibold text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400"
+                    >
+                      <Star size={17} />
+                      {booking.Reviews ? "Xem đánh giá" : "Chưa có đánh giá"}
+                    </button>
+
+                    {canCancel(booking.Status) && (
                       <button
                         type="button"
                         onClick={() =>
@@ -438,14 +471,80 @@ function BookingHistory() {
                           ? "Đang hủy..."
                           : "Hủy lịch"}
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
       </main>
+
+      {reviewDetail && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/65 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">Đánh giá đơn hàng</h2>
+                <p className="mt-1 text-sm text-slate-500">{reviewDetail.bookingCode}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReviewDetail(null)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Đóng chi tiết đánh giá"
+              >
+                <X size={21} />
+              </button>
+            </div>
+
+            <div className="space-y-5 px-6 py-5">
+              <div className="text-center">
+                <div className="flex justify-center gap-1.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      size={32}
+                      className={
+                        star <= reviewDetail.review.Rating
+                          ? "fill-amber-400 text-amber-400"
+                          : "text-slate-300"
+                      }
+                    />
+                  ))}
+                </div>
+                <p className="mt-2 font-bold text-amber-600">
+                  {reviewDetail.review.Rating}/5 sao
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Bình luận
+                </p>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                  {reviewDetail.review.Comment?.trim() || "Khách hàng không để lại bình luận."}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span>Ngày đánh giá</span>
+                <span className="font-medium text-slate-700">
+                  {formatDate(reviewDetail.review.CreatedAt)}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setReviewDetail(null)}
+                className="w-full rounded-lg bg-slate-900 px-4 py-2.5 font-semibold text-white hover:bg-slate-800"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -87,6 +87,9 @@ const MyVouchers = () => {
         <section className="border-b border-slate-200 bg-white">
           <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10 sm:flex-row sm:items-end sm:justify-between">
             <div>
+              <button type="button" onClick={() => navigate(-1)} className="mb-4 text-sm font-semibold text-slate-500 hover:text-sky-600">
+                ← Quay lại
+              </button>
               <p className="text-xs font-bold uppercase tracking-[0.26em] text-sky-600">Ví ưu đãi</p>
               <h1 className="mt-2 text-3xl font-black text-slate-900">Mã giảm giá của tôi</h1>
               <p className="mt-2 text-slate-500">Các voucher bạn đã đổi bằng điểm thành viên.</p>

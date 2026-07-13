@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
-import axiosClient from "../../api/axiosClient";
+import axiosClient, { getErrorMessage } from "../../api/axiosClient";
 
 
 const allowedLetters = "ABCDEFGHKLMNPSTUVXYZ";
@@ -31,28 +31,27 @@ const registerCarSchema = z.object({
     ),
 
   VehicleType: z
-    .string()
-    .trim()
-    .min(1, "Vui lòng nhập loại xe")
-    .max(50, "Loại xe quá dài"),
+    .enum(["Xe máy", "Xe tay ga", "Mô tô"], {
+      message: "Vui lòng chọn loại xe",
+    }),
 
   Brand: z
     .string()
     .trim()
-    .min(1, "Vui lòng nhập hãng xe")
-    .max(50, "Hãng xe quá dài"),
+    .max(50, "Hãng xe quá dài")
+    .transform((value) => value || "Không có"),
 
   Model: z
     .string()
     .trim()
-    .min(1, "Vui lòng nhập model xe")
-    .max(50, "Model quá dài"),
+    .max(50, "Model quá dài")
+    .transform((value) => value || "Không có"),
 
   Color: z
     .string()
     .trim()
-    .min(1, "Vui lòng nhập màu xe")
-    .max(30, "Màu xe quá dài"),
+    .max(30, "Màu xe quá dài")
+    .transform((value) => value || "Không có"),
 });
 
 function RegisterCar() {
@@ -101,10 +100,10 @@ function RegisterCar() {
 
       setMessage("Đăng ký xe thành công");
       navigate("/home");
-    } catch (error: any) {
-  console.log(error.response?.data || error);
+    } catch (error: unknown) {
+  console.log(error);
 
-  setMessage(error.response?.data?.message || "Đăng ký xe thất bại");
+  setMessage(getErrorMessage(error) || "Đăng ký xe thất bại");
 }
   }
 
@@ -129,54 +128,74 @@ function RegisterCar() {
         </p>
 
         <form onSubmit={handleRegister} className="space-y-4">
-          <input
-            placeholder="Biển số xe, ví dụ: 59F1-123.45"
-            value={bienSoXe}
-            onChange={(e) => setBienSoXe(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Biển số xe <span className="text-red-500">*</span>
+            </label>
+            <input
+              placeholder="Ví dụ: 59-F1 123.45"
+              value={bienSoXe}
+              onChange={(e) => setBienSoXe(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
           <p className="mt-1 text-xs text-gray-500">
     Biển số hợp lệ: 29-B1 555.55, 73-K9 9999, 59-AB 1234 hoặc 59-AB 123.45.
   </p>
 
-          <input
-            placeholder="Loại xe, ví dụ: Xe máy, xe tay ga"
-            value={loaiXe}
-            onChange={(e) => setLoaiXe(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-    Nhập loại phương tiện, ví dụ: Xe máy, Xe tay ga.
-  </p>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Loại xe <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={loaiXe}
+              onChange={(e) => setLoaiXe(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Chọn loại xe</option>
+              <option value="Xe máy">Xe máy</option>
+              <option value="Xe tay ga">Xe tay ga</option>
+              <option value="Mô tô">Mô tô</option>
+            </select>
+          </div>
 
-          <input
-            placeholder="Hãng xe, ví dụ: Honda, Yamaha"
-            value={hangXe}
-            onChange={(e) => setHangXe(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Hãng xe (không bắt buộc)</label>
+            <input
+              placeholder="Ví dụ: Honda, Yamaha"
+              value={hangXe}
+              onChange={(e) => setHangXe(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
 <p className="mt-1 text-xs text-gray-500">
     Nhập tên hãng xe, ví dụ: Honda, Yamaha, Suzuki, Toyota.
   </p>
 
-          <input
-            placeholder="Model, ví dụ: Vision"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Model (không bắt buộc)</label>
+            <input
+              placeholder="Ví dụ: Vision"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
 <p className="mt-1 text-xs text-gray-500">
     Nhập dòng xe hoặc mẫu xe, ví dụ: Vision, Wave Alpha, Air Blade, Vios.
   </p>
 
-          <input
-            placeholder="Màu xe, ví dụ: Đen"
-            value={mauXe}
-            onChange={(e) => setMauXe(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Màu xe (không bắt buộc)</label>
+            <input
+              placeholder="Ví dụ: Đen"
+              value={mauXe}
+              onChange={(e) => setMauXe(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
           <p className="mt-1 text-xs text-gray-500">
     Nhập màu chính của xe, ví dụ: Đen, Trắng, Đỏ đen, Xanh bạc.

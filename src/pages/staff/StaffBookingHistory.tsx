@@ -4,6 +4,7 @@ import {
   FileText,
   LoaderCircle,
   Search,
+  Star,
   X,
 } from "lucide-react";
 import axiosClient, { getErrorMessage } from "../../api/axiosClient";
@@ -29,6 +30,12 @@ type BookingGroup = {
   StartTime?: string | null;
   branches?: { BranchName?: string | null; Address?: string | null } | null;
   BookingItems?: BookingItem[];
+  Reviews?: {
+    ReviewID: number;
+    Rating: number;
+    Comment?: string | null;
+    CreatedAt?: string | null;
+  } | null;
 };
 
 type PaymentRecord = {
@@ -98,6 +105,12 @@ const StaffBookingHistory = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceDetail | null>(null);
+  const [selectedReview, setSelectedReview] = useState<{
+    bookingCode: string;
+    rating: number;
+    comment?: string | null;
+    createdAt?: string | null;
+  } | null>(null);
 
   useEffect(() => {
     async function loadInvoices() {
@@ -223,7 +236,7 @@ const StaffBookingHistory = () => {
                   <th className="px-5 py-3">Khách hàng</th>
                   <th className="px-5 py-3">Xe</th>
                   <th className="px-5 py-3">Thanh toán</th>
-                  <th className="px-5 py-3 text-right">Chi tiết</th>
+                  <th className="px-5 py-3 text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -254,7 +267,26 @@ const StaffBookingHistory = () => {
                         <p className="font-bold text-emerald-600">{formatMoney(transaction.FinalAmount)}</p>
                         <p className="mt-1 text-xs text-slate-500">{paymentMethodLabel(transaction.PaymentRecords?.[0]?.Method)}</p>
                       </td>
-                      <td className="px-5 py-4 text-right">
+                      <td className="px-5 py-4">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            disabled={!invoiceBooking?.Reviews}
+                            onClick={() => {
+                              const review = invoiceBooking?.Reviews;
+                              if (!review) return;
+                              setSelectedReview({
+                                bookingCode: invoiceBooking.BookingCode || `BK-${invoice.InvoiceID}`,
+                                rating: review.Rating,
+                                comment: review.Comment,
+                                createdAt: review.CreatedAt,
+                              });
+                            }}
+                            className="inline-flex items-center gap-2 rounded-lg border border-amber-300 px-3 py-2 font-semibold text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                          >
+                            <Star size={16} />
+                            {invoiceBooking?.Reviews ? "Đánh giá" : "Chưa có"}
+                          </button>
                         <button
                           type="button"
                           onClick={() => viewInvoice(invoice.InvoiceID)}
@@ -263,6 +295,7 @@ const StaffBookingHistory = () => {
                         >
                           <Eye size={16} /> Xem
                         </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -346,6 +379,66 @@ const StaffBookingHistory = () => {
 
             <div className="sticky bottom-0 flex justify-end border-t border-slate-200 bg-white px-6 py-4">
               <button type="button" onClick={() => setSelectedInvoice(null)} className="rounded-lg bg-slate-800 px-5 py-2.5 font-semibold text-white hover:bg-slate-900">Đóng</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedReview && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-amber-600">Đánh giá khách hàng</p>
+                <h2 className="mt-1 text-xl font-bold text-slate-800">{selectedReview.bookingCode}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedReview(null)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Đóng đánh giá"
+              >
+                <X size={21} />
+              </button>
+            </div>
+
+            <div className="space-y-5 p-6">
+              <div className="text-center">
+                <div className="flex justify-center gap-1.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      size={32}
+                      className={
+                        star <= selectedReview.rating
+                          ? "fill-amber-400 text-amber-400"
+                          : "text-slate-300"
+                      }
+                    />
+                  ))}
+                </div>
+                <p className="mt-2 font-bold text-amber-600">{selectedReview.rating}/5 sao</p>
+              </div>
+
+              <div className="rounded-xl bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bình luận</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                  {selectedReview.comment?.trim() || "Khách hàng không để lại bình luận."}
+                </p>
+              </div>
+
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>Ngày đánh giá</span>
+                <span className="font-medium text-slate-700">{formatDateTime(selectedReview.createdAt)}</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedReview(null)}
+                className="w-full rounded-lg bg-slate-900 px-4 py-2.5 font-semibold text-white hover:bg-slate-800"
+              >
+                Đóng
+              </button>
             </div>
           </div>
         </div>

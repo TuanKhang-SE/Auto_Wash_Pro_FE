@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../../components/Navbar";
-import axiosClient from "../../api/axiosClient";
+import axiosClient, { getErrorMessage } from "../../api/axiosClient";
 
 type Vehicle = {
   VehicleID: number;
@@ -22,12 +22,19 @@ type EditForm = {
   Color: string;
 };
 
+type VehicleBooking = {
+  Status?: string | null;
+  BookingItems?: Array<{ VehicleID?: number | null }>;
+  Transactions?: Array<{ Status?: string | null }>;
+};
+
 function MyVehicles() {
   const navigate = useNavigate();
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lockedVehicleIds, setLockedVehicleIds] = useState<Set<number>>(new Set());
 
   // Xe nào đang được sửa
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -43,6 +50,8 @@ function MyVehicles() {
 
   useEffect(() => {
     loadVehicles();
+    // Chỉ tải dữ liệu một lần khi mở trang.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadVehicles() {
@@ -57,13 +66,24 @@ function MyVehicles() {
         return;
       }
 
-      const res = await axiosClient.get("/api/vehicles", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const headers = { Authorization: `Bearer ${token}` };
+      const [vehicleResponse, bookingResponse] = await Promise.all([
+        axiosClient.get("/api/vehicles", { headers }),
+        axiosClient.get("/api/bookings/me", { headers }),
+      ]);
 
-      setVehicles(res.data.data || []);
+      setVehicles(vehicleResponse.data.data || []);
+      const lockedIds = new Set<number>();
+      const bookings: VehicleBooking[] = bookingResponse.data?.data || [];
+      bookings.forEach((booking) => {
+        const isPaid = booking.Transactions?.some((transaction) => transaction.Status === "Paid");
+        if (booking.Status === "Cancelled" || isPaid) return;
+        booking.BookingItems?.forEach((item) => {
+          const vehicleId = item.VehicleID;
+          if (vehicleId) lockedIds.add(vehicleId);
+        });
+      });
+      setLockedVehicleIds(lockedIds);
     } catch (error) {
       console.log(error);
       setMessage("Không thể tải danh sách xe");
@@ -81,6 +101,10 @@ function MyVehicles() {
   }
 
   function startEdit(vehicle: Vehicle) {
+    if (lockedVehicleIds.has(vehicle.VehicleID)) {
+      setMessage("Xe đang có lịch hẹn chưa thanh toán nên chưa thể chỉnh sửa");
+      return;
+    }
     setEditingId(vehicle.VehicleID);
     setEditForm({
       LicensePlate: vehicle.LicensePlate || "",
@@ -123,12 +147,17 @@ function MyVehicles() {
       return;
     }
 
+    if (!editForm.VehicleType) {
+      setMessage("Vui lòng chọn loại xe");
+      return;
+    }
+
     const dataToUpdate = {
       LicensePlate: editForm.LicensePlate.trim().toUpperCase(),
       VehicleType: editForm.VehicleType.trim(),
-      Brand: editForm.Brand.trim(),
-      Model: editForm.Model.trim(),
-      Color: editForm.Color.trim(),
+      Brand: editForm.Brand.trim() || "Không có",
+      Model: editForm.Model.trim() || "Không có",
+      Color: editForm.Color.trim() || "Không có",
     };
 
     await axiosClient.put(`/api/vehicles/${vehicleId}`, dataToUpdate, {
@@ -143,11 +172,15 @@ function MyVehicles() {
     setMessage("Cập nhật thông tin xe thành công");
   } catch (error) {
     console.log(error);
-    setMessage("Cập nhật thông tin xe thất bại");
+    setMessage(getErrorMessage(error));
   }
 }
 
   async function deleteVehicle(vehicleId: number) {
+    if (lockedVehicleIds.has(vehicleId)) {
+      setMessage("Xe đang có lịch hẹn chưa thanh toán nên chưa thể xóa");
+      return;
+    }
     const confirmDelete = window.confirm("Bạn có chắc muốn xóa xe này không?");
 
     if (!confirmDelete) {
@@ -179,7 +212,7 @@ function MyVehicles() {
       setMessage("Xóa xe thành công");
     } catch (error) {
       console.log(error);
-      setMessage("Xóa xe thất bại");
+      setMessage(getErrorMessage(error));
     }
   }
 
@@ -244,6 +277,7 @@ function MyVehicles() {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {vehicles.map((vehicle) => {
                 const isEditing = editingId === vehicle.VehicleID;
+                const isLocked = lockedVehicleIds.has(vehicle.VehicleID);
 
                 return (
                   <div
@@ -282,7 +316,7 @@ function MyVehicles() {
                         <p className="text-slate-500">Loại xe</p>
 
                         {isEditing ? (
-                          <input
+                          <select
                             value={editForm.VehicleType}
                             onChange={(e) =>
                               setEditForm({
@@ -290,11 +324,16 @@ function MyVehicles() {
                                 VehicleType: e.target.value,
                               })
                             }
-                            className="mt-1 w-full rounded-lg border px-3 py-2"
-                          />
+                            className="mt-1 w-full rounded-lg border bg-white px-3 py-2"
+                          >
+                            <option value="">Chọn loại xe</option>
+                            <option value="Xe máy">Xe máy</option>
+                            <option value="Xe tay ga">Xe tay ga</option>
+                            <option value="Mô tô">Mô tô</option>
+                          </select>
                         ) : (
                           <p className="font-semibold text-slate-800">
-                            {vehicle.VehicleType || "Chưa cập nhật"}
+                            {vehicle.VehicleType || "Không có"}
                           </p>
                         )}
                       </div>
@@ -315,7 +354,7 @@ function MyVehicles() {
                           />
                         ) : (
                           <p className="font-semibold text-slate-800">
-                            {vehicle.Brand || "Chưa cập nhật"}
+                            {vehicle.Brand || "Không có"}
                           </p>
                         )}
                       </div>
@@ -336,7 +375,7 @@ function MyVehicles() {
                           />
                         ) : (
                           <p className="font-semibold text-slate-800">
-                            {vehicle.Model || "Chưa cập nhật"}
+                            {vehicle.Model || "Không có"}
                           </p>
                         )}
                       </div>
@@ -357,7 +396,7 @@ function MyVehicles() {
                           />
                         ) : (
                           <p className="font-semibold text-slate-800">
-                            {vehicle.Color || "Chưa cập nhật"}
+                            {vehicle.Color || "Không có"}
                           </p>
                         )}
                       </div>
@@ -369,6 +408,12 @@ function MyVehicles() {
                         </p>
                       </div>
                     </div>
+
+                    {isLocked && !isEditing && (
+                      <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                        Xe đang có lịch hẹn chưa thanh toán. Không thể chỉnh sửa hoặc xóa.
+                      </p>
+                    )}
 
                     <div className="mt-5 flex gap-3">
                       {isEditing ? (
@@ -391,14 +436,16 @@ function MyVehicles() {
                         <>
                           <button
                             onClick={() => startEdit(vehicle)}
-                            className="flex-1 rounded-lg bg-yellow-500 py-2 font-semibold text-white hover:bg-yellow-600"
+                            disabled={isLocked}
+                            className="flex-1 rounded-lg bg-yellow-500 py-2 font-semibold text-white hover:bg-yellow-600 disabled:cursor-not-allowed disabled:bg-gray-300"
                           >
                             Chỉnh sửa
                           </button>
 
                           <button
                             onClick={() => deleteVehicle(vehicle.VehicleID)}
-                            className="flex-1 rounded-lg bg-red-600 py-2 font-semibold text-white hover:bg-red-700"
+                            disabled={isLocked}
+                            className="flex-1 rounded-lg bg-red-600 py-2 font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-300"
                           >
                             Xóa xe
                           </button>

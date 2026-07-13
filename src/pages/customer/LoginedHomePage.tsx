@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Star } from "lucide-react";
 import Navbar from "../../components/Navbar";
 import axiosClient from "../../api/axiosClient";
 import heroBg from "../../assets/hero-bg.jpg";
@@ -39,6 +40,8 @@ const LoginedHomePage = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [branchMessage, setBranchMessage] = useState("");
+  const [averageRating, setAverageRating] = useState(0);
+  const [totalReviews, setTotalReviews] = useState(0);
 
   useEffect(() => {
     async function loadBranches() {
@@ -48,7 +51,25 @@ const LoginedHomePage = () => {
 
         const res = await axiosClient.get("/api/branches?status=Active");
 
-        setBranches(res.data.data || []);
+        const activeBranches: Branch[] = res.data.data || [];
+        setBranches(activeBranches);
+
+        const reviewResponses = await Promise.allSettled(
+          activeBranches.map((branch) =>
+            axiosClient.get(`/api/reviews/branch/${branch.BranchID}`)
+          )
+        );
+        let reviewCount = 0;
+        let weightedRating = 0;
+        reviewResponses.forEach((result) => {
+          if (result.status !== "fulfilled") return;
+          const summary = result.value.data?.data;
+          const count = Number(summary?.totalReviews || 0);
+          reviewCount += count;
+          weightedRating += Number(summary?.averageRating || 0) * count;
+        });
+        setTotalReviews(reviewCount);
+        setAverageRating(reviewCount > 0 ? weightedRating / reviewCount : 0);
       } catch (error) {
         console.log(error);
         setBranchMessage("Không tải được danh sách chi nhánh");
@@ -109,6 +130,26 @@ const LoginedHomePage = () => {
 
       <main className="bg-gray-100 px-6 py-12">
         <div className="mx-auto max-w-6xl">
+          <section className="mb-8">
+            <div className="flex max-w-md items-center gap-5 rounded-2xl border border-amber-100 bg-white p-6 shadow-sm">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-500">
+                <Star size={30} className="fill-amber-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-500">Đánh giá trung bình</p>
+                <div className="mt-1 flex items-end gap-2">
+                  <p className="text-3xl font-black text-slate-900">
+                    {averageRating.toFixed(1)}/5
+                  </p>
+                  <p className="pb-1 text-sm text-slate-500">
+                    ({totalReviews.toLocaleString("vi-VN")} lượt đánh giá)
+                  </p>
+                </div>
+                <p className="mt-1 text-xs text-slate-400">Tổng hợp từ tất cả chi nhánh</p>
+              </div>
+            </div>
+          </section>
+
           <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
             <Link
               to="/booking"
