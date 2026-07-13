@@ -14,6 +14,36 @@ type Vehicle = {
   Status?: string | null;
 };
 
+/*
+ * Chỉ chấp nhận:
+ * - Chữ cái tiếng Việt
+ * - Chữ cái tiếng Anh
+ * - Một khoảng trắng giữa các từ
+ *
+ * Không chấp nhận:
+ * - Số
+ * - Ký tự đặc biệt
+ * - Nhiều khoảng trắng liên tiếp
+ */
+const FULL_NAME_REGEX = /^[\p{L}]+(?: [\p{L}]+)*$/u;
+
+/*
+ * Xóa khoảng trắng đầu, cuối.
+ * Gộp nhiều khoảng trắng thành một khoảng trắng.
+ */
+function normalizeFullName(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+/*
+ * Loại bỏ số và ký tự đặc biệt ngay khi nhập.
+ */
+function filterFullNameInput(value: string) {
+  return value
+    .replace(/[^\p{L} ]/gu, "")
+    .replace(/ {2,}/g, " ");
+}
+
 function Profile() {
   const navigate = useNavigate();
 
@@ -75,14 +105,15 @@ function Profile() {
         console.log(error.response?.data || error);
 
         setMessage(
-          error.response?.data?.message || "Không thể tải thông tin cá nhân"
+          error.response?.data?.message ||
+            "Không thể tải thông tin cá nhân"
         );
       } finally {
         setLoading(false);
       }
     }
 
-    loadProfile();
+    void loadProfile();
   }, [navigate]);
 
   function formatMoney(value: number) {
@@ -93,7 +124,11 @@ function Profile() {
     setMessage("");
     setSuccessMessage("");
 
-    setEditFullName(fullName);
+    /*
+     * Loại bỏ số và ký tự đặc biệt từ tên cũ khi mở form.
+     * Ví dụ tên cũ Hieu1 sẽ được đưa vào form thành Hieu.
+     */
+    setEditFullName(filterFullNameInput(fullName));
     setEditPhone(phone);
 
     setIsEditing(true);
@@ -109,29 +144,56 @@ function Profile() {
     setIsEditing(false);
   }
 
-  async function handleUpdateProfile(e: FormEvent) {
+  async function handleUpdateProfile(
+    e: FormEvent<HTMLFormElement>
+  ) {
     e.preventDefault();
 
     setMessage("");
     setSuccessMessage("");
 
-    const trimmedName = editFullName.trim();
-    const trimmedPhone = editPhone.trim();
+    const normalizedName = normalizeFullName(editFullName);
+    const normalizedPhone = editPhone.trim();
 
-    if (!trimmedName) {
+    /*
+     * Validate họ và tên ở Frontend.
+     */
+    if (!normalizedName) {
       setMessage("Họ và tên không được để trống");
       return;
     }
 
-    if (!trimmedPhone) {
-  setMessage("Số điện thoại không được để trống");
-  return;
-}
+    if (normalizedName.length < 2) {
+      setMessage("Họ và tên phải có ít nhất 2 ký tự");
+      return;
+    }
 
-if (!/^0\d{9}$/.test(trimmedPhone)) {
-  setMessage("Số điện thoại phải bắt đầu bằng 0 và có đúng 10 chữ số");
-  return;
-}
+    if (normalizedName.length > 100) {
+      setMessage("Họ và tên không được vượt quá 100 ký tự");
+      return;
+    }
+
+    if (!FULL_NAME_REGEX.test(normalizedName)) {
+      setMessage(
+        "Họ và tên chỉ được chứa chữ cái và khoảng trắng, không được chứa số hoặc ký tự đặc biệt"
+      );
+      return;
+    }
+
+    /*
+     * Validate số điện thoại ở Frontend.
+     */
+    if (!normalizedPhone) {
+      setMessage("Số điện thoại không được để trống");
+      return;
+    }
+
+    if (!/^0\d{9}$/.test(normalizedPhone)) {
+      setMessage(
+        "Số điện thoại phải bắt đầu bằng 0 và có đúng 10 chữ số"
+      );
+      return;
+    }
 
     try {
       const token = localStorage.getItem("token");
@@ -146,8 +208,8 @@ if (!/^0\d{9}$/.test(trimmedPhone)) {
       const res = await axiosClient.put(
         "/api/customers/profile",
         {
-          FullName: trimmedName,
-          Phone: trimmedPhone,
+          FullName: normalizedName,
+          Phone: normalizedPhone,
         },
         {
           headers: {
@@ -158,36 +220,57 @@ if (!/^0\d{9}$/.test(trimmedPhone)) {
 
       const updatedUser = res.data.data;
 
-      setFullName(updatedUser.FullName || trimmedName);
-      setPhone(updatedUser.Phone || trimmedPhone);
+      const newFullName =
+        updatedUser?.FullName || normalizedName;
 
-      setEditFullName(updatedUser.FullName || trimmedName);
-      setEditPhone(updatedUser.Phone || trimmedPhone);
+      const newPhone =
+        updatedUser?.Phone || normalizedPhone;
 
+      setFullName(newFullName);
+      setPhone(newPhone);
+
+      setEditFullName(newFullName);
+      setEditPhone(newPhone);
+
+      /*
+       * Cập nhật lại thông tin trong localStorage
+       * để Navbar và các trang khác hiển thị tên mới.
+       */
       const oldUserString = localStorage.getItem("user");
 
       if (oldUserString) {
-        const oldUser = JSON.parse(oldUserString);
+        try {
+          const oldUser = JSON.parse(oldUserString);
 
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            ...oldUser,
-            fullName: updatedUser.FullName || trimmedName,
-            phone: updatedUser.Phone || trimmedPhone,
-            FullName: updatedUser.FullName || trimmedName,
-            Phone: updatedUser.Phone || trimmedPhone,
-          })
-        );
+          localStorage.setItem(
+            "user",
+            JSON.stringify({
+              ...oldUser,
+              fullName: newFullName,
+              phone: newPhone,
+              FullName: newFullName,
+              Phone: newPhone,
+            })
+          );
+        } catch (parseError) {
+          console.log(
+            "Không thể đọc thông tin user trong localStorage:",
+            parseError
+          );
+        }
       }
 
-      setSuccessMessage("Cập nhật thông tin tài khoản thành công");
+      setSuccessMessage(
+        "Cập nhật thông tin tài khoản thành công"
+      );
+
       setIsEditing(false);
     } catch (error: any) {
       console.log(error.response?.data || error);
 
       setMessage(
-        error.response?.data?.message || "Cập nhật thông tin tài khoản thất bại"
+        error.response?.data?.message ||
+          "Cập nhật thông tin tài khoản thất bại"
       );
     } finally {
       setSaving(false);
@@ -201,7 +284,9 @@ if (!/^0\d{9}$/.test(trimmedPhone)) {
 
         <main className="min-h-screen bg-gray-100 px-6 py-10">
           <div className="mx-auto max-w-6xl">
-            <p className="text-slate-600">Đang tải thông tin cá nhân...</p>
+            <p className="text-slate-600">
+              Đang tải thông tin cá nhân...
+            </p>
           </div>
         </main>
       </>
@@ -271,27 +356,58 @@ if (!/^0\d{9}$/.test(trimmedPhone)) {
               </div>
 
               {isEditing ? (
-                <form onSubmit={handleUpdateProfile} className="space-y-4">
+                <form
+                  onSubmit={handleUpdateProfile}
+                  className="space-y-4"
+                >
+                  {/* Họ và tên */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-600">
+                    <label
+                      htmlFor="fullName"
+                      className="mb-1 block text-sm font-medium text-slate-600"
+                    >
                       Họ và tên
                     </label>
 
                     <input
+                      id="fullName"
                       type="text"
                       value={editFullName}
-                      onChange={(e) => setEditFullName(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                      placeholder="Nhập họ và tên"
+                      maxLength={100}
+                      autoComplete="name"
+                      onChange={(e) => {
+                        /*
+                         * Xóa số và ký tự đặc biệt
+                         * ngay khi người dùng nhập hoặc dán.
+                         */
+                        const validName =
+                          filterFullNameInput(e.target.value);
+
+                        setEditFullName(validName);
+                        setMessage("");
+                      }}
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                      placeholder="Ví dụ: Nguyễn Văn Hiếu"
                     />
+
+                    <p className="mt-1 text-xs text-slate-400">
+                      Họ tên chỉ được chứa chữ cái và khoảng
+                      trắng, không được chứa số hoặc ký tự đặc
+                      biệt.
+                    </p>
                   </div>
 
+                  {/* Email */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-600">
+                    <label
+                      htmlFor="email"
+                      className="mb-1 block text-sm font-medium text-slate-600"
+                    >
                       Email
                     </label>
 
                     <input
+                      id="email"
                       type="email"
                       value={email}
                       disabled
@@ -303,23 +419,40 @@ if (!/^0\d{9}$/.test(trimmedPhone)) {
                     </p>
                   </div>
 
+                  {/* Số điện thoại */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-600">
+                    <label
+                      htmlFor="phone"
+                      className="mb-1 block text-sm font-medium text-slate-600"
+                    >
                       Số điện thoại
                     </label>
 
-                    <input  
+                    <input
+                      id="phone"
                       type="tel"
-  inputMode="numeric"
-  maxLength={10}
-  value={editPhone}
-  onChange={(e) => {
-    const onlyNumbers = e.target.value.replace(/\D/g, "");
-    setEditPhone(onlyNumbers);
-  }}
-  className="w-full rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-  placeholder="Nhập số điện thoại"
+                      inputMode="numeric"
+                      maxLength={10}
+                      value={editPhone}
+                      autoComplete="tel"
+                      onChange={(e) => {
+                        /*
+                         * Chỉ cho phép nhập chữ số.
+                         */
+                        const onlyNumbers =
+                          e.target.value.replace(/\D/g, "");
+
+                        setEditPhone(onlyNumbers);
+                        setMessage("");
+                      }}
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                      placeholder="Ví dụ: 0938983427"
                     />
+
+                    <p className="mt-1 text-xs text-slate-400">
+                      Số điện thoại phải bắt đầu bằng 0 và có đúng
+                      10 chữ số.
+                    </p>
                   </div>
 
                   <div className="flex justify-end gap-3 pt-2">
@@ -337,14 +470,18 @@ if (!/^0\d{9}$/.test(trimmedPhone)) {
                       disabled={saving}
                       className="rounded-lg bg-sky-600 px-4 py-2 font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400"
                     >
-                      {saving ? "Đang lưu..." : "Lưu thay đổi"}
+                      {saving
+                        ? "Đang lưu..."
+                        : "Lưu thay đổi"}
                     </button>
                   </div>
                 </form>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-xl border border-gray-100 p-4">
-                    <p className="text-sm text-slate-500">Họ và tên</p>
+                    <p className="text-sm text-slate-500">
+                      Họ và tên
+                    </p>
 
                     <p className="mt-1 font-semibold text-slate-800">
                       {fullName || "Chưa cập nhật"}
@@ -352,7 +489,9 @@ if (!/^0\d{9}$/.test(trimmedPhone)) {
                   </div>
 
                   <div className="rounded-xl border border-gray-100 p-4">
-                    <p className="text-sm text-slate-500">Email</p>
+                    <p className="text-sm text-slate-500">
+                      Email
+                    </p>
 
                     <p className="mt-1 font-semibold text-slate-800">
                       {email || "Chưa cập nhật"}
@@ -360,7 +499,9 @@ if (!/^0\d{9}$/.test(trimmedPhone)) {
                   </div>
 
                   <div className="rounded-xl border border-gray-100 p-4">
-                    <p className="text-sm text-slate-500">Số điện thoại</p>
+                    <p className="text-sm text-slate-500">
+                      Số điện thoại
+                    </p>
 
                     <p className="mt-1 font-semibold text-slate-800">
                       {phone || "Chưa cập nhật"}
@@ -368,7 +509,9 @@ if (!/^0\d{9}$/.test(trimmedPhone)) {
                   </div>
 
                   <div className="rounded-xl border border-gray-100 p-4">
-                    <p className="text-sm text-slate-500">Vai trò</p>
+                    <p className="text-sm text-slate-500">
+                      Vai trò
+                    </p>
 
                     <p className="mt-1 font-semibold text-slate-800">
                       Customer
@@ -379,6 +522,7 @@ if (!/^0\d{9}$/.test(trimmedPhone)) {
             </section>
           </div>
 
+          {/* Thống kê */}
           <section className="mt-6 rounded-2xl bg-white p-6 shadow">
             <h2 className="mb-6 text-xl font-bold text-slate-800">
               Thống kê khách hàng
@@ -386,7 +530,9 @@ if (!/^0\d{9}$/.test(trimmedPhone)) {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-xl bg-sky-50 p-5">
-                <p className="text-sm text-slate-500">Tổng lượt sử dụng</p>
+                <p className="text-sm text-slate-500">
+                  Tổng lượt sử dụng
+                </p>
 
                 <p className="mt-2 text-3xl font-bold text-sky-700">
                   {totalVisits}
@@ -394,7 +540,9 @@ if (!/^0\d{9}$/.test(trimmedPhone)) {
               </div>
 
               <div className="rounded-xl bg-green-50 p-5">
-                <p className="text-sm text-slate-500">Tổng chi tiêu</p>
+                <p className="text-sm text-slate-500">
+                  Tổng chi tiêu
+                </p>
 
                 <p className="mt-2 text-3xl font-bold text-green-700">
                   {formatMoney(totalSpent)}
@@ -403,9 +551,12 @@ if (!/^0\d{9}$/.test(trimmedPhone)) {
             </div>
           </section>
 
+          {/* Danh sách xe */}
           <section className="mt-6 rounded-2xl bg-white p-6 shadow">
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-800">Xe của tôi</h2>
+              <h2 className="text-xl font-bold text-slate-800">
+                Xe của tôi
+              </h2>
 
               <Link
                 to="/register-car"
@@ -418,8 +569,8 @@ if (!/^0\d{9}$/.test(trimmedPhone)) {
             {vehicles.length === 0 ? (
               <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center">
                 <p className="text-slate-500">
-                  Chưa có dữ liệu xe. Bạn có thể đăng ký xe mới để sử dụng dịch
-                  vụ.
+                  Chưa có dữ liệu xe. Bạn có thể đăng ký xe mới
+                  để sử dụng dịch vụ.
                 </p>
               </div>
             ) : (
@@ -436,7 +587,8 @@ if (!/^0\d{9}$/.test(trimmedPhone)) {
                     <p className="mt-2 text-sm text-slate-500">
                       Loại xe:{" "}
                       <span className="font-medium text-slate-700">
-                        {vehicle.VehicleType || "Chưa cập nhật"}
+                        {vehicle.VehicleType ||
+                          "Chưa cập nhật"}
                       </span>
                     </p>
 
