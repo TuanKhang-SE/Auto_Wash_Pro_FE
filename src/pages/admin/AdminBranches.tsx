@@ -250,15 +250,35 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
   const resetEditConfig = () => setEditConfig({ ...emptyConfigRow });
 
   // Kiểm tra hợp lệ form tạo chi nhánh trước khi gửi API: tên chi nhánh
-  // bắt buộc, SĐT đúng format (9-11 chữ số) nếu có, giờ đóng cửa phải
-  // sau giờ mở cửa để đảm bảo khoảng thời gian hoạt động hợp lệ
+  // bắt buộc, SĐT bắt buộc và đúng format (9-11 chữ số), địa chỉ bắt buộc,
+  // giờ mở/đóng cửa bắt buộc, giờ đóng cửa phải sau giờ mở cửa
   const validateCreateForm = (): boolean => {
     if (!createForm.BranchName.trim()) {
       setCreateError("Tên chi nhánh không được để trống");
       return false;
     }
-    if (createForm.Phone && !/^[0-9]{9,11}$/.test(createForm.Phone)) {
+    if (!createForm.Address.trim()) {
+      setCreateError("Địa chỉ không được để trống");
+      return false;
+    }
+    if (!createForm.Phone.trim()) {
+      setCreateError("Số điện thoại không được để trống");
+      return false;
+    }
+    if (!/^[0-9]{9,11}$/.test(createForm.Phone)) {
       setCreateError("Số điện thoại phải có 9-11 chữ số");
+      return false;
+    }
+    if (!createForm.OpenTime.trim()) {
+      setCreateError("Giờ mở cửa không được để trống");
+      return false;
+    }
+    if (!createForm.CloseTime.trim()) {
+      setCreateError("Giờ đóng cửa không được để trống");
+      return false;
+    }
+    if (!createForm.BankAccount.trim()) {
+      setCreateError("Số tài khoản ngân hàng không được để trống");
       return false;
     }
     if (createForm.OpenTime && createForm.CloseTime) {
@@ -300,50 +320,82 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
   };
 
   // Trả về tên trường tiếng Việt nếu draft chứa giá trị không hợp lệ
-  const findInvalidConfigField = (
-    draft: BranchConfigDraft
-  ): string | null => {
+  // (Hàm này đã được tích hợp vào validateCreateConfig và validateEditConfig)
+
+  // Validate cấu hình trong form tạo chi nhánh:
+  // - Nếu nhập giá trị, phải là số nguyên >= 0
+  // - TotalWashBays phải > 0 nếu nhập (số ô rửa phải ít nhất 1)
+  // - SlotDuration phải > 0 nếu nhập (thời lượng slot phải ít nhất 1 phút)
+  const validateCreateConfig = (): boolean => {
     const labels: Record<keyof BranchConfigDraft, string> = {
       SlotDuration: "Thời lượng slot (phút)",
       TotalWashBays: "Tổng số ô rửa",
       BufferMinutes: "Thời gian đệm (phút)",
       CancelWindowHours: "Thời hạn hủy (giờ)",
     };
-    for (const f of Object.keys(labels) as Array<keyof BranchConfigDraft>) {
-      const raw = draft[f].trim();
+
+    const fields: Array<keyof BranchConfigDraft> = [
+      "SlotDuration",
+      "TotalWashBays",
+      "BufferMinutes",
+      "CancelWindowHours",
+    ];
+
+    for (const f of fields) {
+      const raw = createConfig[f].trim();
       if (raw === "") continue;
       const num = Number(raw);
-      if (
-        !Number.isFinite(num) ||
-        !Number.isInteger(num) ||
-        num < 0
-      ) {
-        return labels[f];
+      if (!Number.isFinite(num) || !Number.isInteger(num) || num < 0) {
+        setCreateConfigError(
+          `Giá trị "${labels[f]}" phải là số nguyên ≥ 0 (hoặc để trống)`
+        );
+        return false;
       }
-    }
-    return null;
-  };
-
-  // Validate cấu hình trong form tạo chi nhánh
-  const validateCreateConfig = (): boolean => {
-    const bad = findInvalidConfigField(createConfig);
-    if (bad) {
-      setCreateConfigError(
-        `Giá trị "${bad}" phải là số nguyên ≥ 0 (hoặc để trống)`
-      );
-      return false;
+      if ((f === "SlotDuration" || f === "TotalWashBays") && num === 0) {
+        setCreateConfigError(
+          `"${labels[f]}" phải lớn hơn 0`
+        );
+        return false;
+      }
     }
     return true;
   };
 
-  // Validate cấu hình trong form sửa chi nhánh
+  // Validate cấu hình trong form sửa chi nhánh:
+  // - Nếu nhập giá trị, phải là số nguyên >= 0
+  // - TotalWashBays phải > 0 nếu nhập (số ô rửa phải ít nhất 1)
+  // - SlotDuration phải > 0 nếu nhập (thời lượng slot phải ít nhất 1 phút)
   const validateEditConfig = (): boolean => {
-    const bad = findInvalidConfigField(editConfig);
-    if (bad) {
-      setEditConfigError(
-        `Giá trị "${bad}" phải là số nguyên ≥ 0 (hoặc để trống)`
-      );
-      return false;
+    const labels: Record<keyof BranchConfigDraft, string> = {
+      SlotDuration: "Thời lượng slot (phút)",
+      TotalWashBays: "Tổng số ô rửa",
+      BufferMinutes: "Thời gian đệm (phút)",
+      CancelWindowHours: "Thời hạn hủy (giờ)",
+    };
+
+    const fields: Array<keyof BranchConfigDraft> = [
+      "SlotDuration",
+      "TotalWashBays",
+      "BufferMinutes",
+      "CancelWindowHours",
+    ];
+
+    for (const f of fields) {
+      const raw = editConfig[f].trim();
+      if (raw === "") continue;
+      const num = Number(raw);
+      if (!Number.isFinite(num) || !Number.isInteger(num) || num < 0) {
+        setEditConfigError(
+          `Giá trị "${labels[f]}" phải là số nguyên ≥ 0 (hoặc để trống)`
+        );
+        return false;
+      }
+      if ((f === "SlotDuration" || f === "TotalWashBays") && num === 0) {
+        setEditConfigError(
+          `"${labels[f]}" phải lớn hơn 0`
+        );
+        return false;
+      }
     }
     return true;
   };
@@ -470,15 +522,35 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
   };
 
   // Kiểm tra hợp lệ form chỉnh sửa chi nhánh trước khi gửi API: tên chi nhánh
-  // bắt buộc, SĐT đúng format (9-11 chữ số) nếu có, giờ đóng cửa phải
-  // sau giờ mở cửa nếu cả hai đều được nhập
+  // bắt buộc, SĐT bắt buộc và đúng format (9-11 chữ số), địa chỉ bắt buộc,
+  // giờ mở/đóng cửa bắt buộc, giờ đóng cửa phải sau giờ mở cửa nếu cả hai đều được nhập
   const validateEditForm = (): boolean => {
     if (!editForm.BranchName.trim()) {
       setEditError("Tên chi nhánh không được để trống");
       return false;
     }
-    if (editForm.Phone && !/^[0-9]{9,11}$/.test(editForm.Phone)) {
+    if (!editForm.Address.trim()) {
+      setEditError("Địa chỉ không được để trống");
+      return false;
+    }
+    if (!editForm.Phone.trim()) {
+      setEditError("Số điện thoại không được để trống");
+      return false;
+    }
+    if (!/^[0-9]{9,11}$/.test(editForm.Phone)) {
       setEditError("Số điện thoại phải có 9-11 chữ số");
+      return false;
+    }
+    if (!editForm.OpenTime.trim()) {
+      setEditError("Giờ mở cửa không được để trống");
+      return false;
+    }
+    if (!editForm.CloseTime.trim()) {
+      setEditError("Giờ đóng cửa không được để trống");
+      return false;
+    }
+    if (!editForm.BankAccount.trim()) {
+      setEditError("Số tài khoản ngân hàng không được để trống");
       return false;
     }
     if (editForm.OpenTime && editForm.CloseTime) {
@@ -560,14 +632,31 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
   };
 
   // Gọi API xóa một chi nhánh khỏi hệ thống theo BranchID
-  // sau khi người dùng xác nhận qua modal xác nhận xóa
+  // sau khi người dùng xác nhận qua modal xác nhận xóa.
+  // Kiểm tra trước: không thể xóa nếu chi nhánh còn có Manager hoặc Staff
   const handleDeleteBranch = async () => { // DELETE /api/branches/:id xóa chi nhánh
     if (!deleteTarget) return;
+
+    // Kiểm tra chi nhánh có Manager không
+    if (deleteTarget.manager) {
+      setDeleteError(
+        `Không thể xóa chi nhánh "${deleteTarget.branchName}" vì đang có Manager phụ trách. Vui lòng chuyển Manager sang chi nhánh khác trước.`
+      );
+      return;
+    }
+
+    // Kiểm tra chi nhánh có Staff không
+    if (deleteTarget.totalStaff > 0) {
+      setDeleteError(
+        `Không thể xóa chi nhánh "${deleteTarget.branchName}" vì đang có ${deleteTarget.totalStaff} nhân viên. Vui lòng chuyển nhân viên sang chi nhánh khác trước.`
+      );
+      return;
+    }
 
     setDeleteError("");
     setIsDeleting(true);
     try {
-      await branchService.deleteBranch(deleteTarget.branchID); 
+      await branchService.deleteBranch(deleteTarget.branchID);
       if (selectedBranch?.branchID === deleteTarget.branchID) {
         setSelectedBranch(null);
       }
@@ -764,9 +853,15 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
                       e.stopPropagation();
                       setDeleteTarget(b);
                     }}
-                    disabled={isDeleting}
-                    className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 transition"
-                    title="Xóa chi nhánh"
+                    disabled={isDeleting || !!b.manager || b.totalStaff > 0}
+                    className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    title={
+                      b.manager
+                        ? "Chi nhánh đang có Manager, không thể xóa"
+                        : b.totalStaff > 0
+                        ? `Chi nhánh đang có ${b.totalStaff} nhân viên, không thể xóa`
+                        : "Xóa chi nhánh"
+                    }
                   >
                     <Trash2 size={14} />
                     Xóa
@@ -1051,7 +1146,7 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-slate-700">
                   <MapPin size={14} className="inline mr-1" />
-                  Địa chỉ
+                  Địa chỉ <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -1066,7 +1161,7 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-slate-700">
                   <Phone size={14} className="inline mr-1" />
-                  Số điện thoại
+                  Số điện thoại <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="tel"
@@ -1082,7 +1177,7 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">
                     <Clock size={14} className="inline mr-1" />
-                    Giờ mở cửa
+                    Giờ mở cửa <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="time"
@@ -1095,7 +1190,7 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">
                     <Clock size={14} className="inline mr-1" />
-                    Giờ đóng cửa
+                    Giờ đóng cửa <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="time"
@@ -1109,7 +1204,7 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
 
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Số tài khoản ngân hàng
+                  Số tài khoản ngân hàng <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -1325,7 +1420,7 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-slate-700">
                   <MapPin size={14} className="inline mr-1" />
-                  Địa chỉ
+                  Địa chỉ <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -1340,7 +1435,7 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-slate-700">
                   <Phone size={14} className="inline mr-1" />
-                  Số điện thoại
+                  Số điện thoại <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="tel"
@@ -1356,7 +1451,7 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">
                     <Clock size={14} className="inline mr-1" />
-                    Giờ mở cửa
+                    Giờ mở cửa <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="time"
@@ -1369,7 +1464,7 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">
                     <Clock size={14} className="inline mr-1" />
-                    Giờ đóng cửa
+                    Giờ đóng cửa <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="time"
@@ -1383,7 +1478,7 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
 
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Số tài khoản ngân hàng
+                  Số tài khoản ngân hàng <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -1565,6 +1660,23 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
                 </span>
                 ? Hành động này không thể hoàn tác.
               </p>
+              {deleteTarget.manager && (
+                <div className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-amber-50 border border-amber-200 p-2 text-xs text-amber-700">
+                  <UserCog size={14} />
+                  <span>Chi nhánh đang có Manager: {deleteTarget.manager.fullName}</span>
+                </div>
+              )}
+              {deleteTarget.totalStaff > 0 && (
+                <div className="mt-2 flex items-center justify-center gap-2 rounded-lg bg-amber-50 border border-amber-200 p-2 text-xs text-amber-700">
+                  <Users size={14} />
+                  <span>Chi nhánh đang có {deleteTarget.totalStaff} nhân viên</span>
+                </div>
+              )}
+              {(deleteTarget.manager || deleteTarget.totalStaff > 0) && (
+                <div className="mt-3 rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-600">
+                  Không thể xóa chi nhánh khi đang có Manager hoặc nhân viên. Vui lòng chuyển họ sang chi nhánh khác trước.
+                </div>
+              )}
             </div>
 
             {deleteError && (
@@ -1588,8 +1700,8 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
               <button
                 type="button"
                 onClick={handleDeleteBranch}
-                disabled={isDeleting}
-                className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 transition"
+                disabled={isDeleting || !!deleteTarget.manager || deleteTarget.totalStaff > 0}
+                className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
               >
                 {isDeleting ? (
                   <span className="flex items-center justify-center gap-2">
