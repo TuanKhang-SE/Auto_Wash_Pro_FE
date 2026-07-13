@@ -35,9 +35,12 @@ const ManagerPromotions = () => {
     fetchData();
   }, [fetchData]);
 
-  const filtered = promotions.filter((p) =>
-    p.PromotionName.toLowerCase().includes(search.trim().toLowerCase())
-  );
+  const filtered = promotions.filter((p) => {
+    // Đồng bộ từ Admin: chỉ hiển thị khuyến mãi đang hoạt động
+    if (p.Status !== "Active") return false;
+    if (!search.trim()) return true;
+    return p.PromotionName.toLowerCase().includes(search.trim().toLowerCase());
+  });
 
   return (
     <div className="space-y-4">
@@ -98,7 +101,11 @@ const ManagerPromotions = () => {
             ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
-                  {search ? "Không có kết quả phù hợp" : "Chưa có chương trình khuyến mãi nào cho chi nhánh của bạn"}
+                  {search
+                    ? "Không có kết quả phù hợp"
+                    : promotions.length === 0
+                    ? "Chưa có chương trình khuyến mãi nào cho chi nhánh của bạn"
+                    : "Tất cả chương trình khuyến mãi đang tạm ngưng. Nhấn 'Làm mới' để cập nhật."}
                 </td>
               </tr>
             ) : (
