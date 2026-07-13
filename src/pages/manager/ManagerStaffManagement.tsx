@@ -18,6 +18,7 @@ interface Staff {
   Phone: string;
   Role: string;
   Status: string;
+  BranchID?: number | null;
   CreatedAt: string;
 }
 
@@ -45,6 +46,18 @@ const ManagerStaffManagement = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // Lấy BranchID của Manager đang đăng nhập để lọc staff thuộc chi nhánh mình quản lý
+  const getBranchId = (): number | null => {
+    try {
+      const userStr = localStorage.getItem("user");
+      const user = userStr ? JSON.parse(userStr) : null;
+      return user?.BranchID ?? user?.branchId ?? null;
+    } catch {
+      return null;
+    }
+  };
+  const branchId = getBranchId();
+
   useEffect(() => {
     fetchStaffList();
     fetchAllUsers();
@@ -54,13 +67,19 @@ const ManagerStaffManagement = () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem("token");
+      // Lọc staff thuộc chi nhánh của Manager và chỉ lấy Active
       const response = await axiosClient.get("/api/users", { // GET /api/users?Role=Staff
-        params: { Role: "Staff" },
+        params: { Role: "Staff", Status: "Active" },
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.data.success) {
-        setStaffList(response.data.data);
+        // Phòng trường hợp backend chưa hỗ trợ filter Status, lọc thêm phía client theo BranchID + Status
+        const all = response.data.data as Staff[];
+        const scoped = branchId
+          ? all.filter((s) => !s.BranchID || s.BranchID === branchId)
+          : all;
+        setStaffList(scoped.filter((s) => s.Status === "Active"));
       }
     } catch (err: any) {
       console.error("Error fetching staff:", err);
