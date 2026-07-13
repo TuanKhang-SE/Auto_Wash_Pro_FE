@@ -8,10 +8,7 @@ import {
   Check,
   Trash2,
   Search,
-  Clock,
   Tag,
-  Power,
-  DollarSign,
   Building2,
   CheckCircle2,
   XCircle,
@@ -420,71 +417,79 @@ const ManagerServices = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {visibleServices.map((svc) => (
-                <div
-                  key={svc.ServiceID}
-                  className="overflow-hidden rounded-xl border-2 border-slate-200 bg-white shadow-sm transition hover:border-blue-300 hover:shadow-md"
-                >
-                  <div className="relative h-28 w-full bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-                    {svc.ImageURL ? (
-                      <img
-                        src={svc.ImageURL}
-                        alt={svc.ServiceName}
-                        className="h-full w-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                        }}
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <Sparkles size={32} className="text-blue-300" />
-                      </div>
-                    )}
-                    {svc.Status !== "Active" && (
-                      <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-slate-500 px-2.5 py-0.5 text-xs font-medium text-white shadow">
-                        Admin đã tắt
-                      </span>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <h3 className="line-clamp-1 font-bold text-slate-800">
-                      {svc.ServiceName}
-                    </h3>
-                    <p className="mt-1 line-clamp-2 text-xs text-slate-500 min-h-[2rem]">
-                      {svc.Description || "Chưa có mô tả"}
-                    </p>
-
-                    <div className="mt-3 grid grid-cols-2 gap-1.5">
-                      <div className="rounded-lg bg-blue-50 px-2.5 py-1.5">
-                        <p className="text-[10px] uppercase text-slate-500">
-                          Giá gốc
-                        </p>
-                        <p className="text-sm font-semibold text-blue-600">
-                          {formatVnd(svc.BasePrice ?? svc.Price)}
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-amber-50 px-2.5 py-1.5">
-                        <p className="text-[10px] uppercase text-slate-500">
-                          Thời lượng
-                        </p>
-                        <p className="text-sm font-semibold text-amber-600">
-                          {svc.DurationMinutes ?? svc.Duration} phút
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => openAddModal(svc)}
-                      disabled={svc.Status !== "Active"}
-                      className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2 text-sm font-medium text-white shadow transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <Plus size={16} />
-                      Áp dụng cho chi nhánh
-                    </button>
-                  </div>
-                </div>
-              ))}
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3">Tên dịch vụ</th>
+                    <th className="px-4 py-3">Mô tả</th>
+                    <th className="px-4 py-3">Giá gốc</th>
+                    <th className="px-4 py-3">Thời lượng</th>
+                    <th className="px-4 py-3">Trạng thái</th>
+                    <th className="px-4 py-3 text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {visibleServices.map((svc) => (
+                    <tr key={svc.ServiceID} className="hover:bg-slate-50">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+                            {svc.ImageURL ? (
+                              <img
+                                src={svc.ImageURL}
+                                alt={svc.ServiceName}
+                                className="h-full w-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = "none";
+                                }}
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center">
+                                <Sparkles size={18} className="text-blue-300" />
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-medium text-slate-800">{svc.ServiceName}</div>
+                            <div className="text-xs text-slate-400">#{svc.ServiceID}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 max-w-xs">
+                        <div className="line-clamp-2">{svc.Description || "—"}</div>
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-blue-600">
+                        {formatVnd(svc.BasePrice ?? svc.Price)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {svc.DurationMinutes ?? svc.Duration} phút
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                            svc.Status === "Active"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-slate-200 text-slate-600"
+                          }`}
+                        >
+                          {svc.Status === "Active" ? "Hoạt động" : "Admin đã tắt"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => openAddModal(svc)}
+                          disabled={svc.Status !== "Active"}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 transition"
+                        >
+                          <Plus size={14} />
+                          Áp dụng
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </>
@@ -529,118 +534,107 @@ const ManagerServices = () => {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {visibleBranchServices.map((bs) => {
-                const priceToShow =
-                  bs.PriceOverride !== null && bs.PriceOverride !== undefined
-                    ? Number(bs.PriceOverride)
-                    : Number(bs.BasePrice ?? 0);
-                const hasOverride =
-                  bs.PriceOverride !== null && bs.PriceOverride !== undefined;
-                const isActive = bs.Status === "Active";
-                return (
-                  <div
-                    key={bs.BranchServiceID}
-                    className={`overflow-hidden rounded-xl border-2 bg-white shadow-sm transition ${
-                      isActive
-                        ? "border-emerald-200 hover:border-emerald-400 hover:shadow-md"
-                        : "border-slate-200 opacity-70"
-                    }`}
-                  >
-                    <div className="relative h-24 w-full bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50">
-                      {bs.ImageURL ? (
-                        <img
-                          src={bs.ImageURL}
-                          alt={bs.ServiceName}
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = "none";
-                          }}
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <Sparkles size={28} className="text-emerald-300" />
-                        </div>
-                      )}
-                      <span
-                        className={`absolute right-2 top-2 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium shadow ${
-                          isActive
-                            ? "bg-emerald-500 text-white"
-                            : "bg-slate-500 text-white"
-                        }`}
-                      >
-                        {isActive ? "Đang bật" : "Đã tắt"}
-                      </span>
-                    </div>
-
-                    <div className="p-4">
-                      <h3 className="line-clamp-1 font-bold text-slate-800">
-                        {bs.ServiceName || `Service #${bs.ServiceID}`}
-                      </h3>
-                      <p className="mt-1 line-clamp-2 text-xs text-slate-500 min-h-[2rem]">
-                        {bs.Description || "Chưa có mô tả"}
-                      </p>
-
-                      <div className="mt-3 space-y-1.5">
-                        <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2">
-                          <span className="flex items-center gap-1 text-xs text-slate-500">
-                            <DollarSign size={12} />
-                            Giá tại chi nhánh
-                          </span>
-                          <span className="text-sm font-semibold text-emerald-600">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3">Tên dịch vụ</th>
+                    <th className="px-4 py-3">Mô tả</th>
+                    <th className="px-4 py-3">Giá tại chi nhánh</th>
+                    <th className="px-4 py-3">Giá gốc</th>
+                    <th className="px-4 py-3">Thời lượng</th>
+                    <th className="px-4 py-3">Trạng thái</th>
+                    <th className="px-4 py-3 text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {visibleBranchServices.map((bs) => {
+                    // priceToShow: giá hiển thị = PriceOverride nếu có, không thì lấy BasePrice (giá gốc Admin)
+                    const priceToShow =
+                      bs.PriceOverride !== null && bs.PriceOverride !== undefined
+                        ? Number(bs.PriceOverride)
+                        : Number(bs.BasePrice ?? 0);
+                    // hasOverride: true khi Manager đã tự sửa giá riêng cho chi nhánh (khác giá gốc Admin)
+                    const hasOverride =
+                      bs.PriceOverride !== null && bs.PriceOverride !== undefined;
+                    const isActive = bs.Status === "Active";
+                    return (
+                      <tr key={bs.BranchServiceID} className="hover:bg-slate-50">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50">
+                              {bs.ImageURL ? (
+                                <img
+                                  src={bs.ImageURL}
+                                  alt={bs.ServiceName}
+                                  className="h-full w-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = "none";
+                                  }}
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center">
+                                  <Sparkles size={18} className="text-emerald-300" />
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <div className="font-medium text-slate-800">{bs.ServiceName || `Service #${bs.ServiceID}`}</div>
+                              <div className="text-xs text-slate-400">#{bs.ServiceID}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 max-w-xs">
+                          <div className="line-clamp-2">{bs.Description || "—"}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="font-semibold text-emerald-600">
                             {formatVnd(priceToShow)}
                           </span>
-                        </div>
-                        {hasOverride && (
-                          <p className="px-1 text-[10px] text-amber-600">
-                            * Đang ghi đè giá gốc (
-                            {formatVnd(bs.BasePrice)})
-                          </p>
-                        )}
-                        <div className="flex items-center justify-between rounded-lg bg-blue-50 px-3 py-2">
-                          <span className="flex items-center gap-1 text-xs text-slate-500">
-                            <Clock size={12} />
-                            Thời lượng
-                          </span>
-                          <span className="text-sm font-semibold text-blue-600">
-                            {bs.Duration ?? "-"} phút
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-                        <button
-                          onClick={() => handleToggleBranchServiceStatus(bs)}
-                          className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
-                            isActive
-                              ? "text-amber-600 hover:bg-amber-50"
-                              : "text-emerald-600 hover:bg-emerald-50"
-                          }`}
-                        >
-                          <Power size={14} />
-                          {isActive ? "Tắt" : "Bật"}
-                        </button>
-                        <div className="flex items-center gap-1">
+                          {/* hasOverride: true khi Manager đã tự sửa giá riêng cho chi nhánh (khác giá gốc Admin) */}
+                          {hasOverride && (
+                            <div className="text-[10px] text-amber-600">* Đang ghi đè</div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500">
+                          {formatVnd(bs.BasePrice)}
+                        </td>
+                        <td className="px-4 py-3 text-slate-600">
+                          {bs.Duration ?? "-"} phút
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => handleToggleBranchServiceStatus(bs)}
+                            className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
+                              isActive
+                                ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                                : "bg-slate-200 text-slate-600 hover:bg-slate-300"
+                            }`}
+                          >
+                            {isActive ? "Đang bật" : "Đã tắt"}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 text-right">
                           <button
                             onClick={() => openEditBranchService(bs)}
-                            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 transition"
+                            className="mr-1 rounded-lg p-2 text-blue-600 hover:bg-blue-50 transition"
+                            title="Sửa giá"
                           >
-                            <Tag size={14} />
-                            Sửa giá
+                            <Tag size={16} />
                           </button>
                           <button
                             onClick={() => setRemoveTarget(bs)}
-                            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition"
+                            className="rounded-lg p-2 text-red-600 hover:bg-red-50 transition"
+                            title="Gỡ dịch vụ"
                           >
-                            <Trash2 size={14} />
-                            Gỡ
+                            <Trash2 size={16} />
                           </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </>
