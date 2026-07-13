@@ -133,6 +133,11 @@ const ManagerServices = () => {
     }
   }, [services, fetchBranchServices]);
 
+  const handleRefreshAll = async () => {
+    // Luôn refresh cả catalog (status dịch vụ gốc từ Admin) và branch services
+    await Promise.all([fetchCatalog(), fetchBranchServices()]);
+  };
+
   const visibleServices = useMemo(() => { 
     const q = searchQuery.trim().toLowerCase();
     const source =
@@ -309,10 +314,7 @@ const ManagerServices = () => {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => {
-              fetchCatalog();
-              fetchBranchServices();
-            }}
+            onClick={handleRefreshAll}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition"
           >
             <RefreshCw size={16} />
@@ -543,7 +545,8 @@ const ManagerServices = () => {
                     <th className="px-4 py-3">Giá tại chi nhánh</th>
                     <th className="px-4 py-3">Giá gốc</th>
                     <th className="px-4 py-3">Thời lượng</th>
-                    <th className="px-4 py-3">Trạng thái</th>
+                    <th className="px-4 py-3">Trạng thái tại CN</th>
+                    <th className="px-4 py-3">DV gốc (Admin)</th>
                     <th className="px-4 py-3 text-right">Thao tác</th>
                   </tr>
                 </thead>
@@ -558,6 +561,9 @@ const ManagerServices = () => {
                     const hasOverride =
                       bs.PriceOverride !== null && bs.PriceOverride !== undefined;
                     const isActive = bs.Status === "Active";
+                    // Đồng bộ trạng thái dịch vụ gốc từ Admin: lấy từ catalog đã cache
+                    const catalogStatus = servicesMap.current[bs.ServiceID]?.Status;
+                    const isCatalogActive = catalogStatus === "Active";
                     return (
                       <tr key={bs.BranchServiceID} className="hover:bg-slate-50">
                         <td className="px-4 py-3">
@@ -605,20 +611,46 @@ const ManagerServices = () => {
                         <td className="px-4 py-3">
                           <button
                             onClick={() => handleToggleBranchServiceStatus(bs)}
+                            disabled={!isCatalogActive}
                             className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
-                              isActive
+                              !isCatalogActive
+                                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                : isActive
                                 ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
                                 : "bg-slate-200 text-slate-600 hover:bg-slate-300"
                             }`}
+                            title={
+                              !isCatalogActive
+                                ? "Admin đã tắt dịch vụ gốc, không thể bật tại chi nhánh"
+                                : ""
+                            }
                           >
                             {isActive ? "Đang bật" : "Đã tắt"}
                           </button>
                         </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
+                              isCatalogActive
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-amber-100 text-amber-700"
+                            }`}
+                            title={isCatalogActive ? "Admin đang bật" : "Admin đã tắt dịch vụ gốc"}
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${
+                                isCatalogActive ? "bg-blue-500" : "bg-amber-500"
+                              }`}
+                            ></span>
+                            {isCatalogActive ? "Hoạt động" : "Ngừng"}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 text-right">
                           <button
                             onClick={() => openEditBranchService(bs)}
-                            className="mr-1 rounded-lg p-2 text-blue-600 hover:bg-blue-50 transition"
-                            title="Sửa giá"
+                            disabled={!isCatalogActive}
+                            className="mr-1 rounded-lg p-2 text-blue-600 hover:bg-blue-50 transition disabled:cursor-not-allowed disabled:opacity-40"
+                            title={isCatalogActive ? "Sửa giá" : "Admin đã tắt dịch vụ gốc"}
                           >
                             <Tag size={16} />
                           </button>
