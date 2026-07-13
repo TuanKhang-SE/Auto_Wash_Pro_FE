@@ -9,6 +9,7 @@ import {
   DollarSign,
   Sparkles,
   TicketPercent,
+  Gift,
 } from "lucide-react";
 
 export const adminMenu = [
@@ -56,6 +57,11 @@ export const adminMenu = [
     path: "/admin/tier-configs",
     name: "Cấu hình Hạng",
     icon: <Crown size={20} />,
+  },
+  {
+    path: "/admin/rewards",
+    name: "Quản lý Đổi điểm",
+    icon: <Gift size={20} />,
   },
   {
     path: "/admin/statistics",
