@@ -35,6 +35,7 @@ interface EditFormData {
 
 const AdminStaffManagement = () => {
   const [staffList, setStaffList] = useState<User[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]); // Toàn bộ user (để check trùng tên/email/SĐT)
   const [managers, setManagers] = useState<{ branchID: number; fullName: string }[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -62,9 +63,20 @@ const AdminStaffManagement = () => {
 
   useEffect(() => {
     fetchStaff();
+    fetchAllUsers();
     fetchManagers();
     fetchBranches();
   }, []);
+
+  // Lấy toàn bộ user từ backend để check trùng tên/email/SĐT khi tạo/sửa Staff
+  const fetchAllUsers = async () => {
+    try {
+      const data = await userService.getAllUsers(); // GET /api/users lấy tất cả user
+      setAllUsers(data);
+    } catch (err) {
+      console.error("Error fetching all users:", err);
+    }
+  };
 
   const fetchBranches = async () => { // GET /api/branches lấy danh sách chi nhánh
     try {
@@ -144,7 +156,8 @@ const AdminStaffManagement = () => {
 
   // Kiểm tra hợp lệ form tạo Staff trước khi gửi API: bắt buộc nhập
   // họ tên + mật khẩu (≥6 ký tự, khớp confirmPassword), email/phone đúng
-  // format và chi nhánh được chọn đã có Manager quản lý
+  // format và chi nhánh được chọn đã có Manager quản lý.
+  // Đồng thời check tên/email/SĐT không được trùng với user khác trong hệ thống.
   const validateForm = (): boolean => {
     if (!formData.password || !formData.fullName) {
       setError("Vui lòng điền đầy đủ thông tin bắt buộc");
@@ -158,13 +171,46 @@ const AdminStaffManagement = () => {
       setError("Mật khẩu xác nhận không khớp");
       return false;
     }
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      setError("Email không hợp lệ");
+
+    // Validate trùng: tên, email, số điện thoại không được trùng với user đã tạo
+    const trimmedName = formData.fullName.trim().toLowerCase();
+    const trimmedEmail = formData.email.trim().toLowerCase();
+    const trimmedPhone = formData.phone.trim();
+
+    const duplicateFullName = allUsers.find(
+      (u) => u.FullName?.trim().toLowerCase() === trimmedName
+    );
+    if (duplicateFullName) {
+      setError(`Họ tên "${formData.fullName.trim()}" đã được sử dụng bởi tài khoản khác.`);
       return false;
     }
-    if (formData.phone && !/^[0-9]{10,11}$/.test(formData.phone)) {
-      setError("Số điện thoại phải có 10-11 chữ số");
-      return false;
+
+    if (trimmedEmail) {
+      const duplicateEmail = allUsers.find(
+        (u) => u.Email?.trim().toLowerCase() === trimmedEmail
+      );
+      if (duplicateEmail) {
+        setError(`Email "${formData.email.trim()}" đã được sử dụng bởi tài khoản khác.`);
+        return false;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        setError("Email không hợp lệ");
+        return false;
+      }
+    }
+
+    if (trimmedPhone) {
+      const duplicatePhone = allUsers.find(
+        (u) => u.Phone?.trim() === trimmedPhone
+      );
+      if (duplicatePhone) {
+        setError(`Số điện thoại "${formData.phone.trim()}" đã được sử dụng bởi tài khoản khác.`);
+        return false;
+      }
+      if (!/^[0-9]{10,11}$/.test(formData.phone)) {
+        setError("Số điện thoại phải có 10-11 chữ số");
+        return false;
+      }
     }
 
     const branchHasManager = managers.some(
@@ -216,6 +262,7 @@ const AdminStaffManagement = () => {
         setIsModalOpen(false);
         setSuccess("");
         fetchStaff();
+        fetchAllUsers();
       }, 1500);
     } catch (err: unknown) {
       setError(getErrorMessage(err));
@@ -240,18 +287,57 @@ const AdminStaffManagement = () => {
   };
 
   // Gọi API cập nhật thông tin Staff (họ tên, email, số điện thoại, trạng thái)
-  // theo UserID của nhân viên đang được chỉnh sửa
+  // theo UserID của nhân viên đang được chỉnh sửa.
+  // Đồng thời check tên/email/SĐT không được trùng với user khác trong hệ thống.
   const handleEditStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStaff) return;
 
-    if (editFormData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editFormData.email)) {
-      setError("Email không hợp lệ");
+    // Validate trùng: tên, email, số điện thoại không được trùng với user đã tạo
+    const trimmedName = editFormData.fullName.trim().toLowerCase();
+    const trimmedEmail = editFormData.email.trim().toLowerCase();
+    const trimmedPhone = editFormData.phone.trim();
+
+    const duplicateFullName = allUsers.find(
+      (u) =>
+        u.UserID !== editingStaff.UserID &&
+        u.FullName?.trim().toLowerCase() === trimmedName
+    );
+    if (duplicateFullName) {
+      setError(`Họ tên "${editFormData.fullName.trim()}" đã được sử dụng bởi tài khoản khác.`);
       return;
     }
-    if (editFormData.phone && !/^[0-9]{10,11}$/.test(editFormData.phone)) {
-      setError("Số điện thoại phải có 10-11 chữ số");
-      return;
+
+    if (trimmedEmail) {
+      const duplicateEmail = allUsers.find(
+        (u) =>
+          u.UserID !== editingStaff.UserID &&
+          u.Email?.trim().toLowerCase() === trimmedEmail
+      );
+      if (duplicateEmail) {
+        setError(`Email "${editFormData.email.trim()}" đã được sử dụng bởi tài khoản khác.`);
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editFormData.email)) {
+        setError("Email không hợp lệ");
+        return;
+      }
+    }
+
+    if (trimmedPhone) {
+      const duplicatePhone = allUsers.find(
+        (u) =>
+          u.UserID !== editingStaff.UserID &&
+          u.Phone?.trim() === trimmedPhone
+      );
+      if (duplicatePhone) {
+        setError(`Số điện thoại "${editFormData.phone.trim()}" đã được sử dụng bởi tài khoản khác.`);
+        return;
+      }
+      if (!/^[0-9]{10,11}$/.test(editFormData.phone)) {
+        setError("Số điện thoại phải có 10-11 chữ số");
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -272,6 +358,7 @@ const AdminStaffManagement = () => {
         setEditingStaff(null);
         setSuccess("");
         fetchStaff();
+        fetchAllUsers();
       }, 1500);
     } catch (err: unknown) {
       setError(getErrorMessage(err));

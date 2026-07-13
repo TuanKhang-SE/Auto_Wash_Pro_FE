@@ -18,6 +18,7 @@ interface Staff {
   Phone: string;
   Role: string;
   Status: string;
+  BranchID?: number | null;
   CreatedAt: string;
 }
 
@@ -31,6 +32,7 @@ interface RegisterFormData {
 
 const ManagerStaffManagement = () => {
   const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [allUsers, setAllUsers] = useState<Staff[]>([]); // Toàn bộ user (để check trùng tên/email/SĐT)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -44,26 +46,60 @@ const ManagerStaffManagement = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // Lấy BranchID của Manager đang đăng nhập để lọc staff thuộc chi nhánh mình quản lý
+  const getBranchId = (): number | null => {
+    try {
+      const userStr = localStorage.getItem("user");
+      const user = userStr ? JSON.parse(userStr) : null;
+      return user?.BranchID ?? user?.branchId ?? null;
+    } catch {
+      return null;
+    }
+  };
+  const branchId = getBranchId();
+
   useEffect(() => {
     fetchStaffList();
+    fetchAllUsers();
   }, []);
 
   const fetchStaffList = async () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem("token");
+      // Lọc staff thuộc chi nhánh của Manager và chỉ lấy Active
       const response = await axiosClient.get("/api/users", { // GET /api/users?Role=Staff
-        params: { Role: "Staff" },
+        params: { Role: "Staff", Status: "Active" },
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.data.success) {
-        setStaffList(response.data.data);
+        // Phòng trường hợp backend chưa hỗ trợ filter Status, lọc thêm phía client theo BranchID + Status
+        const all = response.data.data as Staff[];
+        const scoped = branchId
+          ? all.filter((s) => !s.BranchID || s.BranchID === branchId)
+          : all;
+        setStaffList(scoped.filter((s) => s.Status === "Active"));
       }
     } catch (err: any) {
       console.error("Error fetching staff:", err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Lấy toàn bộ user từ backend để check trùng tên/email/SĐT khi tạo Staff
+  const fetchAllUsers = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axiosClient.get("/api/users", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.data?.success && Array.isArray(response.data.data)) {
+        setAllUsers(response.data.data);
+      }
+    } catch (err: any) {
+      console.error("Error fetching all users:", err);
     }
   };
 
@@ -89,14 +125,45 @@ const ManagerStaffManagement = () => {
       return false;
     }
 
-    if (formData.Email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.Email)) {
-      setError("Email không hợp lệ");
+    // Validate trùng: tên, email, số điện thoại không được trùng với user đã tạo
+    const trimmedName = formData.FullName.trim().toLowerCase();
+    const trimmedEmail = formData.Email.trim().toLowerCase();
+    const trimmedPhone = formData.Phone.trim();
+
+    const duplicateFullName = allUsers.find(
+      (u) => (u.FullName || "").trim().toLowerCase() === trimmedName
+    );
+    if (duplicateFullName) {
+      setError(`Họ tên "${formData.FullName.trim()}" đã được sử dụng bởi tài khoản khác.`);
       return false;
     }
 
-    if (formData.Phone && !/^[0-9]{10,11}$/.test(formData.Phone)) {
-      setError("Số điện thoại phải có 10-11 chữ số");
-      return false;
+    if (trimmedEmail) {
+      const duplicateEmail = allUsers.find(
+        (u) => (u.Email || "").trim().toLowerCase() === trimmedEmail
+      );
+      if (duplicateEmail) {
+        setError(`Email "${formData.Email.trim()}" đã được sử dụng bởi tài khoản khác.`);
+        return false;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.Email)) {
+        setError("Email không hợp lệ");
+        return false;
+      }
+    }
+
+    if (trimmedPhone) {
+      const duplicatePhone = allUsers.find(
+        (u) => (u.Phone || "").trim() === trimmedPhone
+      );
+      if (duplicatePhone) {
+        setError(`Số điện thoại "${formData.Phone.trim()}" đã được sử dụng bởi tài khoản khác.`);
+        return false;
+      }
+      if (!/^[0-9]{10,11}$/.test(formData.Phone)) {
+        setError("Số điện thoại phải có 10-11 chữ số");
+        return false;
+      }
     }
 
     return true;
@@ -142,6 +209,7 @@ const ManagerStaffManagement = () => {
           setIsModalOpen(false);
           setSuccess("");
           fetchStaffList();
+          fetchAllUsers();
         }, 1500);
       }
     } catch (err: any) {

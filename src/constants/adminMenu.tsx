@@ -8,6 +8,8 @@ import {
   Crown,
   DollarSign,
   Sparkles,
+  TicketPercent,
+  Gift,
 } from "lucide-react";
 
 export const adminMenu = [
@@ -25,6 +27,11 @@ export const adminMenu = [
     path: "/admin/services",
     name: "Quản lý Dịch vụ",
     icon: <Sparkles size={20} />,
+  },
+  {
+    path: "/admin/promotions",
+    name: "Quản lý Khuyến mãi",
+    icon: <TicketPercent size={20} />,
   },
   {
     path: "/admin/managers",
@@ -50,6 +57,11 @@ export const adminMenu = [
     path: "/admin/tier-configs",
     name: "Cấu hình Hạng",
     icon: <Crown size={20} />,
+  },
+  {
+    path: "/admin/rewards",
+    name: "Quản lý Đổi điểm",
+    icon: <Gift size={20} />,
   },
   {
     path: "/admin/statistics",
