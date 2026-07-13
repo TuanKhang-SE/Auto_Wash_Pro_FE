@@ -50,28 +50,15 @@ const AdminDashboard = () => {
     const fetchStats = async () => { 
       setIsLoading(true); 
       try { 
-        const [branchesData, managersData, staffData] = await Promise.all([
+        const [branchesData, managersData, staffData, overviewData] = await Promise.all([
           branchService.getAllBranches(), // GET /api/branches lấy tất cả chi nhánh
           userService.getAllUsers({ Role: "Manager" }), // GET /api/users?Role=Manager lấy managermanager
           userService.getAllUsers({ Role: "Staff" }), // GET /api/users?Role=Staff lấy staff
+          revenueService.getBranchOverview(),
         ]);
 
-        const now = new Date(); // Lấy ngày hiện tại
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1) // Lấy ngày đầu tháng
-          .toISOString()
-          .split("T")[0];
-        const today = now.toISOString().split("T")[0];
-
-        let monthlyRevenue = 0;
-        try {
-          const cashflow = await revenueService.getDailyCashflow({ // GET /api/dashboard/daily-cashflow thống kê
-            StartDate: startOfMonth,
-            EndDate: today,
-          });
-          monthlyRevenue = cashflow.summary.total;
-        } catch {
-          monthlyRevenue = 0;
-        }
+        const overviewMap = new Map(overviewData.map((item) => [item.branchId, item]));
+        const monthlyRevenue = overviewData.reduce((sum, item) => sum + item.revenue, 0);
 
         const activeBranches = branchesData.filter((b) => b.Status === "Active");
         const activeStaff = staffData.filter((s) => s.Status === "Active");
@@ -82,28 +69,22 @@ const AdminDashboard = () => {
           }
         });
 
-        const branchRevenueMap = new Map<number, number>();
-        if (monthlyRevenue > 0 && activeBranches.length > 0) {
-          const perBranch = monthlyRevenue / activeBranches.length;
-          activeBranches.forEach((b) => branchRevenueMap.set(b.BranchID, perBranch));
-        }
-
         const branchStatsData = branchesData.map((b) => ({ // Lấy dữ liệu chi nhánh từ database
           branchID: b.BranchID, // ID của chi nhánh
           branchName: b.BranchName, // Tên của chi nhánh
           address: b.Address, // Địa chỉ của chi nhánh
-          totalStaff: branchStaffMap.get(b.BranchID) || 0, // Số lượng nhân viên của chi nhánh
-          todayBookings: 0, // Số lượng lịch hẹn hôm nay của chi nhánh
-          revenue: branchRevenueMap.get(b.BranchID) || 0, // Doanh thu của chi nhánh
-          occupancy: 0, // Tỷ lệ chiếm đóng của chi nhánh
+          totalStaff: overviewMap.get(b.BranchID)?.totalStaff ?? branchStaffMap.get(b.BranchID) ?? 0,
+          todayBookings: overviewMap.get(b.BranchID)?.todayBookings ?? 0,
+          revenue: overviewMap.get(b.BranchID)?.revenue ?? 0,
+          occupancy: overviewMap.get(b.BranchID)?.occupancy ?? 0,
           status: b.Status, // Trạng thái của chi nhánh
         }));
 
         setStats({ // Hiển thị dữ liệu tổng quan trên dashboard
           totalBranches: activeBranches.length,
-          totalManagers: managersData.length,
+          totalManagers: managersData.filter((manager) => manager.Status === "Active").length,
           totalStaff: activeStaff.length,
-          totalBookings: 0,
+          totalBookings: overviewData.reduce((sum, item) => sum + item.monthBookings, 0),
           monthlyRevenue,
         });
 
@@ -130,7 +111,9 @@ const AdminDashboard = () => {
     try {
       const userStr = localStorage.getItem("user");
       if (userStr) return JSON.parse(userStr);
-    } catch (e) {}
+    } catch {
+      return null;
+    }
     return null;
   };
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { DollarSign, Landmark, CreditCard, MoreHorizontal, TrendingUp } from "lucide-react";
 import revenueService, { type DailyCashflowItem } from "../../services/revenueService";
 import branchService, { type Branch } from "../../services/branchService";
@@ -15,19 +15,12 @@ const AdminRevenue = () => {
   const [dailyData, setDailyData] = useState<DailyCashflowItem[]>([]);
   const [summary, setSummary] = useState({ totalCash: 0, totalTransfer: 0, totalOther: 0, total: 0 });
   const [isLoading, setIsLoading] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
 
   useEffect(() => {
     branchService.getAllBranches().then(setBranches).catch(console.error); // GET /api/branches lấy danh sách chi nhánh
   }, []);
 
-  useEffect(() => {
-    if (hasFetched) {
-      fetchRevenue();
-    }
-  }, [selectedBranch]);
-
-  const fetchRevenue = async () => {
+  const fetchRevenue = useCallback(async () => {
     setIsLoading(true);
     try {
       const params: Parameters<typeof revenueService.getDailyCashflow>[0] = { StartDate: startDate, EndDate: endDate };
@@ -36,18 +29,20 @@ const AdminRevenue = () => {
       const data = await revenueService.getDailyCashflow(params);  // GET /api/dashboard/daily-cashflow lấy dữ liệu doanh thu theo phương thức thanh toán
       setDailyData(data.dailyData);
       setSummary(data.summary);
-      setHasFetched(true);
     } catch (err) {
       console.error("Error fetching revenue:", err);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [endDate, selectedBranch, startDate]);
 
   const handleSearch = () => {
-    setHasFetched(false);
     fetchRevenue();
   };
+
+  useEffect(() => {
+    void Promise.resolve().then(fetchRevenue);
+  }, [fetchRevenue]);
 
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(v);
@@ -127,7 +122,7 @@ const AdminRevenue = () => {
             </div>
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            {totalRecords > 0 ? Math.round((summary.totalCash / summary.total) * 100) : 0}% tổng doanh thu
+            {summary.total > 0 ? Math.round((summary.totalCash / summary.total) * 100) : 0}% tổng doanh thu
           </p>
         </div>
 
@@ -142,7 +137,7 @@ const AdminRevenue = () => {
             </div>
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            {totalRecords > 0 ? Math.round((summary.totalTransfer / summary.total) * 100) : 0}% tổng doanh thu
+            {summary.total > 0 ? Math.round((summary.totalTransfer / summary.total) * 100) : 0}% tổng doanh thu
           </p>
         </div>
 
@@ -157,7 +152,7 @@ const AdminRevenue = () => {
             </div>
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            {totalRecords > 0 ? Math.round((summary.totalOther / summary.total) * 100) : 0}% tổng doanh thu
+            {summary.total > 0 ? Math.round((summary.totalOther / summary.total) * 100) : 0}% tổng doanh thu
           </p>
         </div>
 
