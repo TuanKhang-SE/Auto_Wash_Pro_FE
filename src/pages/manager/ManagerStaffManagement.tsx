@@ -31,6 +31,7 @@ interface RegisterFormData {
 
 const ManagerStaffManagement = () => {
   const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [allUsers, setAllUsers] = useState<Staff[]>([]); // Toàn bộ user (để check trùng tên/email/SĐT)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -46,6 +47,7 @@ const ManagerStaffManagement = () => {
 
   useEffect(() => {
     fetchStaffList();
+    fetchAllUsers();
   }, []);
 
   const fetchStaffList = async () => {
@@ -64,6 +66,21 @@ const ManagerStaffManagement = () => {
       console.error("Error fetching staff:", err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Lấy toàn bộ user từ backend để check trùng tên/email/SĐT khi tạo Staff
+  const fetchAllUsers = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axiosClient.get("/api/users", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.data?.success && Array.isArray(response.data.data)) {
+        setAllUsers(response.data.data);
+      }
+    } catch (err: any) {
+      console.error("Error fetching all users:", err);
     }
   };
 
@@ -89,14 +106,45 @@ const ManagerStaffManagement = () => {
       return false;
     }
 
-    if (formData.Email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.Email)) {
-      setError("Email không hợp lệ");
+    // Validate trùng: tên, email, số điện thoại không được trùng với user đã tạo
+    const trimmedName = formData.FullName.trim().toLowerCase();
+    const trimmedEmail = formData.Email.trim().toLowerCase();
+    const trimmedPhone = formData.Phone.trim();
+
+    const duplicateFullName = allUsers.find(
+      (u) => (u.FullName || "").trim().toLowerCase() === trimmedName
+    );
+    if (duplicateFullName) {
+      setError(`Họ tên "${formData.FullName.trim()}" đã được sử dụng bởi tài khoản khác.`);
       return false;
     }
 
-    if (formData.Phone && !/^[0-9]{10,11}$/.test(formData.Phone)) {
-      setError("Số điện thoại phải có 10-11 chữ số");
-      return false;
+    if (trimmedEmail) {
+      const duplicateEmail = allUsers.find(
+        (u) => (u.Email || "").trim().toLowerCase() === trimmedEmail
+      );
+      if (duplicateEmail) {
+        setError(`Email "${formData.Email.trim()}" đã được sử dụng bởi tài khoản khác.`);
+        return false;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.Email)) {
+        setError("Email không hợp lệ");
+        return false;
+      }
+    }
+
+    if (trimmedPhone) {
+      const duplicatePhone = allUsers.find(
+        (u) => (u.Phone || "").trim() === trimmedPhone
+      );
+      if (duplicatePhone) {
+        setError(`Số điện thoại "${formData.Phone.trim()}" đã được sử dụng bởi tài khoản khác.`);
+        return false;
+      }
+      if (!/^[0-9]{10,11}$/.test(formData.Phone)) {
+        setError("Số điện thoại phải có 10-11 chữ số");
+        return false;
+      }
     }
 
     return true;
@@ -142,6 +190,7 @@ const ManagerStaffManagement = () => {
           setIsModalOpen(false);
           setSuccess("");
           fetchStaffList();
+          fetchAllUsers();
         }, 1500);
       }
     } catch (err: any) {
