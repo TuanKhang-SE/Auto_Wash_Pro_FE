@@ -300,7 +300,7 @@ const HomePage = () => {
 
       <footer className="bg-slate-950 px-6 py-6 text-center text-sm text-slate-400">
         © 2026 Auto Wash Pro. All rights reserved.
-      </footer>
+      </footer> 
     </>
   );
 };
