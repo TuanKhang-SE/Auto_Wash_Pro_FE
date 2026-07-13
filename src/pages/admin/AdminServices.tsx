@@ -9,9 +9,6 @@ import {
   Edit,
   Trash2,
   Search,
-  Clock,
-  Tag,
-  Power,
 } from "lucide-react";
 import serviceService, {
   type Service,
@@ -426,111 +423,91 @@ const AdminServices = () => {
         </div>
       )}
 
-      {/* Service Cards */}
+      {/* Service Table */}
       {!isLoading && !error && filteredServices.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredServices.map((svc) => {
-            const isActive = svc.Status === "Active";
-            return (
-              <div
-                key={svc.ServiceID}
-                className={`overflow-hidden rounded-xl border-2 bg-white shadow-sm transition ${
-                  isActive
-                    ? "border-rose-200 hover:border-rose-400 hover:shadow-md"
-                    : "border-slate-200 opacity-70"
-                }`}
-              >
-                {/* Image or placeholder */}
-                <div className="relative h-32 w-full bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">
-                  {svc.ImageURL ? (
-                    <img
-                      src={svc.ImageURL}
-                      alt={svc.ServiceName}
-                      className="h-full w-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <Sparkles size={36} className="text-rose-300" />
-                    </div>
-                  )}
-                  <span
-                    className={`absolute right-2 top-2 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium shadow ${
-                      isActive
-                        ? "bg-emerald-500 text-white"
-                        : "bg-slate-500 text-white"
-                    }`}
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full bg-white"></span>
-                    {isActive ? "Hoạt động" : "Ngừng"}
-                  </span>
-                </div>
-
-                <div className="p-4">
-                  <h3 className="line-clamp-1 font-bold text-slate-800">
-                    {svc.ServiceName}
-                  </h3>
-                  <p className="mt-1 line-clamp-2 text-xs text-slate-500 min-h-[2rem]">
-                    {svc.Description || "Chưa có mô tả"}
-                  </p>
-
-                  <div className="mt-3 space-y-1.5">
-                    <div className="flex items-center justify-between rounded-lg bg-rose-50 px-3 py-1.5">
-                      <span className="flex items-center gap-1 text-xs text-slate-500">
-                        <Tag size={12} />
-                        Giá
-                      </span>
-                      <span className="text-sm font-semibold text-rose-600">
-                        {formatVnd(svc.BasePrice ?? svc.Price)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between rounded-lg bg-blue-50 px-3 py-1.5">
-                      <span className="flex items-center gap-1 text-xs text-slate-500">
-                        <Clock size={12} />
-                        Thời lượng
-                      </span>
-                      <span className="text-sm font-semibold text-blue-600">
-                        {svc.DurationMinutes ?? svc.Duration} phút
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-                    <button
-                      onClick={() => toggleStatus(svc)}
-                      className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
-                        isActive
-                          ? "text-amber-600 hover:bg-amber-50"
-                          : "text-emerald-600 hover:bg-emerald-50"
-                      }`}
-                      title={isActive ? "Vô hiệu hóa" : "Kích hoạt"}
-                    >
-                      <Power size={14} />
-                      {isActive ? "Tắt" : "Bật"}
-                    </button>
-                    <div className="flex items-center gap-1">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Tên dịch vụ</th>
+                <th className="px-4 py-3">Mô tả</th>
+                <th className="px-4 py-3">Giá</th>
+                <th className="px-4 py-3">Thời lượng</th>
+                <th className="px-4 py-3">Trạng thái</th>
+                <th className="px-4 py-3 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredServices.map((svc) => {
+                const isActive = svc.Status === "Active";
+                return (
+                  <tr key={svc.ServiceID} className="hover:bg-slate-50">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">
+                          {svc.ImageURL ? (
+                            <img
+                              src={svc.ImageURL}
+                              alt={svc.ServiceName}
+                              className="h-full w-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <Sparkles size={18} className="text-rose-300" />
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-medium text-slate-800">{svc.ServiceName}</div>
+                          <div className="text-xs text-slate-400">#{svc.ServiceID}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600 max-w-xs">
+                      <div className="line-clamp-2">{svc.Description || "—"}</div>
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-rose-600">
+                      {formatVnd(svc.BasePrice ?? svc.Price)}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {svc.DurationMinutes ?? svc.Duration} phút
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => toggleStatus(svc)}
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
+                          isActive
+                            ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                            : "bg-slate-200 text-slate-600 hover:bg-slate-300"
+                        }`}
+                      >
+                        {isActive ? "Hoạt động" : "Ngừng"}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => openEditModal(svc)}
-                        className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 transition"
+                        className="mr-1 rounded-lg p-2 text-blue-600 hover:bg-blue-50 transition"
+                        title="Sửa"
                       >
-                        <Edit size={14} />
-                        Sửa
+                        <Edit size={16} />
                       </button>
                       <button
                         onClick={() => setDeleteTarget(svc)}
-                        className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition"
+                        className="rounded-lg p-2 text-red-600 hover:bg-red-50 transition"
+                        title="Xóa"
                       >
-                        <Trash2 size={14} />
-                        Xóa
+                        <Trash2 size={16} />
                       </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
