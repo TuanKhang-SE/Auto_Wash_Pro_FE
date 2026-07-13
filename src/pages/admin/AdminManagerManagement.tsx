@@ -15,7 +15,6 @@ import {
 import userService, { type User } from "../../services/userService";
 import branchService, { type Branch } from "../../services/branchService";
 import { getErrorMessage } from "../../api/axiosClient";
-
 interface RegisterFormData {
   password: string;
   confirmPassword: string;
@@ -33,6 +32,7 @@ interface EditFormData {
 
 const AdminManagerManagement = () => {
   const [managers, setManagers] = useState<User[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]); // Toàn bộ user (để check trùng tên/email/SĐT)
   const [branches, setBranches] = useState<Branch[]>([]); // Danh sách chi nhánh
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -60,18 +60,22 @@ const AdminManagerManagement = () => {
     fetchManagers();
   }, []);
 
-  // Lấy song song danh sách Manager và danh sách chi nhánh từ backend:
+  // Lấy song song danh sách Manager, toàn bộ user (để check trùng) và danh sách
+  // chi nhánh từ backend:
   // - GET /api/users?Role=Manager: lấy tất cả tài khoản Manager
+  // - GET /api/users: lấy toàn bộ user để check trùng tên/email/SĐT
   // - GET /api/branches: lấy danh sách chi nhánh để hiển thị tên và kiểm tra
   //   chi nhánh nào đã có Manager (mỗi chi nhánh chỉ gán được 1 Manager)
   const fetchManagers = async () => { // GET /api/users?Role=Manager lấy danh sách manager
     setIsLoading(true);
     try {
-      const [data, branchList] = await Promise.all([
+      const [data, userList, branchList] = await Promise.all([
         userService.getAllUsers({ Role: "Manager" }), // GET /api/users?Role=Manager lấy danh sách manager
+        userService.getAllUsers(), // GET /api/users lấy toàn bộ user để check trùng
         branchService.getAllBranches(), // GET /api/branches lấy danh sách chi nhánh
       ]);
       setManagers(data); 
+      setAllUsers(userList);
       setBranches(branchList);
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -105,7 +109,8 @@ const AdminManagerManagement = () => {
 
   // Kiểm tra hợp lệ form tạo Manager trước khi gửi API: bắt buộc nhập
   // họ tên + mật khẩu (≥6 ký tự, khớp confirmPassword), email/phone đúng
-  // format và chi nhánh được chọn chưa có Manager nào (1 chi nhánh chỉ 1 Manager)
+  // format và chi nhánh được chọn chưa có Manager nào (1 chi nhánh chỉ 1 Manager).
+  // Đồng thời check tên/email/SĐT không được trùng với user khác trong hệ thống.
   const validateForm = (): boolean => {
     if (
       !formData.password ||
@@ -122,14 +127,48 @@ const AdminManagerManagement = () => {
       setError("Mật khẩu xác nhận không khớp");
       return false;
     }
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      setError("Email không hợp lệ");
+
+    // Validate trùng: tên, email, số điện thoại không được trùng với user đã tạo
+    const trimmedName = formData.fullName.trim().toLowerCase();
+    const trimmedEmail = formData.email.trim().toLowerCase();
+    const trimmedPhone = formData.phone.trim();
+
+    const duplicateFullName = allUsers.find(
+      (u) => u.FullName?.trim().toLowerCase() === trimmedName
+    );
+    if (duplicateFullName) {
+      setError(`Họ tên "${formData.fullName.trim()}" đã được sử dụng bởi tài khoản khác.`);
       return false;
     }
-    if (formData.phone && !/^[0-9]{10,11}$/.test(formData.phone)) {
-      setError("Số điện thoại phải có 10-11 chữ số");
-      return false;
+
+    if (trimmedEmail) {
+      const duplicateEmail = allUsers.find(
+        (u) => u.Email?.trim().toLowerCase() === trimmedEmail
+      );
+      if (duplicateEmail) {
+        setError(`Email "${formData.email.trim()}" đã được sử dụng bởi tài khoản khác.`);
+        return false;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        setError("Email không hợp lệ");
+        return false;
+      }
     }
+
+    if (trimmedPhone) {
+      const duplicatePhone = allUsers.find(
+        (u) => u.Phone?.trim() === trimmedPhone
+      );
+      if (duplicatePhone) {
+        setError(`Số điện thoại "${formData.phone.trim()}" đã được sử dụng bởi tài khoản khác.`);
+        return false;
+      }
+      if (!/^[0-9]{10,11}$/.test(formData.phone)) {
+        setError("Số điện thoại phải có 10-11 chữ số");
+        return false;
+      }
+    }
+
     if (!formData.branchID || formData.branchID <= 0) {
       setError("Vui lòng chọn chi nhánh phụ trách");
       return false;
@@ -177,8 +216,8 @@ const AdminManagerManagement = () => {
         branchID: 0,
       });
       setTimeout(() => { // Hiển thị thông báo thành công và đóng modal
-        setIsModalOpen(false); 
-        setSuccess(""); 
+        setIsModalOpen(false);
+        setSuccess("");
         fetchManagers(); // Gọi fetchManagers để lấy danh sách manager mới nhất
       }, 1500);
     } catch (err: unknown) {
@@ -203,18 +242,57 @@ const AdminManagerManagement = () => {
   };
 
   // Gọi API cập nhật thông tin Manager (họ tên, email, số điện thoại)
-  // theo UserID của Manager đang được chỉnh sửa
+  // theo UserID của Manager đang được chỉnh sửa.
+  // Đồng thời check tên/email/SĐT không được trùng với user khác trong hệ thống.
   const handleEditManager = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingManager) return;
 
-    if (editFormData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editFormData.email)) {
-      setError("Email không hợp lệ");
+    // Validate trùng: tên, email, số điện thoại không được trùng với user đã tạo
+    const trimmedName = editFormData.fullName.trim().toLowerCase();
+    const trimmedEmail = editFormData.email.trim().toLowerCase();
+    const trimmedPhone = editFormData.phone.trim();
+
+    const duplicateFullName = allUsers.find(
+      (u) =>
+        u.UserID !== editingManager.UserID &&
+        u.FullName?.trim().toLowerCase() === trimmedName
+    );
+    if (duplicateFullName) {
+      setError(`Họ tên "${editFormData.fullName.trim()}" đã được sử dụng bởi tài khoản khác.`);
       return;
     }
-    if (editFormData.phone && !/^[0-9]{10,11}$/.test(editFormData.phone)) {
-      setError("Số điện thoại phải có 10-11 chữ số");
-      return;
+
+    if (trimmedEmail) {
+      const duplicateEmail = allUsers.find(
+        (u) =>
+          u.UserID !== editingManager.UserID &&
+          u.Email?.trim().toLowerCase() === trimmedEmail
+      );
+      if (duplicateEmail) {
+        setError(`Email "${editFormData.email.trim()}" đã được sử dụng bởi tài khoản khác.`);
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editFormData.email)) {
+        setError("Email không hợp lệ");
+        return;
+      }
+    }
+
+    if (trimmedPhone) {
+      const duplicatePhone = allUsers.find(
+        (u) =>
+          u.UserID !== editingManager.UserID &&
+          u.Phone?.trim() === trimmedPhone
+      );
+      if (duplicatePhone) {
+        setError(`Số điện thoại "${editFormData.phone.trim()}" đã được sử dụng bởi tài khoản khác.`);
+        return;
+      }
+      if (!/^[0-9]{10,11}$/.test(editFormData.phone)) {
+        setError("Số điện thoại phải có 10-11 chữ số");
+        return;
+      }
     }
 
     setIsLoading(true);
