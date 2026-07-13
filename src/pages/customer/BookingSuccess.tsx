@@ -147,7 +147,12 @@ function BookingSuccess() {
                                 </div>
 
                                 <div className="mt-2 flex justify-between gap-4">
-                                    <span className="text-slate-500">Giảm giá</span>
+                                    <span className="text-slate-500">
+                                        Giảm hạng {summary.memberTierName || "thành viên"}
+                                        {summary.discountPercent > 0
+                                            ? ` (${summary.discountPercent}%)`
+                                            : ""}
+                                    </span>
                                     <span className="font-semibold text-red-600">
                                         -{formatMoney(summary.discountAmount)}
                                     </span>

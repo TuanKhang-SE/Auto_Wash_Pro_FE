@@ -6,6 +6,10 @@ import {
     ClipboardList,
     Car,
     RefreshCw,
+    Banknote,
+    Landmark,
+    CreditCard,
+    X,
 } from "lucide-react";
 import StatCard from "../../components/staff/StatCard";
 import axiosClient, { getErrorMessage } from "../../api/axiosClient";
@@ -53,6 +57,65 @@ type StaffStats = {
     total: number;
 };
 
+type PaymentMethod = "CASH" | "BANK_TRANSFER" | "VNPAY";
+
+type PaymentTransaction = {
+    TransactionID: number;
+    BookingGroupID: number | null;
+    Subtotal: number | string | null;
+    DiscountAmount: number | string | null;
+    FinalAmount: number | string | null;
+    Status: string | null;
+};
+
+type InvoiceRecord = {
+    InvoiceID: number;
+    InvoiceNo: string | null;
+    IssuedAt: string | null;
+    Status: string | null;
+};
+
+type InvoiceData = PaymentTransaction & {
+    CreatedAt?: string | null;
+    CurrentInvoice?: InvoiceRecord;
+    Invoices?: InvoiceRecord[];
+    Customers?: {
+        Users?: {
+            FullName?: string | null;
+            Phone?: string | null;
+        } | null;
+    } | null;
+    BookingGroups?: {
+        BookingCode?: string | null;
+        BookingDate?: string | null;
+        StartTime?: string | null;
+        branches?: {
+            BranchName?: string | null;
+            Address?: string | null;
+            Phone?: string | null;
+        } | null;
+        BookingItems?: Array<{
+            Vehicles?: {
+                LicensePlate?: string | null;
+                Brand?: string | null;
+                Model?: string | null;
+            } | null;
+            ServiceLineItems?: Array<{
+                Quantity?: number | null;
+                UnitPrice?: number | string | null;
+                LineTotal?: number | string | null;
+                Services?: {
+                    ServiceName?: string | null;
+                } | null;
+            }>;
+        }>;
+    } | null;
+    PaymentRecords?: Array<{
+        Method?: string | null;
+        ConfirmedAt?: string | null;
+    }>;
+};
+
 function formatTime(value: string | null | undefined) {
     if (!value) {
         return "--:--";
@@ -65,6 +128,144 @@ function formatTime(value: string | null | undefined) {
     }
 
     return text.substring(0, 5);
+}
+
+function formatMoney(value: number | string | null | undefined) {
+    return `${Number(value || 0).toLocaleString("vi-VN")} ₫`;
+}
+
+function escapeHtml(value: unknown) {
+    return String(value ?? "").replace(/[&<>"']/g, (character) => {
+        const entities: Record<string, string> = {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;",
+        };
+        return entities[character];
+    });
+}
+
+function getPaymentMethodLabel(method: string | null | undefined) {
+    if (method === "CASH") return "Tiền mặt";
+    if (method === "BANK_TRANSFER") return "Chuyển khoản";
+    if (method === "VNPAY") return "VNPay";
+    return method || "—";
+}
+
+function buildInvoiceHtml(invoice: InvoiceData) {
+    const booking = invoice.BookingGroups;
+    const branch = booking?.branches;
+    const customer = invoice.Customers?.Users;
+    const payment = invoice.PaymentRecords?.[0];
+    const issuedInvoice = invoice.CurrentInvoice || invoice.Invoices?.find(
+        (item) => item.Status === "ISSUED"
+    );
+    const lineItems = (booking?.BookingItems || []).flatMap((item) =>
+        (item.ServiceLineItems || []).map((line) => ({
+            vehicle: [
+                item.Vehicles?.LicensePlate,
+                item.Vehicles?.Brand,
+                item.Vehicles?.Model,
+            ].filter(Boolean).join(" - "),
+            service: line.Services?.ServiceName || "Dịch vụ",
+            quantity: line.Quantity || 1,
+            unitPrice: line.UnitPrice,
+            lineTotal: line.LineTotal,
+        }))
+    );
+    const rows = lineItems.map((line, index) => `
+        <tr>
+            <td>${index + 1}</td>
+            <td>${escapeHtml(line.vehicle || "—")}</td>
+            <td>${escapeHtml(line.service)}</td>
+            <td class="center">${line.quantity}</td>
+            <td class="right">${escapeHtml(formatMoney(line.unitPrice))}</td>
+            <td class="right">${escapeHtml(formatMoney(line.lineTotal))}</td>
+        </tr>
+    `).join("");
+
+    return `<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <title>${escapeHtml(issuedInvoice?.InvoiceNo || "Hóa đơn Auto Wash Pro")}</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; color: #0f172a; font: 14px Arial, sans-serif; }
+        .invoice { width: 190mm; min-height: 270mm; margin: 0 auto; padding: 12mm; }
+        .header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #2563eb; padding-bottom: 16px; }
+        h1 { margin: 0; color: #1d4ed8; font-size: 27px; }
+        h2 { margin: 5px 0 0; font-size: 18px; }
+        p { margin: 5px 0; }
+        .invoice-meta { text-align: right; }
+        .section { margin-top: 18px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 28px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #cbd5e1; padding: 9px 8px; vertical-align: top; }
+        th { background: #eff6ff; text-align: left; }
+        .right { text-align: right; }
+        .center { text-align: center; }
+        .totals { width: 310px; margin: 16px 0 0 auto; }
+        .totals-row { display: flex; justify-content: space-between; padding: 6px 0; }
+        .grand-total { border-top: 2px solid #0f172a; margin-top: 5px; padding-top: 10px; font-size: 18px; font-weight: 700; }
+        .footer { margin-top: 36px; text-align: center; color: #475569; }
+        @media print { .invoice { width: auto; min-height: auto; margin: 0; padding: 0; } }
+    </style>
+</head>
+<body>
+    <main class="invoice">
+        <div class="header">
+            <div>
+                <h1>AUTO WASH PRO</h1>
+                <h2>${escapeHtml(branch?.BranchName || "Chi nhánh")}</h2>
+                <p>${escapeHtml(branch?.Address || "")}</p>
+                <p>Điện thoại: ${escapeHtml(branch?.Phone || "—")}</p>
+            </div>
+            <div class="invoice-meta">
+                <h2>HÓA ĐƠN THANH TOÁN</h2>
+                <p><strong>Số:</strong> ${escapeHtml(issuedInvoice?.InvoiceNo || "—")}</p>
+                <p><strong>Ngày:</strong> ${escapeHtml(
+                    new Date(issuedInvoice?.IssuedAt || Date.now()).toLocaleString("vi-VN")
+                )}</p>
+            </div>
+        </div>
+
+        <section class="section grid">
+            <p><strong>Khách hàng:</strong> ${escapeHtml(customer?.FullName || "Khách lẻ")}</p>
+            <p><strong>Số điện thoại:</strong> ${escapeHtml(customer?.Phone || "—")}</p>
+            <p><strong>Mã booking:</strong> ${escapeHtml(booking?.BookingCode || "—")}</p>
+            <p><strong>Phương thức:</strong> ${escapeHtml(getPaymentMethodLabel(payment?.Method))}</p>
+        </section>
+
+        <section class="section">
+            <table>
+                <thead>
+                    <tr><th>STT</th><th>Xe</th><th>Dịch vụ</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th></tr>
+                </thead>
+                <tbody>${rows || '<tr><td colspan="6" class="center">Không có chi tiết dịch vụ</td></tr>'}</tbody>
+            </table>
+        </section>
+
+        <div class="totals">
+            <div class="totals-row"><span>Tạm tính</span><strong>${escapeHtml(formatMoney(invoice.Subtotal))}</strong></div>
+            <div class="totals-row"><span>Giảm giá</span><strong>-${escapeHtml(formatMoney(invoice.DiscountAmount))}</strong></div>
+            <div class="totals-row grand-total"><span>Tổng thanh toán</span><span>${escapeHtml(formatMoney(invoice.FinalAmount))}</span></div>
+        </div>
+
+        <div class="footer">
+            <p>Cảm ơn quý khách đã sử dụng dịch vụ Auto Wash Pro!</p>
+            <p>Hóa đơn được tạo tự động từ hệ thống.</p>
+        </div>
+    </main>
+</body>
+</html>`;
+}
+
+function isBookingCompleted(booking: StaffBooking) {
+    const items = booking.BookingItems || [];
+    return items.length > 0 && items.every((item) => item.Status === "Completed");
 }
 
 function calculateStats(data: StaffBooking[]): StaffStats {
@@ -124,6 +325,16 @@ const StaffBookings = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [updatingItemId, setUpdatingItemId] = useState<number | null>(null);
     const [message, setMessage] = useState("");
+    const [paymentBooking, setPaymentBooking] = useState<StaffBooking | null>(null);
+    const [paymentTransaction, setPaymentTransaction] =
+        useState<PaymentTransaction | null>(null);
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
+    const [paymentError, setPaymentError] = useState("");
+    const [paymentSuccess, setPaymentSuccess] = useState("");
+    const [isPreparingPayment, setIsPreparingPayment] = useState(false);
+    const [isPaying, setIsPaying] = useState(false);
+    const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
+    const [invoicePreviewHtml, setInvoicePreviewHtml] = useState("");
 
     const [stats, setStats] = useState<StaffStats>({
         waiting: 0,
@@ -190,31 +401,235 @@ const StaffBookings = () => {
                 }
             );
 
-            setBookings((prevBookings) => {
-                const updatedBookings = prevBookings.map((booking) => ({
+            const updatedBookings = bookings.map((booking) => {
+                const updatedItems = booking.BookingItems?.map((item) => {
+                    if (item.BookingItemID !== bookingItemId) {
+                        return item;
+                    }
+
+                    return {
+                        ...item,
+                        Status: status,
+                        ...getUpdatedTimeFields(status),
+                    };
+                });
+
+                const updatedBooking = {
                     ...booking,
-                    BookingItems: booking.BookingItems?.map((item) => {
-                        if (item.BookingItemID !== bookingItemId) {
-                            return item;
-                        }
+                    BookingItems: updatedItems,
+                };
 
-                        return {
-                            ...item,
-                            Status: status,
-                            ...getUpdatedTimeFields(status),
-                        };
-                    }),
-                }));
-
-                setStats(calculateStats(updatedBookings));
-
-                return updatedBookings;
+                return isBookingCompleted(updatedBooking)
+                    ? { ...updatedBooking, Status: "Completed" }
+                    : updatedBooking;
             });
+
+            setBookings(updatedBookings);
+            setStats(calculateStats(updatedBookings));
+
+            if (status === "Completed") {
+                const completedBooking = updatedBookings.find((booking) =>
+                    booking.BookingItems?.some(
+                        (item) => item.BookingItemID === bookingItemId
+                    )
+                );
+
+                if (completedBooking && isBookingCompleted(completedBooking)) {
+                    await preparePayment(completedBooking);
+                }
+            }
         } catch (error) {
             console.log(error);
             setMessage(getErrorMessage(error));
         } finally {
             setUpdatingItemId(null);
+        }
+    }
+
+    function getAuthHeader() {
+        const token = localStorage.getItem("token");
+        return token ? { Authorization: `Bearer ${token}` } : null;
+    }
+
+    async function preparePayment(booking: StaffBooking) {
+        setPaymentBooking(booking);
+        setPaymentTransaction(null);
+        setPaymentMethod("CASH");
+        setPaymentError("");
+        setPaymentSuccess("");
+        setIsPreparingPayment(true);
+
+        try {
+            const headers = getAuthHeader();
+            if (!headers) {
+                throw new Error("Bạn cần đăng nhập bằng tài khoản Staff");
+            }
+
+            const response = await axiosClient.post(
+                `/api/transactions/from-booking/${booking.BookingGroupID}`,
+                {},
+                { headers }
+            );
+
+            const transaction = response.data?.data as PaymentTransaction | undefined;
+            if (!transaction?.TransactionID) {
+                throw new Error("Backend không trả về thông tin giao dịch");
+            }
+
+            setPaymentTransaction(transaction);
+        } catch (error) {
+            setPaymentError(getErrorMessage(error));
+        } finally {
+            setIsPreparingPayment(false);
+        }
+    }
+
+    function closePaymentModal() {
+        if (isPreparingPayment || isPaying || isLoadingInvoice) return;
+        setPaymentBooking(null);
+        setPaymentTransaction(null);
+        setPaymentError("");
+        setPaymentSuccess("");
+        setInvoicePreviewHtml("");
+    }
+
+    async function showInvoicePreview(transactionId: number) {
+        const headers = getAuthHeader();
+        if (!headers) {
+            setPaymentError("Bạn cần đăng nhập bằng tài khoản Staff");
+            return false;
+        }
+
+        setIsLoadingInvoice(true);
+        setPaymentError("");
+
+        try {
+            const previewResponse = await axiosClient.get(
+                `/api/invoices/preview/${transactionId}`,
+                { headers }
+            );
+            const preview = previewResponse.data?.data as InvoiceData | undefined;
+
+            if (!preview) {
+                throw new Error("Backend không trả về dữ liệu hóa đơn");
+            }
+            if (preview.Status !== "Paid") {
+                throw new Error(
+                    "VNPay chưa xác nhận thanh toán. Vui lòng đợi vài giây rồi thử in lại."
+                );
+            }
+
+            let issuedInvoice = preview.Invoices?.find(
+                (invoice) => invoice.Status === "ISSUED"
+            );
+
+            if (!issuedInvoice) {
+                const generateResponse = await axiosClient.post(
+                    `/api/invoices/generate/${transactionId}`,
+                    {},
+                    { headers }
+                );
+                issuedInvoice = generateResponse.data?.data as InvoiceRecord | undefined;
+            }
+
+            if (!issuedInvoice?.InvoiceID) {
+                throw new Error("Không thể phát hành hóa đơn");
+            }
+
+            const invoiceResponse = await axiosClient.get(
+                `/api/invoices/${issuedInvoice.InvoiceID}`,
+                { headers }
+            );
+            const invoice = invoiceResponse.data?.data as InvoiceData | undefined;
+
+            if (!invoice) {
+                throw new Error("Không thể tải chi tiết hóa đơn");
+            }
+
+            setInvoicePreviewHtml(buildInvoiceHtml(invoice));
+
+            setPaymentSuccess((current) =>
+                current.includes("Hóa đơn")
+                    ? current
+                    : `${current} Hóa đơn mô phỏng đã sẵn sàng để xem.`.trim()
+            );
+            return true;
+        } catch (error) {
+            setPaymentError(getErrorMessage(error));
+            return false;
+        } finally {
+            setIsLoadingInvoice(false);
+        }
+    }
+
+    async function handleViewInvoice() {
+        if (!paymentTransaction) return;
+        await showInvoicePreview(paymentTransaction.TransactionID);
+    }
+
+    async function handlePayment() {
+        if (!paymentTransaction) return;
+
+        const headers = getAuthHeader();
+        if (!headers) {
+            setPaymentError("Bạn cần đăng nhập bằng tài khoản Staff");
+            return;
+        }
+
+        setPaymentError("");
+        setPaymentSuccess("");
+        setIsPaying(true);
+
+        let paymentWindow: Window | null = null;
+
+        try {
+            if (paymentMethod === "VNPAY") {
+                paymentWindow = window.open("about:blank", "_blank");
+                if (!paymentWindow) {
+                    throw new Error("Trình duyệt đang chặn cửa sổ thanh toán VNPay");
+                }
+                paymentWindow.opener = null;
+
+                const response = await axiosClient.post(
+                    `/api/transactions/${paymentTransaction.TransactionID}/create-vnpay-url`,
+                    {},
+                    { headers }
+                );
+
+                const paymentUrl = response.data?.data?.url as string | undefined;
+                if (!paymentUrl) {
+                    throw new Error("Backend không trả về đường dẫn thanh toán VNPay");
+                }
+
+                paymentWindow.location.href = paymentUrl;
+                setPaymentSuccess(
+                    "Đã mở VNPay. Giao dịch sẽ được xác nhận sau khi khách thanh toán thành công."
+                );
+                return;
+            }
+
+            await axiosClient.post(
+                `/api/transactions/${paymentTransaction.TransactionID}/pay-manual`,
+                { method: paymentMethod },
+                { headers }
+            );
+
+            setPaymentTransaction((current) =>
+                current ? { ...current, Status: "Paid" } : current
+            );
+            setPaymentSuccess(
+                paymentMethod === "CASH"
+                    ? "Đã xác nhận thanh toán tiền mặt thành công."
+                    : "Đã xác nhận thanh toán chuyển khoản thành công."
+            );
+            await showInvoicePreview(paymentTransaction.TransactionID);
+        } catch (error) {
+            if (paymentWindow && !paymentWindow.closed) {
+                paymentWindow.close();
+            }
+            setPaymentError(getErrorMessage(error));
+        } finally {
+            setIsPaying(false);
         }
     }
 
@@ -350,8 +765,21 @@ const StaffBookings = () => {
                                         </p>
                                     </div>
 
-                                    <div className="text-sm font-semibold text-blue-600">
-                                        Giờ hẹn: {formatTime(booking.StartTime)}
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-sm font-semibold text-blue-600">
+                                            Giờ hẹn: {formatTime(booking.StartTime)}
+                                        </div>
+
+                                        {isBookingCompleted(booking) && (
+                                            <button
+                                                type="button"
+                                                onClick={() => preparePayment(booking)}
+                                                disabled={isPreparingPayment || isPaying}
+                                                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                Thanh toán
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -465,6 +893,207 @@ const StaffBookings = () => {
                     </div>
                 )}
             </div>
+
+            {paymentBooking && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
+                    <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
+                        <div className="flex items-start justify-between border-b border-slate-200 p-5">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-800">
+                                    Thanh toán booking
+                                </h2>
+                                <p className="mt-1 text-sm text-slate-500">
+                                    {paymentBooking.BookingCode} · {paymentBooking.Customers?.Users?.FullName || "Khách hàng"}
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={closePaymentModal}
+                                disabled={isPreparingPayment || isPaying || isLoadingInvoice}
+                                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+                                aria-label="Đóng"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-5 p-5">
+                            {isPreparingPayment ? (
+                                <div className="flex items-center justify-center gap-3 py-10 text-slate-600">
+                                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                                    Đang tạo giao dịch...
+                                </div>
+                            ) : paymentTransaction ? (
+                                <>
+                                    <div className="rounded-xl bg-slate-50 p-4">
+                                        <div className="flex justify-between text-sm text-slate-600">
+                                            <span>Tạm tính</span>
+                                            <span>{formatMoney(paymentTransaction.Subtotal)}</span>
+                                        </div>
+                                        <div className="mt-2 flex justify-between text-sm text-emerald-700">
+                                            <span>Giảm giá</span>
+                                            <span>-{formatMoney(paymentTransaction.DiscountAmount)}</span>
+                                        </div>
+                                        <div className="mt-3 flex justify-between border-t border-slate-200 pt-3 text-lg font-bold text-slate-900">
+                                            <span>Khách cần trả</span>
+                                            <span className="text-blue-700">
+                                                {formatMoney(paymentTransaction.FinalAmount)}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {paymentTransaction.Status !== "Paid" && !paymentSuccess && (
+                                        <div>
+                                            <p className="mb-3 text-sm font-semibold text-slate-700">
+                                                Phương thức thanh toán
+                                            </p>
+                                            <div className="grid gap-3 sm:grid-cols-3">
+                                                {([
+                                                    ["CASH", "Tiền mặt", Banknote],
+                                                    ["BANK_TRANSFER", "Chuyển khoản", Landmark],
+                                                    ["VNPAY", "VNPay", CreditCard],
+                                                ] as const).map(([value, label, Icon]) => (
+                                                    <button
+                                                        key={value}
+                                                        type="button"
+                                                        onClick={() => setPaymentMethod(value)}
+                                                        className={`flex flex-col items-center gap-2 rounded-xl border p-3 text-sm font-semibold transition ${
+                                                            paymentMethod === value
+                                                                ? "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-100"
+                                                                : "border-slate-200 text-slate-600 hover:border-blue-300"
+                                                        }`}
+                                                    >
+                                                        <Icon size={22} />
+                                                        {label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {paymentError && (
+                                        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                                            {paymentError}
+                                        </div>
+                                    )}
+
+                                    {paymentSuccess && (
+                                        <div className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                                            {paymentSuccess}
+                                        </div>
+                                    )}
+
+                                    <div className="flex justify-end gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={closePaymentModal}
+                                            disabled={isPaying || isLoadingInvoice}
+                                            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                                        >
+                                            {paymentSuccess ? "Đóng" : "Thanh toán sau"}
+                                        </button>
+
+                                        {paymentSuccess && (
+                                            <button
+                                                type="button"
+                                                onClick={handleViewInvoice}
+                                                disabled={isLoadingInvoice || isPaying}
+                                                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
+                                            >
+                                                {isLoadingInvoice
+                                                    ? "Đang tải hóa đơn..."
+                                                    : paymentMethod === "VNPAY"
+                                                      ? "Kiểm tra & xem hóa đơn"
+                                                      : "Xem hóa đơn"}
+                                            </button>
+                                        )}
+
+                                        {!paymentSuccess && paymentTransaction.Status !== "Paid" && (
+                                            <button
+                                                type="button"
+                                                onClick={handlePayment}
+                                                disabled={isPaying}
+                                                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
+                                            >
+                                                {isPaying
+                                                    ? "Đang xử lý..."
+                                                    : paymentMethod === "VNPAY"
+                                                      ? "Mở VNPay"
+                                                      : "Xác nhận đã thanh toán"}
+                                            </button>
+                                        )}
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="space-y-4 py-4">
+                                    <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                                        {paymentError || "Không thể tạo giao dịch cho booking này."}
+                                    </div>
+                                    <div className="flex justify-end gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={closePaymentModal}
+                                            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                        >
+                                            Đóng
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => preparePayment(paymentBooking)}
+                                            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                                        >
+                                            Thử lại
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {invoicePreviewHtml && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-4">
+                    <div className="flex h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+                        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-800">
+                                    Hóa đơn mô phỏng
+                                </h2>
+                                <p className="text-sm text-slate-500">
+                                    Bản xem trước trên hệ thống, không gửi lệnh đến máy in.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setInvoicePreviewHtml("")}
+                                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                                aria-label="Đóng bản xem hóa đơn"
+                            >
+                                <X size={22} />
+                            </button>
+                        </div>
+
+                        <iframe
+                            title="Hóa đơn mô phỏng"
+                            srcDoc={invoicePreviewHtml}
+                            sandbox=""
+                            className="min-h-0 flex-1 bg-slate-100"
+                        />
+
+                        <div className="flex justify-end border-t border-slate-200 px-5 py-3">
+                            <button
+                                type="button"
+                                onClick={() => setInvoicePreviewHtml("")}
+                                className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900"
+                            >
+                                Đóng bản xem
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -7,7 +7,9 @@ const AdminLayout: React.FC = () => {
     try {
       const userStr = localStorage.getItem("user");
       if (userStr) return JSON.parse(userStr);
-    } catch (e) {}
+    } catch {
+      return null;
+    }
     return null;
   };
 
@@ -19,7 +21,7 @@ const AdminLayout: React.FC = () => {
       <AdminSidebar />
 
       {/* Main Content */}
-      <main className="ml-64 flex-1 min-h-screen">
+      <main className="ml-64 min-h-screen min-w-0 flex-1">
         {/* Header */}
         <header className="sticky top-0 z-40 h-16 bg-gradient-to-r from-slate-900 to-slate-800 border-b border-slate-700 flex items-center justify-between px-6 shadow-lg">
           <div>

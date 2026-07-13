@@ -3,6 +3,7 @@ import {
   CalendarCheck,
   Cpu,
   History,
+  ReceiptText,
 } from "lucide-react";
 
 export const staffMenu = [
@@ -25,5 +26,10 @@ export const staffMenu = [
     path: "/staff/history",
     name: "Lịch sử Ca Rửa",
     icon: <History size={20} />,
+  },
+  {
+    path: "/staff/booking-history",
+    name: "Lịch sử đặt lịch",
+    icon: <ReceiptText size={20} />,
   },
 ];

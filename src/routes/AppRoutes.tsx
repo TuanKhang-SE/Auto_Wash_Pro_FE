@@ -7,6 +7,8 @@ import AboutPage from "../pages/AboutPage";
 import StaffLayout from "../layouts/StaffLayout";
 import StaffDashboard from "../pages/staff/StaffDashboard";
 import StaffBookings from "../pages/staff/StaffBookings";
+import StaffBays from "../pages/staff/StaffBays";
+import StaffBookingHistory from "../pages/staff/StaffBookingHistory";
 
 import ManagerLayout from "../layouts/ManagerLayout";
 import ManagerDashboard from "../pages/manager/ManagerDashboard";
@@ -128,17 +130,19 @@ const AppRoutes = () => {
 
         {/* Staff */}
         <Route
-          path="/staff"
-          element={
-            <ProtectedRoute>
-              <StaffLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<StaffDashboard />} />
-          <Route path="bookings" element={<StaffBookings />} />
-          <Route path="history" element={<StaffShiftHistory />} />
-        </Route>
+  path="/staff"
+  element={
+    <ProtectedRoute>
+      <StaffLayout />
+    </ProtectedRoute>
+  }
+>
+  <Route index element={<StaffDashboard />} />
+  <Route path="bookings" element={<StaffBookings />} />
+  <Route path="bays" element={<StaffBays />} />
+  <Route path="history" element={<StaffShiftHistory />} />
+  <Route path="booking-history" element={<StaffBookingHistory />} />
+</Route>
 
         {/* Manager */}
         <Route

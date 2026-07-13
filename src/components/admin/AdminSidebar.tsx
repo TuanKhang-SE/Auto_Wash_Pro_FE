@@ -17,16 +17,18 @@ const AdminSidebar: React.FC = () => {
     try {
       const userStr = localStorage.getItem("user");
       if (userStr) return JSON.parse(userStr);
-    } catch (e) {}
+    } catch {
+      return null;
+    }
     return null;
   };
 
   const user = getUserFromStorage();
 
   return (
-    <aside className="fixed left-0 top-0 z-50 flex h-screen w-64 flex-col justify-between border-r border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 text-white">
+    <aside className="fixed left-0 top-0 z-[60] flex h-screen w-64 flex-col border-r border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 text-white">
       {/* Logo */}
-      <div>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-4">
         <div className="flex items-center gap-3 border-b border-slate-800 p-5">
           <div className="rounded-lg bg-gradient-to-br from-rose-600 to-pink-600 p-2.5 shadow-lg shadow-rose-500/30">
             <Shield size={24} className="text-white" />
@@ -51,7 +53,7 @@ const AdminSidebar: React.FC = () => {
         </div>
 
         {/* Menu */}
-        <nav className="mt-6 px-3">
+        <nav className="mt-6 px-3 pb-2">
           <div className="space-y-1">
             {adminMenu.map((item) => (
               <NavLink
@@ -75,7 +77,7 @@ const AdminSidebar: React.FC = () => {
       </div>
 
       {/* User + Logout */}
-      <div className="border-t border-slate-800 bg-slate-950/40 p-4">
+      <div className="shrink-0 border-t border-slate-800 bg-slate-950 p-4 shadow-[0_-8px_24px_rgba(2,6,23,0.35)]">
         <div className="mb-4 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-pink-600 border border-rose-400/50 shadow-lg shadow-rose-500/20">
             <User size={18} className="text-white" />

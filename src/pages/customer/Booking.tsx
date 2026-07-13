@@ -50,10 +50,17 @@ type Slot = {
   Status: string;
 };
 
-const MAX_CARS_PER_SLOT = 4;
+type MemberTierConfig = {
+  TierName?: string | null;
+  DiscountPercent?: number | string | null;
+};
+
+type LoyaltyAccount = {
+  tier_configs?: MemberTierConfig | null;
+};
 
 function formatMoney(value: number | string | null | undefined) {
-  return Number(value || 0).toLocaleString("vi-VN") + "đ";
+  return `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 }
 
 function formatTime(value: string | null | undefined) {
@@ -61,33 +68,47 @@ function formatTime(value: string | null | undefined) {
     return "--:--";
   }
 
-  const text = String(value);
-
-  if (text.includes("T")) {
-    return text.substring(11, 16);
+  if (value.includes("T")) {
+    return value.substring(11, 16);
   }
 
-  return text.substring(0, 5);
+  return value.substring(0, 5);
+}
+
+function getToday() {
+  const today = new Date();
+
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function Booking() {
   const navigate = useNavigate();
 
+  // Thông tin khách hàng
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
 
+  // Dữ liệu lấy từ API
   const [branches, setBranches] = useState<Branch[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [slots, setSlots] = useState<Slot[]>([]);
+  const [memberTierName, setMemberTierName] = useState("");
+  const [tierDiscountPercent, setTierDiscountPercent] = useState(0);
 
+  // Dữ liệu người dùng lựa chọn
   const [branchId, setBranchId] = useState("");
-  const [selectedVehicleIds, setSelectedVehicleIds] = useState<string[]>([]);
   const [serviceId, setServiceId] = useState("");
   const [bookingDate, setBookingDate] = useState("");
   const [startTime, setStartTime] = useState("");
+  const [selectedVehicleIds, setSelectedVehicleIds] = useState<number[]>([]);
   const [note, setNote] = useState("");
 
+  // Trạng thái tải dữ liệu
   const [loading, setLoading] = useState(true);
   const [loadingServices, setLoadingServices] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -95,54 +116,101 @@ function Booking() {
 
   const [message, setMessage] = useState("");
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = getToday();
 
+  // Tìm dữ liệu chi tiết từ ID đang được chọn
   const selectedBranch = branches.find(
     (branch) => branch.BranchID === Number(branchId)
   );
-
-  const selectedVehicles = vehicles.filter((vehicle) =>
-    selectedVehicleIds.includes(String(vehicle.VehicleID))
-  );
-
-  const selectedVehicleCount = selectedVehicles.length;
 
   const selectedService = services.find(
     (service) => service.ServiceID === Number(serviceId)
   );
 
+  const selectedSlot = slots.find(
+    (slot) => slot.StartTime === startTime
+  );
+
+  const selectedVehicles = vehicles.filter((vehicle) =>
+    selectedVehicleIds.includes(vehicle.VehicleID)
+  );
+
+  // Số xe tối đa được chọn lấy từ slot của API
+  const maxSelectableVehicles = selectedSlot?.Available ?? 0;
+
+  const selectedVehicleCount = selectedVehicles.length;
   const servicePrice = Number(selectedService?.ActualPrice || 0);
   const totalServicePrice = servicePrice * selectedVehicleCount;
+  const tierDiscountAmount =
+    (totalServicePrice * tierDiscountPercent) / 100;
+  const finalServicePrice = Math.max(
+    0,
+    totalServicePrice - tierDiscountAmount
+  );
+  const discountedPricePerVehicle = Math.max(
+    0,
+    servicePrice - (servicePrice * tierDiscountPercent) / 100
+  );
 
+  function showMessage(text: string) {
+    setMessage(text);
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+
+  function getToken() {
+    return localStorage.getItem("token");
+  }
+
+  /*
+   * Lấy thông tin ban đầu:
+   * - Danh sách chi nhánh
+   * - Thông tin khách hàng
+   * - Danh sách xe của khách hàng
+   */
   useEffect(() => {
     async function loadBookingData() {
+      const token = getToken();
+
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+
       try {
         setLoading(true);
         setMessage("");
-
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-          navigate("/login");
-          return;
-        }
 
         const headers = {
           Authorization: `Bearer ${token}`,
         };
 
-        const branchRes = await axiosClient.get("/api/branches?status=Active");
+        const [branchResponse, profileResponse] = await Promise.all([
+          axiosClient.get("/api/branches?status=Active"),
+          axiosClient.get("/api/customers/profile", { headers }),
+        ]);
 
-        const profileRes = await axiosClient.get("/api/customers/profile", {
-          headers,
-        });
+        const profile = profileResponse.data.data;
 
-        const profile = profileRes.data.data;
+        setBranches(branchResponse.data.data || []);
+        setFullName(profile?.Users?.FullName || "");
+        setPhone(profile?.Users?.Phone || "");
+        setVehicles(profile?.Vehicles || []);
 
-        setBranches(branchRes.data.data || []);
-        setFullName(profile.Users.FullName || "");
-        setPhone(profile.Users.Phone || "");
-        setVehicles(profile.Vehicles || []);
+        const loyaltyAccount = Array.isArray(profile?.LoyaltyAccounts)
+          ? (profile.LoyaltyAccounts[0] as LoyaltyAccount | undefined)
+          : undefined;
+        const tierConfig = loyaltyAccount?.tier_configs;
+        const discountPercent = Number(tierConfig?.DiscountPercent || 0);
+
+        setMemberTierName(tierConfig?.TierName || "");
+        setTierDiscountPercent(
+          Number.isFinite(discountPercent)
+            ? Math.min(100, Math.max(0, discountPercent))
+            : 0
+        );
       } catch (error) {
         console.log(error);
         setMessage(getErrorMessage(error));
@@ -154,6 +222,9 @@ function Booking() {
     loadBookingData();
   }, [navigate]);
 
+  /*
+   * Khi thay đổi chi nhánh thì tải lại dịch vụ.
+   */
   useEffect(() => {
     async function loadServices() {
       if (!branchId) {
@@ -165,15 +236,14 @@ function Booking() {
         setLoadingServices(true);
         setMessage("");
 
-        setServices([]);
-        setServiceId("");
-        setStartTime("");
+        const response = await axiosClient.get(
+          `/api/branches/${branchId}/services`
+        );
 
-        const res = await axiosClient.get(`/api/branches/${branchId}/services`);
-
-        setServices(res.data.data || []);
+        setServices(response.data.data || []);
       } catch (error) {
         console.log(error);
+        setServices([]);
         setMessage(getErrorMessage(error));
       } finally {
         setLoadingServices(false);
@@ -183,6 +253,9 @@ function Booking() {
     loadServices();
   }, [branchId]);
 
+  /*
+   * Khi có chi nhánh và ngày thì tải danh sách khung giờ.
+   */
   useEffect(() => {
     async function loadSlots() {
       if (!branchId || !bookingDate) {
@@ -194,19 +267,20 @@ function Booking() {
         setLoadingSlots(true);
         setMessage("");
 
-        setSlots([]);
-        setStartTime("");
+        const response = await axiosClient.get(
+          "/api/bookings/available-slots",
+          {
+            params: {
+              BranchID: Number(branchId),
+              BookingDate: bookingDate,
+            },
+          }
+        );
 
-        const res = await axiosClient.get("/api/bookings/available-slots", {
-          params: {
-            BranchID: Number(branchId),
-            BookingDate: bookingDate,
-          },
-        });
-
-        setSlots(res.data.data.Slots || []);
+        setSlots(response.data.data?.Slots || []);
       } catch (error) {
         console.log(error);
+        setSlots([]);
         setMessage(getErrorMessage(error));
       } finally {
         setLoadingSlots(false);
@@ -216,99 +290,150 @@ function Booking() {
     loadSlots();
   }, [branchId, bookingDate]);
 
-  function showMessage(text: string) {
-    setMessage(text);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  function toggleVehicle(vehicleId: number) {
-    const value = String(vehicleId);
-
+  /*
+   * Khi đổi chi nhánh:
+   * - Xóa dịch vụ cũ
+   * - Xóa ngày, khung giờ và xe đã chọn
+   */
+  function handleBranchChange(value: string) {
+    setBranchId(value);
+    setServiceId("");
+    setBookingDate("");
     setStartTime("");
-
-    if (selectedVehicleIds.includes(value)) {
-      setSelectedVehicleIds((prev) => prev.filter((id) => id !== value));
-      return;
-    }
-
-    if (selectedVehicleIds.length >= MAX_CARS_PER_SLOT) {
-      showMessage(`Mỗi khung giờ chỉ được đặt tối đa ${MAX_CARS_PER_SLOT} xe`);
-      return;
-    }
-
-    setSelectedVehicleIds((prev) => [...prev, value]);
+    setSelectedVehicleIds([]);
+    setServices([]);
+    setSlots([]);
+    setMessage("");
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-
+  /*
+   * Khi đổi ngày:
+   * - Xóa khung giờ cũ
+   * - Xóa xe đã chọn vì số chỗ có thể thay đổi
+   */
+  function handleDateChange(value: string) {
+    setBookingDate(value);
+    setStartTime("");
+    setSelectedVehicleIds([]);
+    setSlots([]);
     setMessage("");
+  }
 
+  /*
+   * Người dùng phải chọn khung giờ trước rồi mới chọn xe.
+   * Khi đổi khung giờ thì xóa xe cũ để chọn lại theo số chỗ mới.
+   */
+  function handleSlotChange(slot: Slot) {
+    setStartTime(slot.StartTime);
+    setSelectedVehicleIds([]);
+    setMessage("");
+  }
+
+  /*
+   * Thêm hoặc bỏ một xe khỏi danh sách đã chọn.
+   */
+  function toggleVehicle(vehicleId: number) {
+    if (!selectedSlot) {
+      showMessage("Vui lòng chọn khung giờ trước");
+      return;
+    }
+
+    const isSelected = selectedVehicleIds.includes(vehicleId);
+
+    // Nếu xe đã được chọn thì bỏ chọn
+    if (isSelected) {
+      setSelectedVehicleIds((currentIds) =>
+        currentIds.filter((id) => id !== vehicleId)
+      );
+      return;
+    }
+
+    // Không cho chọn vượt quá số chỗ còn lại của slot
+    if (selectedVehicleIds.length >= selectedSlot.Available) {
+      showMessage(
+        `Khung giờ này chỉ còn ${selectedSlot.Available}/${selectedSlot.MaxCapacity} chỗ trống (${selectedSlot.Booked} chỗ đã được đặt). Vui lòng chọn khung giờ khác nếu muốn đặt thêm xe.`
+      );
+      return;
+    }
+
+    setSelectedVehicleIds((currentIds) => [
+      ...currentIds,
+      vehicleId,
+    ]);
+  }
+
+  function validateForm() {
     if (!fullName.trim()) {
       showMessage("Vui lòng nhập họ và tên");
-      return;
+      return false;
     }
 
     if (!phone.trim()) {
       showMessage("Vui lòng nhập số điện thoại");
-      return;
+      return false;
     }
 
     if (!branchId) {
       showMessage("Vui lòng chọn chi nhánh");
-      return;
-    }
-
-    if (selectedVehicleIds.length === 0) {
-      showMessage("Vui lòng chọn ít nhất 1 xe");
-      return;
-    }
-
-    if (selectedVehicleIds.length > MAX_CARS_PER_SLOT) {
-      showMessage(`Mỗi khung giờ chỉ được đặt tối đa ${MAX_CARS_PER_SLOT} xe`);
-      return;
+      return false;
     }
 
     if (!serviceId) {
       showMessage("Vui lòng chọn dịch vụ");
-      return;
+      return false;
     }
 
     if (!bookingDate) {
       showMessage("Vui lòng chọn ngày đặt lịch");
-      return;
+      return false;
     }
 
-    if (!startTime) {
+    if (!selectedSlot) {
       showMessage("Vui lòng chọn khung giờ");
+      return false;
+    }
+
+    if (selectedVehicleIds.length === 0) {
+      showMessage("Vui lòng chọn ít nhất 1 xe");
+      return false;
+    }
+
+    if (selectedVehicleIds.length > selectedSlot.Available) {
+      showMessage(
+        `Khung giờ này chỉ còn ${selectedSlot.Available}/${selectedSlot.MaxCapacity} chỗ trống. Vui lòng giảm số xe hoặc chọn khung giờ khác.`
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+
+    if (!validateForm()) {
       return;
     }
 
-    const selectedSlot = slots.find((slot) => slot.StartTime === startTime);
+    const token = getToken();
 
-    if (selectedSlot && selectedSlot.Available < selectedVehicleIds.length) {
-      showMessage(
-        `Khung giờ này chỉ còn ${selectedSlot.Available} chỗ, không đủ cho ${selectedVehicleIds.length} xe`
-      );
+    if (!token) {
+      navigate("/login");
       return;
     }
 
     try {
       setIsSubmitting(true);
 
-      const token = localStorage.getItem("token");
-
-      if (!token) {
-        navigate("/login");
-        return;
-      }
-
       const bookingPayload = {
         BranchID: Number(branchId),
         BookingDate: bookingDate,
         StartTime: startTime,
-        Items: selectedVehicleIds.map((id) => ({
-          VehicleID: Number(id),
+
+        Items: selectedVehicleIds.map((vehicleId) => ({
+          VehicleID: vehicleId,
+
           Services: [
             {
               ServiceID: Number(serviceId),
@@ -317,24 +442,31 @@ function Booking() {
         })),
       };
 
-      const res = await axiosClient.post("/api/bookings", bookingPayload, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const vehicleNames = selectedVehicles.map(
-        (vehicle) =>
-          `${vehicle.LicensePlate} - ${vehicle.Brand || "Chưa cập nhật"} ${vehicle.Model || ""
-          }`
+      const response = await axiosClient.post(
+        "/api/bookings",
+        bookingPayload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
+
+      const vehicleNames = selectedVehicles.map((vehicle) => {
+        const brand = vehicle.Brand || "Chưa cập nhật";
+        const model = vehicle.Model || "";
+
+        return `${vehicle.LicensePlate} - ${brand} ${model}`.trim();
+      });
 
       navigate("/booking-success", {
         state: {
-          booking: res.data.data,
+          booking: response.data.data,
+
           summary: {
             customerName: fullName,
             phone,
+
             branchName: selectedBranch?.BranchName || "",
 
             vehicleName: vehicleNames.join(", "),
@@ -343,9 +475,11 @@ function Booking() {
 
             serviceName: selectedService?.ServiceName || "",
             serviceDuration: selectedService?.DurationMinutes || 0,
-            servicePrice,
-            discountAmount: 0,
-            finalPrice: totalServicePrice,
+            servicePrice: totalServicePrice,
+            discountAmount: tierDiscountAmount,
+            discountPercent: tierDiscountPercent,
+            memberTierName,
+            finalPrice: finalServicePrice,
 
             bookingDate,
             startTime,
@@ -386,10 +520,12 @@ function Booking() {
               Auto Wash Pro
             </p>
 
-            <h1 className="mt-3 text-3xl font-bold">Đặt lịch rửa xe</h1>
+            <h1 className="mt-3 text-3xl font-bold">
+              Đặt lịch rửa xe
+            </h1>
 
             <p className="mt-2 text-slate-300">
-              Chọn chi nhánh, một hoặc nhiều xe, dịch vụ và khung giờ phù hợp.
+              Chọn chi nhánh, dịch vụ, khung giờ và các xe cần rửa.
             </p>
           </div>
         </section>
@@ -405,6 +541,7 @@ function Booking() {
               </div>
             )}
 
+            {/* Thông tin khách hàng */}
             <h2 className="text-xl font-bold text-slate-800">
               Thông tin khách hàng
             </h2>
@@ -417,7 +554,7 @@ function Booking() {
 
                 <input
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  onChange={(event) => setFullName(event.target.value)}
                   placeholder="Nhập họ và tên"
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                 />
@@ -430,18 +567,20 @@ function Booking() {
 
                 <input
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(event) => setPhone(event.target.value)}
                   placeholder="Nhập số điện thoại"
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                 />
               </div>
             </div>
 
+            {/* Thông tin đặt lịch */}
             <h2 className="mt-8 text-xl font-bold text-slate-800">
               Thông tin đặt lịch
             </h2>
 
             <div className="mt-4 grid gap-4 md:grid-cols-2">
+              {/* Chọn chi nhánh */}
               <div>
                 <label className="mb-2 block font-semibold text-slate-700">
                   Chi nhánh <span className="text-red-500">*</span>
@@ -449,25 +588,25 @@ function Booking() {
 
                 <select
                   value={branchId}
-                  onChange={(e) => {
-                    setBranchId(e.target.value);
-                    setServiceId("");
-                    setBookingDate("");
-                    setStartTime("");
-                    setSlots([]);
-                  }}
+                  onChange={(event) =>
+                    handleBranchChange(event.target.value)
+                  }
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                 >
                   <option value="">Chọn chi nhánh</option>
 
                   {branches.map((branch) => (
-                    <option key={branch.BranchID} value={branch.BranchID}>
+                    <option
+                      key={branch.BranchID}
+                      value={branch.BranchID}
+                    >
                       {branch.BranchName}
                     </option>
                   ))}
                 </select>
               </div>
 
+              {/* Chọn ngày */}
               <div>
                 <label className="mb-2 block font-semibold text-slate-700">
                   Ngày đặt lịch <span className="text-red-500">*</span>
@@ -477,68 +616,15 @@ function Booking() {
                   type="date"
                   min={today}
                   value={bookingDate}
-                  onChange={(e) => {
-                    setBookingDate(e.target.value);
-                    setStartTime("");
-                  }}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                  disabled={!branchId}
+                  onChange={(event) =>
+                    handleDateChange(event.target.value)
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:bg-gray-100"
                 />
               </div>
 
-              <div className="md:col-span-2">
-                <label className="mb-2 block font-semibold text-slate-700">
-                  Xe <span className="text-red-500">*</span>
-                </label>
-
-                <div className="rounded-lg border border-gray-300 p-3">
-                  {vehicles.length === 0 ? (
-                    <p className="text-sm text-slate-500">
-                      Bạn chưa có xe nào. Vui lòng đăng ký xe trước.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {vehicles.map((vehicle) => {
-                        const value = String(vehicle.VehicleID);
-                        const checked = selectedVehicleIds.includes(value);
-                        const disabled =
-                          !checked &&
-                          selectedVehicleIds.length >= MAX_CARS_PER_SLOT;
-
-                        return (
-                          <label
-                            key={vehicle.VehicleID}
-                            className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm ${checked
-                              ? "border-sky-500 bg-sky-50 text-sky-700"
-                              : "border-gray-200 bg-white text-slate-700"
-                              } ${disabled ? "cursor-not-allowed opacity-50" : ""
-                              }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              disabled={disabled}
-                              onChange={() => toggleVehicle(vehicle.VehicleID)}
-                              className="h-4 w-4"
-                            />
-
-                            <span className="font-semibold">
-                              {vehicle.LicensePlate} -{" "}
-                              {vehicle.Brand || "Chưa cập nhật"}{" "}
-                              {vehicle.Model || ""}
-                            </span>
-                          </label>
-                        );
-                      })}
-
-                      <p className="text-xs text-slate-500">
-                        Đã chọn {selectedVehicleIds.length}/
-                        {MAX_CARS_PER_SLOT} xe
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
+              {/* Chọn dịch vụ */}
               <div className="md:col-span-2">
                 <label className="mb-2 block font-semibold text-slate-700">
                   Dịch vụ <span className="text-red-500">*</span>
@@ -547,7 +633,10 @@ function Booking() {
                 <select
                   value={serviceId}
                   disabled={!branchId || loadingServices}
-                  onChange={(e) => setServiceId(e.target.value)}
+                  onChange={(event) => {
+                    setServiceId(event.target.value);
+                    setMessage("");
+                  }}
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:bg-gray-100"
                 >
                   <option value="">
@@ -559,14 +648,25 @@ function Booking() {
                   </option>
 
                   {services.map((service) => (
-                    <option key={service.ServiceID} value={service.ServiceID}>
-                      {service.ServiceName} - {formatMoney(service.ActualPrice)}
+                    <option
+                      key={service.ServiceID}
+                      value={service.ServiceID}
+                    >
+                      {service.ServiceName} -{" "}
+                      {formatMoney(
+                        Number(service.ActualPrice || 0) *
+                          (1 - tierDiscountPercent / 100)
+                      )}
+                      {tierDiscountPercent > 0
+                        ? ` (đã giảm ${tierDiscountPercent}%)`
+                        : ""}
                     </option>
                   ))}
                 </select>
               </div>
             </div>
 
+            {/* Thông tin chi nhánh */}
             {selectedBranch && (
               <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
                 <p>
@@ -575,7 +675,9 @@ function Booking() {
                 </p>
 
                 <p className="mt-1">
-                  <span className="font-semibold">Số điện thoại:</span>{" "}
+                  <span className="font-semibold">
+                    Số điện thoại:
+                  </span>{" "}
                   {selectedBranch.Phone || "Chưa cập nhật"}
                 </p>
 
@@ -587,48 +689,13 @@ function Booking() {
               </div>
             )}
 
-            {selectedVehicles.length > 0 && (
-              <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
-                <p className="font-semibold text-slate-700">
-                  Xe đã chọn: {selectedVehicles.length}/{MAX_CARS_PER_SLOT}
-                </p>
-
-                <div className="mt-3 space-y-2">
-                  {selectedVehicles.map((vehicle) => (
-                    <div
-                      key={vehicle.VehicleID}
-                      className="rounded-lg border border-gray-200 bg-white px-3 py-2"
-                    >
-                      <p>
-                        <span className="font-semibold">Biển số:</span>{" "}
-                        {vehicle.LicensePlate}
-                      </p>
-
-                      <p className="mt-1">
-                        <span className="font-semibold">Loại xe:</span>{" "}
-                        {vehicle.VehicleType || "Chưa cập nhật"}
-                      </p>
-
-                      <p className="mt-1">
-                        <span className="font-semibold">Hãng / model:</span>{" "}
-                        {vehicle.Brand || "Chưa cập nhật"}{" "}
-                        {vehicle.Model || ""}
-                      </p>
-
-                      <p className="mt-1">
-                        <span className="font-semibold">Màu xe:</span>{" "}
-                        {vehicle.Color || "Chưa cập nhật"}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
+            {/* Thông tin dịch vụ */}
             {selectedService && (
               <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
                 <p>
-                  <span className="font-semibold">Dịch vụ đã chọn:</span>{" "}
+                  <span className="font-semibold">
+                    Dịch vụ đã chọn:
+                  </span>{" "}
                   {selectedService.ServiceName}
                 </p>
 
@@ -644,11 +711,25 @@ function Booking() {
 
                 <p className="mt-1">
                   <span className="font-semibold">Giá:</span>{" "}
-                  {formatMoney(selectedService.ActualPrice)} / xe
+                  {tierDiscountPercent > 0 && (
+                    <span className="mr-2 text-slate-400 line-through">
+                      {formatMoney(selectedService.ActualPrice)}
+                    </span>
+                  )}
+                  <span className="font-semibold text-sky-700">
+                    {formatMoney(discountedPricePerVehicle)} / xe
+                  </span>
                 </p>
+
+                {tierDiscountPercent > 0 && (
+                  <p className="mt-2 text-sm font-medium text-emerald-700">
+                    Hạng {memberTierName}: giảm {tierDiscountPercent}%
+                  </p>
+                )}
               </div>
             )}
 
+            {/* Chọn khung giờ */}
             <div className="mt-8">
               <label className="mb-3 block font-semibold text-slate-700">
                 Khung giờ <span className="text-red-500">*</span>
@@ -669,35 +750,35 @@ function Booking() {
               ) : (
                 <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-4">
                   {slots.map((slot) => {
-                    const isSelected = startTime === slot.StartTime;
+                    const isSelected =
+                      startTime === slot.StartTime;
 
                     const isDisabled =
                       slot.Available <= 0 ||
-                      slot.Status !== "Available" ||
-                      (selectedVehicleCount > 0 &&
-                        slot.Available < selectedVehicleCount);
+                      slot.Status !== "Available";
 
                     return (
                       <button
                         key={slot.StartTime}
                         type="button"
                         disabled={isDisabled}
-                        onClick={() => setStartTime(slot.StartTime)}
-                        className={`rounded-xl border px-4 py-3 font-semibold transition disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 ${isSelected
-                          ? "border-sky-600 bg-sky-600 text-white"
-                          : "border-gray-300 bg-white text-slate-700 hover:border-sky-500 hover:text-sky-600"
-                          }`}
+                        onClick={() => handleSlotChange(slot)}
+                        className={`rounded-xl border px-4 py-3 font-semibold transition disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 ${
+                          isSelected
+                            ? "border-sky-600 bg-sky-600 text-white"
+                            : "border-gray-300 bg-white text-slate-700 hover:border-sky-500 hover:text-sky-600"
+                        }`}
                       >
                         <div>
                           {slot.StartTime} - {slot.EndTime}
                         </div>
 
                         <div className="text-xs font-normal">
-                          {slot.ShiftName} | Còn {slot.Available} chỗ
-                          {selectedVehicleCount > 0 &&
-                            slot.Available < selectedVehicleCount
-                            ? " | Không đủ chỗ"
-                            : ""}
+                          {slot.ShiftName} | Còn {slot.Available}/{slot.MaxCapacity} chỗ
+                        </div>
+
+                        <div className="mt-1 text-[11px] font-normal opacity-80">
+                          Đã đặt {slot.Booked} xe
                         </div>
                       </button>
                     );
@@ -706,6 +787,138 @@ function Booking() {
               )}
             </div>
 
+            {/* Chọn xe sau khi đã chọn khung giờ */}
+            <div className="mt-8">
+              <label className="mb-2 block font-semibold text-slate-700">
+                Xe <span className="text-red-500">*</span>
+              </label>
+
+              {!selectedSlot && (
+                <p className="mb-3 rounded-lg bg-gray-50 px-4 py-3 text-sm text-slate-500">
+                  Vui lòng chọn khung giờ trước khi chọn xe.
+                </p>
+              )}
+
+              {selectedSlot && (
+                <p className="mb-3 rounded-lg bg-sky-50 px-4 py-3 text-sm text-sky-700">
+                  Khung giờ{" "}
+                  <strong>
+                    {selectedSlot.StartTime} - {selectedSlot.EndTime}
+                  </strong>{" "}
+                  có tổng cộng <strong>{selectedSlot.MaxCapacity} chỗ</strong>,{" "}
+                  đã được đặt <strong>{selectedSlot.Booked} chỗ</strong> và còn{" "}
+                  <strong>{selectedSlot.Available} chỗ</strong>. Vì mỗi xe chiếm
+                  một chỗ trong cùng khung giờ, bạn có thể chọn tối đa{" "}
+                  <strong>{selectedSlot.Available} xe</strong>. Muốn đặt thêm,
+                  hãy chọn khung giờ khác.
+                </p>
+              )}
+
+              <div className="rounded-lg border border-gray-300 p-3">
+                {vehicles.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    Bạn chưa có xe nào. Vui lòng đăng ký xe trước.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {vehicles.map((vehicle) => {
+                      const checked = selectedVehicleIds.includes(
+                        vehicle.VehicleID
+                      );
+
+                      const reachedLimit =
+                        selectedVehicleIds.length >=
+                        maxSelectableVehicles;
+
+                      const disabled =
+                        !selectedSlot ||
+                        (!checked && reachedLimit);
+
+                      return (
+                        <label
+                          key={vehicle.VehicleID}
+                          className={`flex items-center gap-3 rounded-lg border px-3 py-2 text-sm ${
+                            checked
+                              ? "border-sky-500 bg-sky-50 text-sky-700"
+                              : "border-gray-200 bg-white text-slate-700"
+                          } ${
+                            disabled
+                              ? "cursor-not-allowed opacity-50"
+                              : "cursor-pointer"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={disabled}
+                            onChange={() =>
+                              toggleVehicle(vehicle.VehicleID)
+                            }
+                            className="h-4 w-4"
+                          />
+
+                          <span className="font-semibold">
+                            {vehicle.LicensePlate} -{" "}
+                            {vehicle.Brand || "Chưa cập nhật"}{" "}
+                            {vehicle.Model || ""}
+                          </span>
+                        </label>
+                      );
+                    })}
+
+                    <p className="pt-1 text-xs text-slate-500">
+                      {selectedSlot
+                        ? `Đã chọn ${selectedVehicleIds.length}/${maxSelectableVehicles} xe`
+                        : "Chưa thể chọn xe"}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Chi tiết các xe đã chọn */}
+            {selectedVehicles.length > 0 && (
+              <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
+                <p className="font-semibold text-slate-700">
+                  Xe đã chọn: {selectedVehicles.length}/
+                  {maxSelectableVehicles}
+                </p>
+
+                <div className="mt-3 space-y-2">
+                  {selectedVehicles.map((vehicle) => (
+                    <div
+                      key={vehicle.VehicleID}
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-2"
+                    >
+                      <p>
+                        <span className="font-semibold">Biển số:</span>{" "}
+                        {vehicle.LicensePlate}
+                      </p>
+
+                      <p className="mt-1">
+                        <span className="font-semibold">Loại xe:</span>{" "}
+                        {vehicle.VehicleType || "Chưa cập nhật"}
+                      </p>
+
+                      <p className="mt-1">
+                        <span className="font-semibold">
+                          Hãng / model:
+                        </span>{" "}
+                        {vehicle.Brand || "Chưa cập nhật"}{" "}
+                        {vehicle.Model || ""}
+                      </p>
+
+                      <p className="mt-1">
+                        <span className="font-semibold">Màu xe:</span>{" "}
+                        {vehicle.Color || "Chưa cập nhật"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Ghi chú */}
             <div className="mt-8">
               <label className="mb-2 block font-semibold text-slate-700">
                 Ghi chú
@@ -713,13 +926,14 @@ function Booking() {
 
               <textarea
                 value={note}
-                onChange={(e) => setNote(e.target.value)}
+                onChange={(event) => setNote(event.target.value)}
                 placeholder="Ví dụ: Xe nhiều bụi, cần rửa kỹ phần nội thất..."
                 rows={4}
                 className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
               />
             </div>
 
+            {/* Nút chức năng */}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <button
                 type="submit"
@@ -738,6 +952,7 @@ function Booking() {
             </div>
           </form>
 
+          {/* Tóm tắt lịch hẹn */}
           <aside className="rounded-2xl bg-white p-6 shadow">
             <h2 className="text-xl font-bold text-slate-800">
               Tóm tắt lịch hẹn
@@ -766,20 +981,6 @@ function Booking() {
               </div>
 
               <div>
-                <p className="text-slate-500">Xe</p>
-
-                {selectedVehicles.length === 0 ? (
-                  <p className="font-semibold text-slate-800">Chưa chọn</p>
-                ) : (
-                  <ul className="list-inside list-disc font-semibold text-slate-800">
-                    {selectedVehicles.map((vehicle) => (
-                      <li key={vehicle.VehicleID}>{vehicle.LicensePlate}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <div>
                 <p className="text-slate-500">Dịch vụ</p>
                 <p className="font-semibold text-slate-800">
                   {selectedService?.ServiceName || "Chưa chọn"}
@@ -794,14 +995,60 @@ function Booking() {
                 </p>
               </div>
 
+              <div>
+                <p className="text-slate-500">Số chỗ còn lại</p>
+                <p className="font-semibold text-slate-800">
+                  {selectedSlot
+                    ? `${selectedSlot.Available} chỗ`
+                    : "Chưa chọn khung giờ"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-slate-500">Xe</p>
+
+                {selectedVehicles.length === 0 ? (
+                  <p className="font-semibold text-slate-800">
+                    Chưa chọn
+                  </p>
+                ) : (
+                  <ul className="list-inside list-disc font-semibold text-slate-800">
+                    {selectedVehicles.map((vehicle) => (
+                      <li key={vehicle.VehicleID}>
+                        {vehicle.LicensePlate}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
               <div className="border-t pt-4">
-                <p className="text-slate-500">Thanh toán dự kiến</p>
+                <p className="text-slate-500">
+                  Thanh toán dự kiến
+                </p>
+
+                {tierDiscountPercent > 0 && totalServicePrice > 0 && (
+                  <>
+                    <p className="mt-2 text-sm text-slate-500">
+                      Giá gốc:{" "}
+                      <span className="line-through">
+                        {formatMoney(totalServicePrice)}
+                      </span>
+                    </p>
+                    <p className="text-sm font-medium text-emerald-700">
+                      Hạng {memberTierName} giảm {tierDiscountPercent}%: -
+                      {formatMoney(tierDiscountAmount)}
+                    </p>
+                  </>
+                )}
+
                 <p className="text-2xl font-bold text-sky-700">
-                  {formatMoney(totalServicePrice)}
+                  {formatMoney(finalServicePrice)}
                 </p>
 
                 <p className="mt-1 text-xs text-slate-500">
-                  {selectedVehicleCount || 0} xe x {formatMoney(servicePrice)}
+                  {selectedVehicleCount} xe x{" "}
+                  {formatMoney(discountedPricePerVehicle)}
                 </p>
               </div>
             </div>
