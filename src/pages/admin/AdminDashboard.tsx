@@ -3,23 +3,16 @@ import {
   Building2,
   Users,
   UserCog,
-  CalendarCheck,
-  Car,
-  DollarSign,
 } from "lucide-react";
 import StatCard from "../../components/admin/AdminStatCard";
 import userService from "../../services/userService";
 import branchService from "../../services/branchService";
-import revenueService from "../../services/revenueService";
 
 interface BranchStats {
   branchID: number;
   branchName: string;
   address: string | null;
   totalStaff: number;
-  todayBookings: number;
-  revenue: number;
-  occupancy: number;
   status: "Active" | "Inactive";
 }
 
@@ -27,8 +20,6 @@ interface AdminStats {
   totalBranches: number;
   totalManagers: number;
   totalStaff: number;
-  totalBookings: number;
-  monthlyRevenue: number;
 }
 
 const AdminDashboard = () => {
@@ -36,8 +27,6 @@ const AdminDashboard = () => {
     totalBranches: 0,
     totalManagers: 0,
     totalStaff: 0,
-    totalBookings: 0,
-    monthlyRevenue: 0,
   });
   const [branchStats, setBranchStats] = useState<BranchStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,29 +39,15 @@ const AdminDashboard = () => {
     const fetchStats = async () => { 
       setIsLoading(true); 
       try { 
-        const [branchesData, managersData, staffData, overviewData] = await Promise.all([
-          branchService.getAllBranches(), // GET /api/branches lấy tất cả chi nhánh
-          userService.getAllUsers({ Role: "Manager" }), // GET /api/users?Role=Manager lấy managermanager
-          userService.getAllUsers({ Role: "Staff" }), // GET /api/users?Role=Staff lấy staff
-          revenueService.getBranchOverview(),
+        const [branchesData, managersData, staffData] = await Promise.all([
+          branchService.getAllBranches(),
+          userService.getAllUsers({ Role: "Manager" }),
+          userService.getAllUsers({ Role: "Staff" }),
         ]);
-
-        // Normalize overview data (handle both PascalCase and camelCase)
-        const normalizedOverview = overviewData.map((item) => ({
-          branchId: item.branchId ?? item.BranchID ?? 0,
-          branchName: item.branchName ?? item.BranchName ?? "Unknown",
-          totalStaff: item.totalStaff ?? item.TotalStaff ?? 0,
-          todayBookings: item.todayBookings ?? item.TodayBookings ?? 0,
-          monthBookings: item.monthBookings ?? item.MonthBookings ?? 0,
-          revenue: item.revenue ?? item.Revenue ?? 0,
-          occupancy: item.occupancy ?? item.Occupancy ?? 0,
-        }));
-
-        const overviewMap = new Map(normalizedOverview.map((item) => [item.branchId, item]));
-        const monthlyRevenue = normalizedOverview.reduce((sum, item) => sum + item.revenue, 0);
 
         const activeBranches = branchesData.filter((b) => b.Status === "Active");
         const activeStaff = staffData.filter((s) => s.Status === "Active");
+
         const branchStaffMap = new Map<number, number>();
         activeStaff.forEach((s) => {
           if (s.BranchID) {
@@ -80,26 +55,21 @@ const AdminDashboard = () => {
           }
         });
 
-        const branchStatsData = branchesData.map((b) => ({ // Lấy dữ liệu chi nhánh từ database
-          branchID: b.BranchID, // ID của chi nhánh
-          branchName: b.BranchName, // Tên của chi nhánh
-          address: b.Address, // Địa chỉ của chi nhánh
-          totalStaff: overviewMap.get(b.BranchID)?.totalStaff ?? branchStaffMap.get(b.BranchID) ?? 0,
-          todayBookings: overviewMap.get(b.BranchID)?.todayBookings ?? 0,
-          revenue: overviewMap.get(b.BranchID)?.revenue ?? 0,
-          occupancy: overviewMap.get(b.BranchID)?.occupancy ?? 0,
-          status: b.Status, // Trạng thái của chi nhánh
+        const branchStatsData = branchesData.map((b) => ({
+          branchID: b.BranchID,
+          branchName: b.BranchName,
+          address: b.Address,
+          totalStaff: branchStaffMap.get(b.BranchID) ?? 0,
+          status: b.Status,
         }));
 
-        setStats({ // Hiển thị dữ liệu tổng quan trên dashboard
+        setStats({
           totalBranches: activeBranches.length,
           totalManagers: managersData.filter((manager) => manager.Status === "Active").length,
           totalStaff: activeStaff.length,
-          totalBookings: normalizedOverview.reduce((sum, item) => sum + item.monthBookings, 0),
-          monthlyRevenue,
         });
 
-        setBranchStats(branchStatsData); // Hiển thị dữ liệu chi nhánh trên dashboard
+        setBranchStats(branchStatsData);
       } catch (err) {
         console.error("Error fetching dashboard stats:", err);
       } finally {
@@ -109,14 +79,6 @@ const AdminDashboard = () => {
 
     fetchStats();
   }, []);
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
 
   const getUserFromStorage = () => {
     try {
@@ -166,20 +128,6 @@ const AdminDashboard = () => {
           value={stats.totalStaff}
           icon={<Users size={24} />}
           color="emerald"
-        />
-        <StatCard
-          title="Lịch hẹn (tháng)"
-          value={stats.totalBookings.toLocaleString("vi-VN")}
-          icon={<CalendarCheck size={24} />}
-          trend={{ value: 12, isUp: true }}
-          color="rose"
-        />
-        <StatCard
-          title="Doanh thu (tháng)"
-          value={formatCurrency(stats.monthlyRevenue)}
-          icon={<DollarSign size={24} />}
-          trend={{ value: 8, isUp: true }}
-          color="amber"
         />
       </div>
 
@@ -254,23 +202,6 @@ const AdminDashboard = () => {
                     <span className="font-semibold text-slate-800">
                       {branch.totalStaff}
                     </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-500 flex items-center gap-1.5">
-                      <Car size={14} />
-                      Lịch hẹn hôm nay
-                    </span>
-                    <span className="font-semibold text-slate-800">
-                      {branch.todayBookings}
-                    </span>
-                  </div>
-                  <div className="pt-2 border-t border-slate-100">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500">Doanh thu (tháng)</span>
-                      <span className="font-bold text-rose-600">
-                        {formatCurrency(branch.revenue)}
-                      </span>
-                    </div>
                   </div>
                 </div>
               </div>

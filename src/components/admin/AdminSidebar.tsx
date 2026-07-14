@@ -38,18 +38,7 @@ const AdminSidebar: React.FC = () => {
             <h1 className="bg-gradient-to-r from-rose-400 to-pink-400 bg-clip-text text-lg font-bold text-transparent">
               AutoWash Pro
             </h1>
-
-            <p className="flex items-center gap-1 text-xs text-amber-400">
-              <Shield size={12} />
-              Phân hệ Quản trị
-            </p>
           </div>
-        </div>
-
-        {/* Role Badge */}
-        <div className="mx-3 mt-4 rounded-lg bg-rose-500/10 border border-rose-500/20 p-3">
-          <p className="text-xs text-slate-400">Vai trò</p>
-          <p className="font-semibold text-rose-400">Quản trị viên hệ thống</p>
         </div>
 
         {/* Menu */}
@@ -86,11 +75,6 @@ const AdminSidebar: React.FC = () => {
           <div className="overflow-hidden">
             <p className="truncate text-sm font-semibold">
               {user?.fullName || user?.username || "Admin"}
-            </p>
-
-            <p className="flex items-center gap-1 text-xs text-emerald-400">
-              <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              Đang hoạt động
             </p>
           </div>
         </div>

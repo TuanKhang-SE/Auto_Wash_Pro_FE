@@ -16,6 +16,7 @@ import {
 import userService, { type User } from "../../services/userService";
 import branchService, { type Branch } from "../../services/branchService";
 import { getErrorMessage } from "../../api/axiosClient";
+import { validatePhoneOptional } from "../../utils/validation";
 
 interface RegisterFormData {
   password: string;
@@ -207,8 +208,9 @@ const AdminStaffManagement = () => {
         setError(`Số điện thoại "${formData.phone.trim()}" đã được sử dụng bởi tài khoản khác.`);
         return false;
       }
-      if (!/^[0-9]{10,11}$/.test(formData.phone)) {
-        setError("Số điện thoại phải có 10-11 chữ số");
+      const phoneResult = validatePhoneOptional(formData.phone);
+      if (!phoneResult.success) {
+        setError(phoneResult.error.issues[0].message);
         return false;
       }
     }
@@ -334,8 +336,9 @@ const AdminStaffManagement = () => {
         setError(`Số điện thoại "${editFormData.phone.trim()}" đã được sử dụng bởi tài khoản khác.`);
         return;
       }
-      if (!/^[0-9]{10,11}$/.test(editFormData.phone)) {
-        setError("Số điện thoại phải có 10-11 chữ số");
+      const phoneResult = validatePhoneOptional(editFormData.phone);
+      if (!phoneResult.success) {
+        setError(phoneResult.error.issues[0].message);
         return;
       }
     }

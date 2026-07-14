@@ -47,9 +47,6 @@ const AdminLayout: React.FC = () => {
                 <p className="text-sm font-semibold text-white">
                   {user?.fullName || user?.username || "Admin"}
                 </p>
-                <p className="text-xs text-emerald-400">
-                  ● Trực tuyến
-                </p>
               </div>
 
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-rose-500 to-pink-600 text-white flex items-center justify-center font-semibold shadow-lg">
