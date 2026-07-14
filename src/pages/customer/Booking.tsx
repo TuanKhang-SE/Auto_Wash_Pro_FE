@@ -67,6 +67,16 @@ type ExistingBooking = {
   BookingItems?: Array<{ VehicleID?: number | null; Status?: string | null }>;
 };
 
+type BookingPayload = {
+  BranchID: number;
+  BookingDate: string;
+  StartTime: string;
+  Items: Array<{
+    VehicleID: number;
+    Services: Array<{ ServiceID: number }>;
+  }>;
+};
+
 function formatMoney(value: number | string | null | undefined) {
   return `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 }
@@ -122,10 +132,28 @@ function Booking() {
   const [loadingServices, setLoadingServices] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isOtpOpen, setIsOtpOpen] = useState(false);
+  const [bookingOtp, setBookingOtp] = useState("");
+  const [otpMessage, setOtpMessage] = useState("");
+  const [demoOtp, setDemoOtp] = useState("");
+  const [resendSeconds, setResendSeconds] = useState(0);
+  const [pendingBookingPayload, setPendingBookingPayload] =
+    useState<BookingPayload | null>(null);
 
   const [message, setMessage] = useState("");
 
   const today = getToday();
+
+  useEffect(() => {
+    if (!isOtpOpen || resendSeconds <= 0) return;
+
+    const timer = window.setTimeout(() => {
+      setResendSeconds((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [isOtpOpen, resendSeconds]);
 
   // Tìm dữ liệu chi tiết từ ID đang được chọn
   const selectedBranch = branches.find(
@@ -443,16 +471,75 @@ function Booking() {
     return true;
   }
 
+  async function requestBookingOtp() {
+    const token = getToken();
+    if (!token) {
+      navigate("/login");
+      return false;
+    }
+
+    try {
+      setIsSendingOtp(true);
+      setOtpMessage("");
+      setDemoOtp("");
+
+      const response = await axiosClient.post(
+        "/api/bookings/send-otp",
+        {},
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      const responseData = response.data?.data || {};
+      setDemoOtp(responseData.demoOtp ? String(responseData.demoOtp) : "");
+      setResendSeconds(Number(responseData.retryAfterSeconds || 60));
+      setOtpMessage(response.data?.message || "Đã gửi mã OTP");
+      return true;
+    } catch (error) {
+      const retryAfter = Number(
+        (error as { response?: { data?: { retryAfterSeconds?: number } } })
+          .response?.data?.retryAfterSeconds || 0,
+      );
+      if (retryAfter > 0) setResendSeconds(retryAfter);
+      setOtpMessage(getErrorMessage(error));
+      return false;
+    } finally {
+      setIsSendingOtp(false);
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
 
-    if (!validateForm()) {
+    if (!validateForm()) return;
+
+    const bookingPayload: BookingPayload = {
+      BranchID: Number(branchId),
+      BookingDate: bookingDate,
+      StartTime: startTime,
+      Items: selectedVehicleIds.map((vehicleId) => ({
+        VehicleID: vehicleId,
+        Services: [{ ServiceID: Number(serviceId) }],
+      })),
+    };
+
+    setPendingBookingPayload(bookingPayload);
+    setBookingOtp("");
+    setOtpMessage("");
+    setDemoOtp("");
+    setResendSeconds(0);
+    setIsOtpOpen(true);
+    await requestBookingOtp();
+  }
+
+  async function handleConfirmBookingOtp() {
+    if (!pendingBookingPayload) return;
+    if (!/^\d{6}$/.test(bookingOtp)) {
+      setOtpMessage("Vui lòng nhập đúng mã OTP gồm 6 chữ số");
       return;
     }
 
     const token = getToken();
-
     if (!token) {
       navigate("/login");
       return;
@@ -460,54 +547,29 @@ function Booking() {
 
     try {
       setIsSubmitting(true);
-
-      const bookingPayload = {
-        BranchID: Number(branchId),
-        BookingDate: bookingDate,
-        StartTime: startTime,
-
-        Items: selectedVehicleIds.map((vehicleId) => ({
-          VehicleID: vehicleId,
-
-          Services: [
-            {
-              ServiceID: Number(serviceId),
-            },
-          ],
-        })),
-      };
-
+      setOtpMessage("");
       const response = await axiosClient.post(
         "/api/bookings",
-        bookingPayload,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { ...pendingBookingPayload, Otp: bookingOtp },
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       const vehicleNames = selectedVehicles.map((vehicle) => {
         const brand = vehicle.Brand || "Chưa cập nhật";
         const model = vehicle.Model || "";
-
         return `${vehicle.LicensePlate} - ${brand} ${model}`.trim();
       });
 
       navigate("/booking-success", {
         state: {
           booking: response.data.data,
-
           summary: {
             customerName: fullName,
             phone,
-
             branchName: selectedBranch?.BranchName || "",
-
             vehicleName: vehicleNames.join(", "),
             vehicleNames,
             vehicleCount: selectedVehicles.length,
-
             serviceName: selectedService?.ServiceName || "",
             serviceDuration: selectedService?.DurationMinutes || 0,
             servicePrice: totalServicePrice,
@@ -515,7 +577,6 @@ function Booking() {
             discountPercent: tierDiscountPercent,
             memberTierName,
             finalPrice: finalServicePrice,
-
             bookingDate,
             startTime,
             note,
@@ -523,11 +584,26 @@ function Booking() {
         },
       });
     } catch (error) {
-      console.log(error);
-      showMessage(getErrorMessage(error));
+      setOtpMessage(getErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  async function handleResendBookingOtp() {
+    if (resendSeconds > 0 || isSendingOtp) return;
+    setBookingOtp("");
+    await requestBookingOtp();
+  }
+
+  function closeOtpModal() {
+    if (isSubmitting || isSendingOtp) return;
+    setIsOtpOpen(false);
+    setPendingBookingPayload(null);
+    setBookingOtp("");
+    setOtpMessage("");
+    setDemoOtp("");
+    setResendSeconds(0);
   }
 
   if (loading) {
@@ -985,10 +1061,10 @@ function Booking() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isSendingOtp}
                 className="rounded-lg bg-sky-600 px-6 py-3 font-semibold text-white hover:bg-sky-700 disabled:bg-gray-400"
               >
-                {isSubmitting ? "Đang đặt lịch..." : "Đặt lịch"}
+                {isSendingOtp ? "Đang gửi OTP..." : "Đặt lịch"}
               </button>
 
               <Link
@@ -1103,6 +1179,108 @@ function Booking() {
           </aside>
         </section>
       </main>
+
+      {isOtpOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="booking-otp-title"
+            className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
+          >
+            <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
+              <div>
+                <h2 id="booking-otp-title" className="text-xl font-bold text-slate-900">
+                  Xác nhận số điện thoại
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Nhập mã OTP gửi đến {phone ? `${phone.slice(0, 3)}****${phone.slice(-3)}` : "số đã đăng ký"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeOtpModal}
+                disabled={isSubmitting || isSendingOtp}
+                aria-label="Đóng"
+                className="rounded-lg p-1 text-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-4 px-6 py-5">
+              <div>
+                <label htmlFor="booking-otp" className="mb-2 block text-sm font-semibold text-slate-700">
+                  Mã OTP gồm 6 chữ số
+                </label>
+                <input
+                  id="booking-otp"
+                  value={bookingOtp}
+                  onChange={(event) =>
+                    setBookingOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && bookingOtp.length === 6) {
+                      void handleConfirmBookingOtp();
+                    }
+                  }}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  autoFocus
+                  placeholder="••••••"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-center text-2xl font-bold tracking-[0.45em] outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                />
+                <p className="mt-2 text-xs text-slate-500">Mã có hiệu lực trong 5 phút.</p>
+              </div>
+
+              {otpMessage && (
+                <div className="rounded-lg bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                  {otpMessage}
+                </div>
+              )}
+
+              {demoOtp && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Chế độ mô phỏng — mã OTP: <strong className="text-lg tracking-widest">{demoOtp}</strong>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => void handleResendBookingOtp()}
+                disabled={resendSeconds > 0 || isSendingOtp || isSubmitting}
+                className="text-sm font-semibold text-sky-700 hover:text-sky-800 disabled:cursor-not-allowed disabled:text-slate-400"
+              >
+                {isSendingOtp
+                  ? "Đang gửi mã..."
+                  : resendSeconds > 0
+                    ? `Gửi lại sau ${resendSeconds}s`
+                    : "Gửi lại mã OTP"}
+              </button>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
+              <button
+                type="button"
+                onClick={closeOtpModal}
+                disabled={isSubmitting || isSendingOtp}
+                className="rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleConfirmBookingOtp()}
+                disabled={bookingOtp.length !== 6 || isSubmitting || isSendingOtp}
+                className="rounded-lg bg-sky-600 px-5 py-2 font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                {isSubmitting ? "Đang tạo lịch..." : "Xác nhận đặt lịch"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
