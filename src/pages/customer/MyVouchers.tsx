@@ -4,8 +4,6 @@ import { Check, Copy, Gift, LoaderCircle, TicketPercent } from "lucide-react";
 import Navbar from "../../components/Navbar";
 import axiosClient, { getErrorMessage } from "../../api/axiosClient";
 
-const pageLoadedAt = Date.now();
-
 type Redemption = {
   RedemptionID: number;
   RewardID: number;
@@ -15,6 +13,7 @@ type Redemption = {
     RewardName?: string | null;
     DiscountValue?: number | string | null;
     ValidDays?: number | null;
+    Status?: string | null;
   } | null;
 };
 
@@ -39,6 +38,7 @@ const MyVouchers = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [pageLoadedAt] = useState(() => Date.now());
 
   useEffect(() => {
     async function loadVouchers() {
@@ -117,7 +117,8 @@ const MyVouchers = () => {
               {redemptions.map((redemption) => {
                 const expiresAt = expirationDate(redemption);
                 const expired = expiresAt ? expiresAt.getTime() < pageLoadedAt : false;
-                const available = redemption.Status === "UNUSED" && !expired;
+                const rewardInactive = redemption.Rewards?.Status === "Inactive";
+                const available = redemption.Status === "UNUSED" && !expired && !rewardInactive;
                 const code = voucherCode(redemption);
 
                 return (
@@ -131,7 +132,13 @@ const MyVouchers = () => {
                         <div className="flex items-start justify-between gap-3">
                           <h2 className="font-bold text-slate-800">{redemption.Rewards?.RewardName || "Voucher Auto Wash Pro"}</h2>
                           <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${available ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-                            {available ? "Có thể dùng" : expired ? "Hết hạn" : "Đã sử dụng"}
+                            {available
+                              ? "Có thể dùng"
+                              : expired
+                                ? "Hết hạn"
+                                : rewardInactive
+                                  ? "Ngưng áp dụng"
+                                  : "Đã sử dụng"}
                           </span>
                         </div>
                         <p className="mt-2 text-xs text-slate-500">Hạn dùng: {expiresAt ? expiresAt.toLocaleDateString("vi-VN") : "Không xác định"}</p>
