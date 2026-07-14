@@ -57,8 +57,19 @@ const AdminDashboard = () => {
           revenueService.getBranchOverview(),
         ]);
 
-        const overviewMap = new Map(overviewData.map((item) => [item.branchId, item]));
-        const monthlyRevenue = overviewData.reduce((sum, item) => sum + item.revenue, 0);
+        // Normalize overview data (handle both PascalCase and camelCase)
+        const normalizedOverview = overviewData.map((item) => ({
+          branchId: item.branchId ?? item.BranchID ?? 0,
+          branchName: item.branchName ?? item.BranchName ?? "Unknown",
+          totalStaff: item.totalStaff ?? item.TotalStaff ?? 0,
+          todayBookings: item.todayBookings ?? item.TodayBookings ?? 0,
+          monthBookings: item.monthBookings ?? item.MonthBookings ?? 0,
+          revenue: item.revenue ?? item.Revenue ?? 0,
+          occupancy: item.occupancy ?? item.Occupancy ?? 0,
+        }));
+
+        const overviewMap = new Map(normalizedOverview.map((item) => [item.branchId, item]));
+        const monthlyRevenue = normalizedOverview.reduce((sum, item) => sum + item.revenue, 0);
 
         const activeBranches = branchesData.filter((b) => b.Status === "Active");
         const activeStaff = staffData.filter((s) => s.Status === "Active");
@@ -84,7 +95,7 @@ const AdminDashboard = () => {
           totalBranches: activeBranches.length,
           totalManagers: managersData.filter((manager) => manager.Status === "Active").length,
           totalStaff: activeStaff.length,
-          totalBookings: overviewData.reduce((sum, item) => sum + item.monthBookings, 0),
+          totalBookings: normalizedOverview.reduce((sum, item) => sum + item.monthBookings, 0),
           monthlyRevenue,
         });
 
