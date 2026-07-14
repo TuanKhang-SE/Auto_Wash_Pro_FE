@@ -18,6 +18,13 @@ export interface CashflowResponse {
   };
 }
 
+export interface RevenueByBranch {
+  branchId: number;
+  branchName: string;
+  totalRevenue: number;
+  totalBookings: number;
+}
+
 export interface RevenueQuery {
   BranchID?: number;
   StartDate?: string;
@@ -58,6 +65,29 @@ const revenueService = {
     }
 
     return response.data.data as CashflowResponse;
+  },
+
+  async getRevenueByBranch(query: RevenueQuery = {}): Promise<RevenueByBranch[]> {
+    const params: Record<string, string> = {};
+    if (query.StartDate) params.StartDate = query.StartDate;
+    if (query.EndDate) params.EndDate = query.EndDate;
+
+    const response = await axiosClient.get("/api/dashboard/revenue-by-branch", {
+      headers: getAuthHeader(),
+      params,
+    });
+
+    // Handle different response structures
+    let data: RevenueByBranch[] = [];
+    if (Array.isArray(response.data)) {
+      data = response.data;
+    } else if (response.data?.success && Array.isArray(response.data?.data)) {
+      data = response.data.data;
+    } else if (response.data?.data && Array.isArray(response.data?.data)) {
+      data = response.data.data;
+    }
+
+    return data;
   },
 
   async getBranchOverview(): Promise<BranchOverviewItem[]> {

@@ -139,20 +139,38 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
   const [deleteError, setDeleteError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<BranchDetail | null>(null);
 
-  // Lấy song song danh sách chi nhánh và toàn bộ user từ backend, sau đó
+  // Lấy song song danh sách chi nhánh, user và doanh thu từ backend, sau đó
   // tổng hợp (enrich) thành danh sách BranchDetail với thông tin Manager,
   // số Staff active cho mỗi chi nhánh để hiển thị trên trang quản lý
   const fetchData = useCallback(async () => { 
     setIsLoading(true);
     setError(null);
     try {
-      const [branchList, userList, overviewList] = await Promise.all([
+      const [branchList, userList, revenueRes] = await Promise.all([
         branchService.getAllBranches(), // GET /api/branches lấy danh sách chi nhánh
         userService.getAllUsers(), // GET /api/users lấy danh sách user
-        revenueService.getBranchOverview(),
+        revenueService.getRevenueByBranch({}), // GET /api/dashboard/revenue-by-branch lấy doanh thu theo chi nhánh
       ]); 
 
-      const overviewMap = new Map(overviewList.map((item) => [item.branchId, item]));
+      // Debug: log response structure
+      console.log("[AdminBranches] revenueRes:", revenueRes);
+
+      // Handle different response structures
+      let revenueList: Array<{ branchId: number; branchName: string; totalRevenue: number; totalBookings: number }> = [];
+      if (Array.isArray(revenueRes)) {
+        revenueList = revenueRes;
+      } else if (revenueRes && typeof revenueRes === 'object' && 'data' in revenueRes) {
+        const data = (revenueRes as any).data;
+        revenueList = Array.isArray(data) ? data : [];
+      } else if (revenueRes && typeof revenueRes === 'object') {
+        // Try to extract array from common patterns
+        const keys = Object.keys(revenueRes);
+        if (keys.length > 0 && Array.isArray((revenueRes as any)[keys[0]])) {
+          revenueList = (revenueRes as any)[keys[0]];
+        }
+      }
+
+      const revenueMap = new Map(revenueList.map((item) => [item.branchId, item]));
 
       // Map danh sách chi nhánh và danh sách user để tạo danh sách BranchDetail
       // BranchDetail là interface chứa thông tin chi nhánh và thông tin manager, staff
@@ -164,6 +182,8 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
         const staff = branchUsers.filter( // Lọc danh sách staff theo Role và Status
           (u: User) => u.Role === "Staff" && u.Status === "Active" 
         );
+
+        const branchRevenue = revenueMap.get(b.BranchID);
 
         return {
           branchID: b.BranchID, 
@@ -181,12 +201,12 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
                 phone: manager.Phone ?? "Chưa cập nhật",
               }
             : null,
-          totalStaff: overviewMap.get(b.BranchID)?.totalStaff ?? staff.length,
-          todayBookings: overviewMap.get(b.BranchID)?.todayBookings ?? 0,
-          monthBookings: overviewMap.get(b.BranchID)?.monthBookings ?? 0,
-          revenue: overviewMap.get(b.BranchID)?.revenue ?? 0,
-          occupancy: overviewMap.get(b.BranchID)?.occupancy ?? 0,
-          rating: overviewMap.get(b.BranchID)?.rating ?? 0,
+          totalStaff: staff.length,
+          todayBookings: 0,
+          monthBookings: branchRevenue?.totalBookings ?? 0,
+          revenue: branchRevenue?.totalRevenue ?? 0,
+          occupancy: 0,
+          rating: 0,
         };
       });
 
