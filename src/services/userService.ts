@@ -57,9 +57,11 @@ const userService = {
       params,
       headers: getAuthHeader(),
     });
-    if (response.data?.success && Array.isArray(response.data.data)) {
-      return response.data.data as User[];
-    }
+    // Handle: {success: true, data: [...]} OR direct [...]
+    let data = response.data;
+    if (data?.data !== undefined) data = data.data;
+    if (Array.isArray(data)) return data as User[];
+    if (data?.success && Array.isArray(data?.data)) return data.data as User[];
     return [];
   },
 

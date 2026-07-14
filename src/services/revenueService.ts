@@ -19,10 +19,14 @@ export interface CashflowResponse {
 }
 
 export interface RevenueByBranch {
-  branchId: number;
-  branchName: string;
-  totalRevenue: number;
-  totalBookings: number;
+  branchId?: number;
+  BranchID?: number;
+  branchName?: string;
+  BranchName?: string;
+  totalRevenue?: number;
+  TotalRevenue?: number;
+  totalBookings?: number;
+  TotalBookings?: number;
 }
 
 export interface RevenueQuery {
@@ -32,15 +36,22 @@ export interface RevenueQuery {
 }
 
 export interface BranchOverviewItem {
-  branchId: number;
-  branchName: string;
-  totalStaff: number;
-  todayBookings: number;
-  monthBookings: number;
-  revenue: number;
-  rating: number;
-  reviewCount: number;
-  occupancy: number;
+  branchId?: number;
+  BranchID?: number;
+  branchName?: string;
+  BranchName?: string;
+  totalStaff?: number;
+  TotalStaff?: number;
+  todayBookings?: number;
+  TodayBookings?: number;
+  monthBookings?: number;
+  MonthBookings?: number;
+  revenue?: number;
+  Revenue?: number;
+  rating?: number;
+  reviewCount?: number;
+  occupancy?: number;
+  Occupancy?: number;
 }
 
 const getAuthHeader = () => {
@@ -69,25 +80,28 @@ const revenueService = {
 
   async getRevenueByBranch(query: RevenueQuery = {}): Promise<RevenueByBranch[]> {
     const params: Record<string, string> = {};
-    if (query.StartDate) params.StartDate = query.StartDate;
-    if (query.EndDate) params.EndDate = query.EndDate;
+    if (query.StartDate) params.startDate = query.StartDate;
+    if (query.EndDate) params.endDate = query.EndDate;
 
     const response = await axiosClient.get("/api/dashboard/revenue-by-branch", {
       headers: getAuthHeader(),
       params,
     });
 
-    // Handle different response structures
-    let data: RevenueByBranch[] = [];
-    if (Array.isArray(response.data)) {
-      data = response.data;
-    } else if (response.data?.success && Array.isArray(response.data?.data)) {
-      data = response.data.data;
-    } else if (response.data?.data && Array.isArray(response.data?.data)) {
-      data = response.data.data;
+    // Handle: {success: true, data: {branches: [...]}} - extract branches array
+    let data = response.data;
+    if (data?.data) {
+      // Check if data.data has branches array
+      if (Array.isArray(data.data)) {
+        return data.data as RevenueByBranch[];
+      }
+      // Check if data.data has branches property
+      if (data.data.branches && Array.isArray(data.data.branches)) {
+        return data.data.branches as RevenueByBranch[];
+      }
     }
-
-    return data;
+    if (Array.isArray(data)) return data as RevenueByBranch[];
+    return [];
   },
 
   async getBranchOverview(): Promise<BranchOverviewItem[]> {
@@ -95,11 +109,14 @@ const revenueService = {
       headers: getAuthHeader(),
     });
 
-    if (!response.data?.success || !Array.isArray(response.data.data)) {
-      throw new Error(response.data?.message || "Không lấy được dữ liệu tổng quan chi nhánh");
+    // Handle: {success: true, data: {branches: [...]}} OR {success: true, data: [...]}
+    let data = response.data;
+    if (data?.data) {
+      if (Array.isArray(data.data)) return data.data as BranchOverviewItem[];
+      if (data.data.branches && Array.isArray(data.data.branches)) return data.data.branches as BranchOverviewItem[];
     }
-
-    return response.data.data as BranchOverviewItem[];
+    if (Array.isArray(data)) return data as BranchOverviewItem[];
+    throw new Error(data?.message || "Không lấy được dữ liệu tổng quan chi nhánh");
   },
 };
 
