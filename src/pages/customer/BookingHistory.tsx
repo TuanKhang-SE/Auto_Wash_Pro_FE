@@ -35,6 +35,16 @@ type CustomerBookingItem = {
   ServiceLineItems?: BookingServiceLine[];
 };
 
+type BookingTransaction = {
+  TransactionID: number;
+  Subtotal?: number | string | null;
+  DiscountAmount?: number | string | null;
+  FinalAmount?: number | string | null;
+  PaymentMethod?: string | null;
+  Status?: string | null;
+  PaidAt?: string | null;
+};
+
 type CustomerBooking = {
   BookingGroupID: number;
   BookingCode?: string | null;
@@ -44,24 +54,16 @@ type CustomerBooking = {
   Status: string;
 
   branches?: {
+    BranchID?: number;
     BranchName?: string | null;
     Address?: string | null;
+    Phone?: string | null;
   } | null;
 
   BookingItems?: CustomerBookingItem[];
-
-  Transactions?: Array<{
-    TransactionID: number;
-    Subtotal?: number | string | null;
-    DiscountAmount?: number | string | null;
-    FinalAmount?: number | string | null;
-    Status?: string | null;
-  }>;
+  Transactions?: BookingTransaction[];
 };
 
-/*
- * Lấy token để gọi API.
- */
 function getAuthHeader() {
   const token = localStorage.getItem("token");
 
@@ -74,9 +76,6 @@ function getAuthHeader() {
   };
 }
 
-/*
- * Hiển thị tên trạng thái bằng tiếng Việt.
- */
 function getStatusText(status: string) {
   switch (status) {
     case "Pending":
@@ -102,9 +101,6 @@ function getStatusText(status: string) {
   }
 }
 
-/*
- * Màu sắc tương ứng với từng trạng thái.
- */
 function getStatusClass(status: string) {
   switch (status) {
     case "Pending":
@@ -130,15 +126,6 @@ function getStatusClass(status: string) {
   }
 }
 
-/*
- * Tính trạng thái chung của một booking dựa trên trạng thái
- * của từng xe trong BookingItems.
- *
- * Ví dụ:
- * - Có xe đã check-in       → booking hiện Đã check-in
- * - Có xe đang rửa          → booking hiện Đang rửa
- * - Tất cả xe hoàn thành    → booking hiện Hoàn thành
- */
 function getOverallBookingStatus(
   booking: CustomerBooking
 ) {
@@ -148,16 +135,10 @@ function getOverallBookingStatus(
 
   const items = booking.BookingItems || [];
 
-  /*
-   * Nếu API không trả BookingItems thì dùng Status của booking.
-   */
   if (items.length === 0) {
     return booking.Status || "Pending";
   }
 
-  /*
-   * Không tính xe đã hủy khi xác định tiến trình chung.
-   */
   const activeItems = items.filter(
     (item) => item.Status !== "Cancelled"
   );
@@ -166,9 +147,6 @@ function getOverallBookingStatus(
     return "Cancelled";
   }
 
-  /*
-   * Chỉ hiện Hoàn thành khi tất cả xe đều hoàn thành.
-   */
   const allCompleted = activeItems.every(
     (item) => item.Status === "Completed"
   );
@@ -177,11 +155,6 @@ function getOverallBookingStatus(
     return "Completed";
   }
 
-  /*
-   * Nếu có một xe đang rửa hoặc đã hoàn thành,
-   * nhưng các xe còn lại chưa hoàn thành,
-   * booking được xem là đang xử lý.
-   */
   const hasInProgress = activeItems.some(
     (item) =>
       item.Status === "InProgress" ||
@@ -192,9 +165,6 @@ function getOverallBookingStatus(
     return "InProgress";
   }
 
-  /*
-   * Nếu có ít nhất một xe đã check-in.
-   */
   const hasCheckedIn = activeItems.some(
     (item) => item.Status === "CheckedIn"
   );
@@ -212,6 +182,37 @@ function getOverallBookingStatus(
   }
 
   return booking.Status || "Pending";
+}
+
+/*
+ * Kiểm tra booking đã thanh toán chưa.
+ *
+ * API cần trả:
+ *
+ * Transactions: [
+ *   {
+ *     Status: "Paid"
+ *   }
+ * ]
+ */
+function isBookingPaid(booking: CustomerBooking) {
+  return (
+    booking.Transactions?.some(
+      (transaction) =>
+        String(transaction.Status || "").toLowerCase() ===
+        "paid"
+    ) ?? false
+  );
+}
+
+function getPaidTransaction(
+  booking: CustomerBooking
+) {
+  return booking.Transactions?.find(
+    (transaction) =>
+      String(transaction.Status || "").toLowerCase() ===
+      "paid"
+  );
 }
 
 function BookingHistory() {
@@ -240,14 +241,13 @@ function BookingHistory() {
   ] = useState(0);
 
   /*
-   * Ngăn trường hợp API chưa chạy xong mà interval
-   * tiếp tục tạo thêm request mới.
+   * Ngăn việc interval tạo thêm request
+   * khi request trước chưa hoàn thành.
    */
   const isRefreshingRef = useRef(false);
 
   /*
-   * Tải thông tin hạng thành viên một lần khi mở trang.
-   * Phần này không cần gọi lại sau mỗi 3 giây.
+   * Lấy thông tin hạng thành viên.
    */
   const loadMemberInformation =
     useCallback(async () => {
@@ -283,15 +283,12 @@ function BookingHistory() {
         setTierDiscountPercent(
           Number.isFinite(discountPercent)
             ? Math.min(
-                100,
-                Math.max(0, discountPercent)
-              )
+              100,
+              Math.max(0, discountPercent)
+            )
             : 0
         );
       } catch (error) {
-        /*
-         * Không chặn trang lịch sử nếu API hạng thành viên lỗi.
-         */
         console.log(
           "LOAD MEMBER INFORMATION ERROR:",
           error
@@ -300,14 +297,10 @@ function BookingHistory() {
     }, [navigate]);
 
   /*
-   * Tải danh sách booking.
-   *
-   * silent = false:
-   * - Hiện chữ đang tải.
+   * Tải danh sách booking của Customer.
    *
    * silent = true:
-   * - Tự động cập nhật ngầm sau mỗi 3 giây.
-   * - Không làm màn hình nhấp nháy.
+   * tự làm mới ngầm, không làm màn hình nhấp nháy.
    */
   const loadBookings = useCallback(
     async (silent = false) => {
@@ -336,8 +329,7 @@ function BookingHistory() {
             headers,
 
             /*
-             * Thêm thời gian vào query để trình duyệt
-             * luôn lấy dữ liệu mới nhất, không dùng cache cũ.
+             * Thêm tham số thời gian để tránh cache.
              */
             params: {
               refreshTime: Date.now(),
@@ -350,7 +342,7 @@ function BookingHistory() {
         } else if (!silent) {
           setMessage(
             response.data?.message ||
-              "Không thể tải lịch sử đặt lịch"
+            "Không thể tải lịch sử đặt lịch"
           );
         }
       } catch (error: unknown) {
@@ -359,10 +351,6 @@ function BookingHistory() {
           error
         );
 
-        /*
-         * Khi tự động làm mới thì không liên tục hiện lỗi đỏ.
-         * Chỉ hiện lỗi khi khách bấm Tải lại hoặc mở trang lần đầu.
-         */
         if (!silent) {
           setMessage(getErrorMessage(error));
         }
@@ -378,7 +366,7 @@ function BookingHistory() {
   );
 
   /*
-   * Chạy một lần khi mở trang.
+   * Chạy lần đầu khi mở trang.
    */
   useEffect(() => {
     void loadMemberInformation();
@@ -386,23 +374,15 @@ function BookingHistory() {
   }, [loadBookings, loadMemberInformation]);
 
   /*
-   * Tự động cập nhật trạng thái sau mỗi 3 giây.
+   * Tự cập nhật trạng thái sau mỗi 3 giây.
    */
   useEffect(() => {
     const intervalId = window.setInterval(() => {
-      /*
-       * Chỉ gọi API khi khách đang mở tab này.
-       * Tránh gọi API lãng phí khi tab đang nằm phía sau.
-       */
       if (document.visibilityState === "visible") {
         void loadBookings(true);
       }
     }, 3000);
 
-    /*
-     * Khi khách chuyển từ tab khác quay lại,
-     * lập tức cập nhật trạng thái mới.
-     */
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
         void loadBookings(true);
@@ -424,9 +404,6 @@ function BookingHistory() {
     };
   }, [loadBookings]);
 
-  /*
-   * Hủy lịch đặt.
-   */
   async function handleCancelBooking(
     bookingId: number
   ) {
@@ -458,9 +435,6 @@ function BookingHistory() {
       );
 
       if (response.data?.success) {
-        /*
-         * Cập nhật ngay trên giao diện.
-         */
         setBookings((oldBookings) =>
           oldBookings.map((booking) => {
             if (
@@ -486,14 +460,11 @@ function BookingHistory() {
 
         setMessage("Hủy lịch thành công");
 
-        /*
-         * Gọi lại API để chắc chắn dữ liệu đồng bộ với BE.
-         */
         await loadBookings(true);
       } else {
         setMessage(
           response.data?.message ||
-            "Hủy lịch thất bại"
+          "Hủy lịch thất bại"
         );
       }
     } catch (error: unknown) {
@@ -540,6 +511,25 @@ function BookingHistory() {
     return text.slice(0, 5);
   }
 
+  function formatPaymentMethod(
+    paymentMethod: string | null | undefined
+  ) {
+    switch (paymentMethod) {
+      case "Cash":
+        return "Tiền mặt";
+
+      case "BankTransfer":
+        return "Chuyển khoản";
+
+      case "VNPAY":
+      case "VNPay":
+        return "VNPay";
+
+      default:
+        return paymentMethod || "";
+    }
+  }
+
   function canCancel(status: string) {
     return (
       status === "Pending" ||
@@ -558,14 +548,16 @@ function BookingHistory() {
       });
     });
 
-    /*
-     * Ưu tiên giao dịch đã thanh toán.
-     */
-    const transaction =
-      booking.Transactions?.find(
-        (item) => item.Status === "Paid"
-      ) || booking.Transactions?.[0];
+    const paidTransaction =
+      getPaidTransaction(booking);
 
+    const transaction =
+      paidTransaction ||
+      booking.Transactions?.[0];
+
+    /*
+     * Ưu tiên giá thật từ giao dịch.
+     */
     if (
       transaction?.FinalAmount !== null &&
       transaction?.FinalAmount !== undefined
@@ -588,8 +580,8 @@ function BookingHistory() {
     }
 
     /*
-     * Khi chưa tạo giao dịch thì tạm tính giảm giá
-     * dựa theo hạng thành viên.
+     * Khi chưa có giao dịch thì tạm tính
+     * theo hạng thành viên.
      */
     const discount =
       (subtotal * tierDiscountPercent) / 100;
@@ -624,18 +616,17 @@ function BookingHistory() {
   }
 
   /*
-   * Lọc theo trạng thái được tính từ từng xe,
-   * không chỉ dựa vào BookingGroups.Status.
+   * Lọc dựa trên trạng thái thật của từng xe.
    */
   const filteredBookings =
     statusFilter === "All"
       ? bookings
       : bookings.filter(
-          (booking) =>
-            getOverallBookingStatus(
-              booking
-            ) === statusFilter
-        );
+        (booking) =>
+          getOverallBookingStatus(
+            booking
+          ) === statusFilter
+      );
 
   return (
     <>
@@ -643,7 +634,7 @@ function BookingHistory() {
 
       <main className="min-h-screen bg-gray-100 px-6 py-10">
         <div className="mx-auto max-w-5xl">
-          {/* Tiêu đề */}
+          {/* Tiêu đề trang */}
           <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-800">
@@ -677,11 +668,10 @@ function BookingHistory() {
           {/* Thông báo */}
           {message && (
             <p
-              className={`mb-4 rounded-lg px-4 py-3 text-sm ${
-                message.includes("thành công")
+              className={`mb-4 rounded-lg px-4 py-3 text-sm ${message.includes("thành công")
                   ? "bg-green-50 text-green-600"
                   : "bg-red-50 text-red-600"
-              }`}
+                }`}
             >
               {message}
             </p>
@@ -700,9 +690,7 @@ function BookingHistory() {
               }
               className="rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             >
-              <option value="All">
-                Tất cả
-              </option>
+              <option value="All">Tất cả</option>
 
               <option value="Pending">
                 Chờ xác nhận
@@ -765,6 +753,14 @@ function BookingHistory() {
                       booking
                     );
 
+                  const bookingPaid =
+                    isBookingPaid(booking);
+
+                  const paidTransaction =
+                    getPaidTransaction(
+                      booking
+                    );
+
                   const pricing =
                     getBookingPricing(
                       booking
@@ -778,30 +774,18 @@ function BookingHistory() {
                       className="rounded-xl bg-white p-5 shadow"
                     >
                       {/* Header booking */}
-                      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <h2 className="text-xl font-bold text-gray-800">
-                            {booking.BookingCode ||
-                              `BK-${booking.BookingGroupID}`}
-                          </h2>
+                      <div className="mb-4">
+                        <h2 className="text-xl font-bold text-gray-800">
+                          {booking.BookingCode ||
+                            `BK-${booking.BookingGroupID}`}
+                        </h2>
 
-                          <p className="mt-1 text-sm text-gray-500">
-                            Ngày đặt:{" "}
-                            {formatDate(
-                              booking.CreatedAt
-                            )}
-                          </p>
-                        </div>
-
-                        <span
-                          className={`w-fit rounded-full px-3 py-1 text-sm font-semibold ${getStatusClass(
-                            overallStatus
-                          )}`}
-                        >
-                          {getStatusText(
-                            overallStatus
+                        <p className="mt-1 text-sm text-gray-500">
+                          Ngày đặt:{" "}
+                          {formatDate(
+                            booking.CreatedAt
                           )}
-                        </span>
+                        </p>
                       </div>
 
                       {/* Thông tin booking */}
@@ -841,12 +825,18 @@ function BookingHistory() {
                               "Chưa cập nhật"}
                           </p>
 
-                          <p className="text-sm text-gray-500">
-                            {booking.branches
-                              ?.Address || ""}
-                          </p>
+                          {booking.branches
+                            ?.Address && (
+                              <p className="text-sm text-gray-500">
+                                {
+                                  booking.branches
+                                    .Address
+                                }
+                              </p>
+                            )}
                         </div>
 
+                        {/* Tổng tiền và thanh toán */}
                         <div>
                           <p className="text-sm text-gray-500">
                             Tổng tiền
@@ -858,9 +848,30 @@ function BookingHistory() {
                             )}
                           </p>
 
-                          {pricing.discount >
-                            0 && (
-                            <div className="mt-1 text-xs">
+                          {bookingPaid ? (
+                            <div className="mt-2">
+                              <span className="inline-flex rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                                ✓ Đã thanh toán
+                              </span>
+
+                              {paidTransaction
+                                ?.PaymentMethod && (
+                                  <p className="mt-1 text-xs text-gray-500">
+                                    Phương thức:{" "}
+                                    {formatPaymentMethod(
+                                      paidTransaction.PaymentMethod
+                                    )}
+                                  </p>
+                                )}
+                            </div>
+                          ) : (
+                            <span className="mt-2 inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                              Chưa thanh toán
+                            </span>
+                          )}
+
+                          {pricing.discount > 0 && (
+                            <div className="mt-2 text-xs">
                               <p className="text-gray-400 line-through">
                                 {formatMoney(
                                   pricing.subtotal
@@ -896,7 +907,7 @@ function BookingHistory() {
                                 }
                                 className="rounded-lg bg-gray-50 p-4"
                               >
-                                {/* Xe và trạng thái riêng */}
+                                {/* Thông tin xe */}
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                   <div>
                                     <p className="font-semibold text-gray-800">
@@ -932,68 +943,76 @@ function BookingHistory() {
                                   </span>
                                 </div>
 
-                                {/* Tiến trình trạng thái */}
+                                {/* Tiến trình 4 bước */}
                                 {item.Status !==
                                   "Cancelled" && (
-                                  <div className="mt-4 grid grid-cols-3 gap-2">
-                                    <div
-                                      className={`rounded-lg px-2 py-2 text-center text-xs font-semibold ${
-                                        [
-                                          "CheckedIn",
-                                          "InProgress",
-                                          "Completed",
-                                        ].includes(
-                                          item.Status
-                                        )
-                                          ? "bg-purple-100 text-purple-700"
-                                          : "bg-gray-200 text-gray-400"
-                                      }`}
-                                    >
-                                      Đã check-in
-                                    </div>
+                                    <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                      {/* Check-in */}
+                                      <div
+                                        className={`rounded-lg px-2 py-2 text-center text-xs font-semibold ${[
+                                            "CheckedIn",
+                                            "InProgress",
+                                            "Completed",
+                                          ].includes(
+                                            item.Status
+                                          )
+                                            ? "bg-purple-100 text-purple-700"
+                                            : "bg-gray-200 text-gray-400"
+                                          }`}
+                                      >
+                                        Đã check-in
+                                      </div>
 
-                                    <div
-                                      className={`rounded-lg px-2 py-2 text-center text-xs font-semibold ${
-                                        [
-                                          "InProgress",
-                                          "Completed",
-                                        ].includes(
-                                          item.Status
-                                        )
-                                          ? "bg-sky-100 text-sky-700"
-                                          : "bg-gray-200 text-gray-400"
-                                      }`}
-                                    >
-                                      Đang rửa
-                                    </div>
+                                      {/* Đang rửa */}
+                                      <div
+                                        className={`rounded-lg px-2 py-2 text-center text-xs font-semibold ${[
+                                            "InProgress",
+                                            "Completed",
+                                          ].includes(
+                                            item.Status
+                                          )
+                                            ? "bg-sky-100 text-sky-700"
+                                            : "bg-gray-200 text-gray-400"
+                                          }`}
+                                      >
+                                        Đang rửa
+                                      </div>
 
-                                    <div
-                                      className={`rounded-lg px-2 py-2 text-center text-xs font-semibold ${
-                                        item.Status ===
-                                        "Completed"
-                                          ? "bg-emerald-100 text-emerald-700"
-                                          : "bg-gray-200 text-gray-400"
-                                      }`}
-                                    >
-                                      Hoàn thành
+                                      {/* Hoàn thành */}
+                                      <div
+                                        className={`rounded-lg px-2 py-2 text-center text-xs font-semibold ${item.Status ===
+                                            "Completed"
+                                            ? "bg-emerald-100 text-emerald-700"
+                                            : "bg-gray-200 text-gray-400"
+                                          }`}
+                                      >
+                                        Hoàn thành
+                                      </div>
+
+                                      {/* Đã thanh toán */}
+                                      <div
+                                        className={`rounded-lg px-2 py-2 text-center text-xs font-semibold ${bookingPaid
+                                            ? "bg-blue-100 text-blue-700"
+                                            : "bg-gray-200 text-gray-400"
+                                          }`}
+                                      >
+                                        Đã thanh toán
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
+                                  )}
 
                                 {/* Dịch vụ */}
                                 <div className="mt-4 border-t border-gray-200 pt-3">
                                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                    Dịch vụ hiện
-                                    tại
+                                    Dịch vụ hiện tại
                                   </p>
 
                                   <div className="space-y-2">
-                                    {item.ServiceLineItems
+                                    {item
+                                      .ServiceLineItems
                                       ?.length ? (
                                       item.ServiceLineItems.map(
-                                        (
-                                          line
-                                        ) => (
+                                        (line) => (
                                           <div
                                             key={
                                               line.ServiceLineItemID ||
@@ -1011,7 +1030,7 @@ function BookingHistory() {
                                             <span className="font-semibold text-gray-700">
                                               {formatMoney(
                                                 line.LineTotal ??
-                                                  line.UnitPrice
+                                                line.UnitPrice
                                               )}
                                             </span>
                                           </div>
@@ -1019,9 +1038,8 @@ function BookingHistory() {
                                       )
                                     ) : (
                                       <p className="text-sm text-gray-400">
-                                        Chưa có
-                                        thông tin
-                                        dịch vụ
+                                        Chưa có thông
+                                        tin dịch vụ
                                       </p>
                                     )}
                                   </div>
@@ -1036,27 +1054,27 @@ function BookingHistory() {
                       {canCancel(
                         overallStatus
                       ) && (
-                        <div className="mt-5 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleCancelBooking(
+                          <div className="mt-5 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleCancelBooking(
+                                  booking.BookingGroupID
+                                )
+                              }
+                              disabled={
+                                cancelingId ===
                                 booking.BookingGroupID
-                              )
-                            }
-                            disabled={
-                              cancelingId ===
-                              booking.BookingGroupID
-                            }
-                            className="rounded-lg border border-red-300 px-4 py-2 font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {cancelingId ===
-                            booking.BookingGroupID
-                              ? "Đang hủy..."
-                              : "Hủy lịch"}
-                          </button>
-                        </div>
-                      )}
+                              }
+                              className="rounded-lg border border-red-300 px-4 py-2 font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {cancelingId ===
+                                booking.BookingGroupID
+                                ? "Đang hủy..."
+                                : "Hủy lịch"}
+                            </button>
+                          </div>
+                        )}
                     </section>
                   );
                 }
