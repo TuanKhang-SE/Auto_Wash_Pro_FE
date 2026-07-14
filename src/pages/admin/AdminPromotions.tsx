@@ -58,6 +58,9 @@ const AdminPromotions = () => {
 
   const [deleting, setDeleting] = useState<Promotion | null>(null);
 
+  // Lưu ngày gốc khi mở form edit để validate ngày không thay đổi
+  const [originalDates, setOriginalDates] = useState<{ StartDate: string; EndDate: string } | null>(null);
+
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -78,6 +81,7 @@ const AdminPromotions = () => {
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm());
+    setOriginalDates(null);
     setFormError("");
     setFormSuccess("");
     setShowForm(true);
@@ -85,13 +89,17 @@ const AdminPromotions = () => {
 
   const openEdit = (p: Promotion) => {
     setEditing(p);
+    const startDate = toLocal(p.StartDate) || nowPlus(1);
+    const endDate = toLocal(p.EndDate) || nowPlus(24 * 30);
     setForm({
       PromotionName: p.PromotionName,
       DiscountValue: String(Number(p.DiscountValue) || 0),
-      StartDate: toLocal(p.StartDate) || nowPlus(1),
-      EndDate: toLocal(p.EndDate) || nowPlus(24 * 30),
+      StartDate: startDate,
+      EndDate: endDate,
       Status: (p.Status as "Active" | "Inactive") || "Active",
     });
+    // Lưu ngày gốc để validate khi cập nhật
+    setOriginalDates({ StartDate: startDate, EndDate: endDate });
     setFormError("");
     setFormSuccess("");
     setShowForm(true);
@@ -124,11 +132,14 @@ const AdminPromotions = () => {
       return false;
     }
     const now = new Date();
-    if (new Date(form.StartDate) < now) {
+    const startChanged = !editing || form.StartDate !== originalDates?.StartDate;
+    const endChanged = !editing || form.EndDate !== originalDates?.EndDate;
+    // Khi cập nhật, chỉ validate ngày trong quá khứ nếu ngày đó đã được thay đổi
+    if (startChanged && new Date(form.StartDate) < now) {
       setFormError("Ngày bắt đầu không được là ngày trong quá khứ");
       return false;
     }
-    if (new Date(form.EndDate) < now) {
+    if (endChanged && new Date(form.EndDate) < now) {
       setFormError("Ngày kết thúc không được là ngày trong quá khứ");
       return false;
     }
@@ -166,6 +177,7 @@ const AdminPromotions = () => {
         setShowForm(false);
         setEditing(null);
         setForm(emptyForm());
+        setOriginalDates(null);
         fetchData();
       }, 800);
     } catch (err) {
