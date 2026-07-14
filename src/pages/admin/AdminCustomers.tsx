@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Users,
   Phone,
@@ -77,13 +77,20 @@ const AdminCustomers = () => {
       tiers.forEach((t) => tierMap.set(t.TierID, t));
 
       const enriched: CustomerDetail[] = customerList.map((c) => {
-        const tc = c.loyalty.tierId ? tierMap.get(c.loyalty.tierId) : null;
+        const tc = c.loyalty?.tierId ? tierMap.get(c.loyalty.tierId) : null;
         return {
           ...c,
-          loyalty: {
+          loyalty: c.loyalty ? {
             ...c.loyalty,
             tierConfig: tc ?? null,
-            tierName: tc?.TierName ?? c.loyalty.tierName,
+            tierName: tc?.TierName ?? c.loyalty.tierName ?? "Default",
+          } : {
+            accountId: null,
+            currentPoints: 0,
+            lifetimePoints: 0,
+            tierId: null,
+            tierName: "Default",
+            tierConfig: null,
           },
         };
       });
@@ -119,32 +126,33 @@ const AdminCustomers = () => {
   const filtered = customers
     .filter((c) => {
       const q = search.toLowerCase();
+      const name = c.fullName || "";
       const matchSearch =
         !search ||
-        c.fullName.toLowerCase().includes(q) ||
-        c.phone.includes(q) ||
-        c.email.toLowerCase().includes(q);
+        name.toLowerCase().includes(q) ||
+        (c.phone || "").includes(q) ||
+        (c.email || "").toLowerCase().includes(q);
       const matchTier =
         tierFilter === "all" ||
-        c.loyalty.tierName === tierFilter ||
-        (tierFilter === "no-tier" && c.loyalty.tierId === null);
+        c.loyalty?.tierName === tierFilter ||
+        (tierFilter === "no-tier" && !c.loyalty?.tierId);
       return matchSearch && matchTier;
     })
     .sort((a, b) => {
       let cmp = 0;
       if (sortField === "fullName") {
-        cmp = a.fullName.localeCompare(b.fullName);
+        cmp = (a.fullName || "").localeCompare(b.fullName || "");
       } else if (sortField === "lifetimePoints") {
-        cmp = a.loyalty.lifetimePoints - b.loyalty.lifetimePoints;
+        cmp = (a.loyalty?.lifetimePoints || 0) - (b.loyalty?.lifetimePoints || 0);
       } else {
-        cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        cmp = new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
 
   const tierStats = tierConfigs.map((t) => ({
     ...t,
-    count: customers.filter((c) => c.loyalty.tierId === t.TierID).length,
+    count: customers.filter((c) => c.loyalty?.tierId === t.TierID).length,
   }));
 
   return (
@@ -345,19 +353,18 @@ const AdminCustomers = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {filtered.map((customer) => (
-                    <>
+                  {filtered.map((customer, idx) => (
+                    <React.Fragment key={`customer-${customer.userId || idx}`}>
                       <tr
-                        key={customer.userId}
                         className="hover:bg-slate-50/60 transition"
                       >
                         {/* Customer Name */}
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <div className="h-9 w-9 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
-                              <span className="text-sm font-bold text-rose-600">
-                                {customer.fullName.charAt(0).toUpperCase()}
-                              </span>
+                                <span className="text-sm font-bold text-rose-600">
+                                  {(customer.fullName || "?").charAt(0).toUpperCase()}
+                                </span>
                             </div>
                             <div>
                               <p className="font-medium text-slate-800 text-sm">
@@ -387,15 +394,15 @@ const AdminCustomers = () => {
                         {/* Tier */}
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            {getTierIcon(customer.loyalty.tierName)}
+                            {getTierIcon(customer.loyalty?.tierName || "Default")}
                             <span
                               className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                                customer.loyalty.tierId
+                                customer.loyalty?.tierId
                                   ? "bg-amber-50 text-amber-700"
                                   : "bg-slate-100 text-slate-500"
                               }`}
                             >
-                              {customer.loyalty.tierName}
+                              {customer.loyalty?.tierName || "Default"}
                             </span>
                           </div>
                         </td>
@@ -404,10 +411,10 @@ const AdminCustomers = () => {
                         <td className="px-4 py-3">
                           <div className="space-y-0.5">
                             <p className="text-sm font-semibold text-slate-800">
-                              {formatNumber(customer.loyalty.lifetimePoints)} điểm
+                              {formatNumber(customer.loyalty?.lifetimePoints || 0)} điểm
                             </p>
                             <p className="text-xs text-slate-400">
-                              Hiện tại: {formatNumber(customer.loyalty.currentPoints)} đ
+                              Hiện tại: {formatNumber(customer.loyalty?.currentPoints || 0)} đ
                             </p>
                           </div>
                         </td>
@@ -462,11 +469,11 @@ const AdminCustomers = () => {
                           >
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                               {/* Tier Benefits */}
-                              {customer.loyalty.tierConfig ? (
+                              {customer.loyalty?.tierConfig ? (
                                 <div className="rounded-lg border border-slate-200 bg-white p-4">
                                   <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                                    {getTierIcon(customer.loyalty.tierName)}
-                                    Quyền lợi hạng {customer.loyalty.tierName}
+                                    {getTierIcon(customer.loyalty?.tierName || "Default")}
+                                    Quyền lợi hạng {customer.loyalty?.tierName || "Default"}
                                   </h4>
                                   <div className="space-y-2">
                                     <div className="flex items-center justify-between text-sm">
@@ -475,7 +482,7 @@ const AdminCustomers = () => {
                                       </span>
                                       <span className="font-medium text-slate-800">
                                         {formatNumber(
-                                          Number(customer.loyalty.tierConfig.MinSpent)
+                                          Number(customer.loyalty?.tierConfig?.MinSpent || 0)
                                         )}{" "}
                                         đ
                                       </span>
@@ -486,7 +493,7 @@ const AdminCustomers = () => {
                                       </span>
                                       <span className="font-medium text-emerald-600">
                                         {Number(
-                                          customer.loyalty.tierConfig.DiscountPercent
+                                          customer.loyalty?.tierConfig?.DiscountPercent || 0
                                         ).toFixed(0)}
                                         %
                                       </span>
@@ -498,7 +505,7 @@ const AdminCustomers = () => {
                                       <span className="font-medium text-rose-600">
                                         x
                                         {Number(
-                                          customer.loyalty.tierConfig.PointMultiplier
+                                          customer.loyalty?.tierConfig?.PointMultiplier || 1
                                         ).toFixed(1)}
                                       </span>
                                     </div>
@@ -524,7 +531,7 @@ const AdminCustomers = () => {
                                       Điểm hiện tại
                                     </span>
                                     <span className="font-semibold text-rose-600">
-                                      {formatNumber(customer.loyalty.currentPoints)}
+                                      {formatNumber(customer.loyalty?.currentPoints || 0)}
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between text-sm">
@@ -532,10 +539,10 @@ const AdminCustomers = () => {
                                       Tổng tích lũy
                                     </span>
                                     <span className="font-semibold text-slate-800">
-                                      {formatNumber(customer.loyalty.lifetimePoints)}
+                                      {formatNumber(customer.loyalty?.lifetimePoints || 0)}
                                     </span>
                                   </div>
-                                  {customer.loyalty.tierConfig &&
+                                  {customer.loyalty?.tierConfig &&
                                     customer.loyalty.tierConfig.MinSpent && (
                                       <div className="flex items-center justify-between text-sm">
                                         <span className="text-slate-500">
@@ -545,9 +552,9 @@ const AdminCustomers = () => {
                                           Cần{" "}
                                           {formatNumber(
                                             Number(
-                                              customer.loyalty.tierConfig.MinSpent
+                                              customer.loyalty?.tierConfig?.MinSpent || 0
                                             ) -
-                                              customer.loyalty.lifetimePoints
+                                              (customer.loyalty?.lifetimePoints || 0)
                                           )}{" "}
                                           đ
                                         </span>
@@ -600,7 +607,7 @@ const AdminCustomers = () => {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
