@@ -12,9 +12,6 @@ import {
     Pencil,
     Plus,
     Trash2,
-    Gift,
-    Star,
-    TicketPercent,
     X,
 } from "lucide-react";
 import StatCard from "../../components/staff/StatCard";
@@ -57,7 +54,6 @@ type BookingItem = {
 
 type StaffBooking = {
     BookingGroupID: number;
-    CustomerID: number;
     BookingCode: string;
     BranchID: number;
     BookingDate: string;
@@ -70,6 +66,13 @@ type StaffBooking = {
         };
     };
     BookingItems?: BookingItem[];
+    Transactions?: Array<{
+        TransactionID: number;
+        Status?: string | null;
+        PaymentMethod?: string | null;
+        FinalAmount?: number | string | null;
+        PaidAt?: string | null;
+    }>;
 };
 
 type StaffStats = {
@@ -88,32 +91,6 @@ type PaymentTransaction = {
     DiscountAmount: number | string | null;
     FinalAmount: number | string | null;
     Status: string | null;
-    AppliedDiscounts?: Array<{
-        DiscountType?: string | null;
-        ReferenceID?: number | null;
-        PromotionID?: number | null;
-        DiscountName?: string | null;
-    }>;
-};
-
-type PromotionOption = {
-    PromotionID: number;
-    PromotionName: string;
-    BranchID?: number | null;
-    DiscountType?: "PERCENTAGE" | "FIXED_AMOUNT" | string;
-    DiscountValue?: number | string | null;
-};
-
-type RewardRedemptionOption = {
-    RedemptionID: number;
-    RedeemedAt?: string | null;
-    Status?: string | null;
-    Rewards?: {
-        RewardName?: string | null;
-        DiscountValue?: number | string | null;
-        ValidDays?: number | null;
-        Status?: string | null;
-    } | null;
 };
 
 type InvoiceRecord = {
@@ -287,8 +264,8 @@ function buildInvoiceHtml(invoice: InvoiceData) {
                 <h2>HÓA ĐƠN THANH TOÁN</h2>
                 <p><strong>Số:</strong> ${escapeHtml(issuedInvoice?.InvoiceNo || "—")}</p>
                 <p><strong>Ngày:</strong> ${escapeHtml(
-                    new Date(issuedInvoice?.IssuedAt || Date.now()).toLocaleString("vi-VN")
-                )}</p>
+        new Date(issuedInvoice?.IssuedAt || Date.now()).toLocaleString("vi-VN")
+    )}</p>
             </div>
         </div>
 
@@ -392,11 +369,6 @@ const StaffBookings = () => {
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
     const [paymentError, setPaymentError] = useState("");
     const [paymentSuccess, setPaymentSuccess] = useState("");
-    const [promotionOptions, setPromotionOptions] = useState<PromotionOption[]>([]);
-    const [rewardOptions, setRewardOptions] = useState<RewardRedemptionOption[]>([]);
-    const [selectedDiscountOption, setSelectedDiscountOption] = useState("");
-    const [appliedDiscountLabel, setAppliedDiscountLabel] = useState("");
-    const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
     const [isPreparingPayment, setIsPreparingPayment] = useState(false);
     const [isPaying, setIsPaying] = useState(false);
     const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
@@ -407,12 +379,6 @@ const StaffBookings = () => {
     const [isLoadingServices, setIsLoadingServices] = useState(false);
     const [isSavingServices, setIsSavingServices] = useState(false);
     const [serviceError, setServiceError] = useState("");
-    const [reviewBooking, setReviewBooking] = useState<StaffBooking | null>(null);
-    const [reviewRating, setReviewRating] = useState(5);
-    const [reviewComment, setReviewComment] = useState("");
-    const [reviewError, setReviewError] = useState("");
-    const [reviewSuccess, setReviewSuccess] = useState("");
-    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
     const [stats, setStats] = useState<StaffStats>({
         waiting: 0,
@@ -439,17 +405,36 @@ const StaffBookings = () => {
                 return;
             }
 
-            const res = await axiosClient.get("/api/staff-operations/today-bookings", {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-                params: { bookingDate },
-            });
+            const res = await axiosClient.get(
+                "/api/staff-operations/today-bookings",
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                    params: {
+                        bookingDate,
+                        refreshTime: Date.now(),
+                    },
+                }
+            );
 
-            const data: StaffBooking[] = res.data.data || [];
+            const apiBookings: StaffBooking[] = res.data?.data || [];
 
-            setBookings(data);
-            setStats(calculateStats(data));
+            /*
+             * Backend đã loại booking có Transaction.Status = Paid.
+             * FE lọc thêm một lần để tránh dữ liệu cũ còn nằm trên giao diện.
+             */
+            const unpaidBookings = apiBookings.filter(
+                (booking) =>
+                    !booking.Transactions?.some(
+                        (transaction) =>
+                            String(transaction.Status || "").toLowerCase() ===
+                            "paid"
+                    )
+            );
+
+            setBookings(unpaidBookings);
+            setStats(calculateStats(unpaidBookings));
         } catch (error) {
             console.log(error);
             setMessage(getErrorMessage(error));
@@ -536,25 +521,6 @@ const StaffBookings = () => {
     function getAuthHeader() {
         const token = localStorage.getItem("token");
         return token ? { Authorization: `Bearer ${token}` } : null;
-    }
-
-    async function loadPaymentDiscountOptions(
-        transactionId: number,
-        headers: { Authorization: string }
-    ) {
-        try {
-            const response = await axiosClient.get(
-                `/api/transactions/${transactionId}/discount-options`,
-                { headers, params: { _: Date.now() } }
-            );
-            const data = response.data?.data || {};
-            setPromotionOptions(Array.isArray(data.promotions) ? data.promotions : []);
-            setRewardOptions(Array.isArray(data.rewards) ? data.rewards : []);
-        } catch (error) {
-            setPromotionOptions([]);
-            setRewardOptions([]);
-            setPaymentError(`Không thể tải ưu đãi: ${getErrorMessage(error)}`);
-        }
     }
 
     async function openServiceEditor(
@@ -703,10 +669,6 @@ const StaffBookings = () => {
         setPaymentMethod("CASH");
         setPaymentError("");
         setPaymentSuccess("");
-        setPromotionOptions([]);
-        setRewardOptions([]);
-        setSelectedDiscountOption("");
-        setAppliedDiscountLabel("");
         setIsPreparingPayment(true);
 
         try {
@@ -727,19 +689,6 @@ const StaffBookings = () => {
             }
 
             setPaymentTransaction(transaction);
-            const appliedDiscount = transaction.AppliedDiscounts?.find(
-                (discount) =>
-                    discount.DiscountType === "PROMOTION" || discount.DiscountType === "REWARD"
-            );
-            setAppliedDiscountLabel(appliedDiscount?.DiscountName || "");
-            setSelectedDiscountOption(
-                appliedDiscount?.DiscountType === "PROMOTION" && appliedDiscount.PromotionID
-                    ? `promotion:${appliedDiscount.PromotionID}`
-                    : appliedDiscount?.DiscountType === "REWARD" && appliedDiscount.ReferenceID
-                      ? `reward:${appliedDiscount.ReferenceID}`
-                      : ""
-            );
-            await loadPaymentDiscountOptions(transaction.TransactionID, headers);
         } catch (error) {
             setPaymentError(getErrorMessage(error));
         } finally {
@@ -747,84 +696,13 @@ const StaffBookings = () => {
         }
     }
 
-    async function applySelectedDiscount() {
-        if (!paymentTransaction || !selectedDiscountOption) return;
-
-        const headers = getAuthHeader();
-        if (!headers) {
-            setPaymentError("Bạn cần đăng nhập bằng tài khoản Staff");
-            return;
-        }
-
-        const [kind, rawId] = selectedDiscountOption.split(":");
-        const id = Number(rawId);
-
-        try {
-            setIsApplyingDiscount(true);
-            setPaymentError("");
-            const response =
-                kind === "promotion"
-                    ? await axiosClient.post(
-                          `/api/transactions/${paymentTransaction.TransactionID}/apply-discount`,
-                          { promotionId: id },
-                          { headers }
-                      )
-                    : await axiosClient.post(
-                          `/api/transactions/${paymentTransaction.TransactionID}/apply-reward`,
-                          { redemptionId: id },
-                          { headers }
-                      );
-
-            const updatedTransaction = response.data?.data as PaymentTransaction | undefined;
-            if (updatedTransaction) setPaymentTransaction(updatedTransaction);
-
-            const label =
-                kind === "promotion"
-                    ? promotionOptions.find((option) => option.PromotionID === id)?.PromotionName
-                    : rewardOptions.find((option) => option.RedemptionID === id)?.Rewards?.RewardName;
-            setAppliedDiscountLabel(label || "Ưu đãi đã chọn");
-        } catch (error) {
-            setPaymentError(getErrorMessage(error));
-        } finally {
-            setIsApplyingDiscount(false);
-        }
-    }
-
-    async function removeSelectedDiscount() {
-        if (!paymentTransaction) return;
-        const headers = getAuthHeader();
-        if (!headers) return;
-
-        try {
-            setIsApplyingDiscount(true);
-            setPaymentError("");
-            const response = await axiosClient.delete(
-                `/api/transactions/${paymentTransaction.TransactionID}/discount`,
-                { headers }
-            );
-            const updatedTransaction = response.data?.data as PaymentTransaction | undefined;
-            if (updatedTransaction) setPaymentTransaction(updatedTransaction);
-            setSelectedDiscountOption("");
-            setAppliedDiscountLabel("");
-            await loadPaymentDiscountOptions(paymentTransaction.TransactionID, headers);
-        } catch (error) {
-            setPaymentError(getErrorMessage(error));
-        } finally {
-            setIsApplyingDiscount(false);
-        }
-    }
-
     function closePaymentModal() {
-        if (isPreparingPayment || isPaying || isLoadingInvoice || isApplyingDiscount) return;
+        if (isPreparingPayment || isPaying || isLoadingInvoice) return;
         setPaymentBooking(null);
         setPaymentTransaction(null);
         setPaymentError("");
         setPaymentSuccess("");
         setInvoicePreviewHtml("");
-        setPromotionOptions([]);
-        setRewardOptions([]);
-        setSelectedDiscountOption("");
-        setAppliedDiscountLabel("");
     }
 
     async function showInvoicePreview(transactionId: number) {
@@ -887,6 +765,13 @@ const StaffBookings = () => {
                     ? current
                     : `${current} Hóa đơn mô phỏng đã sẵn sàng để xem.`.trim()
             );
+
+            /*
+             * Gọi lại API danh sách. Booking đã Paid sẽ không còn được
+             * Backend trả về và sẽ biến mất khỏi trang quản lý.
+             */
+            await fetchBookings(true);
+
             return true;
         } catch (error) {
             setPaymentError(getErrorMessage(error));
@@ -899,59 +784,6 @@ const StaffBookings = () => {
     async function handleViewInvoice() {
         if (!paymentTransaction) return;
         await showInvoicePreview(paymentTransaction.TransactionID);
-    }
-
-    function closeInvoiceAndOpenReview() {
-        const completedBooking = paymentBooking;
-        setInvoicePreviewHtml("");
-        setPaymentBooking(null);
-        setPaymentTransaction(null);
-        setPaymentError("");
-        setPaymentSuccess("");
-
-        if (completedBooking) {
-            setReviewBooking(completedBooking);
-            setReviewRating(5);
-            setReviewComment("");
-            setReviewError("");
-            setReviewSuccess("");
-        }
-    }
-
-    function closeReviewModal() {
-        if (isSubmittingReview) return;
-        setReviewBooking(null);
-        setReviewComment("");
-        setReviewError("");
-        setReviewSuccess("");
-    }
-
-    async function submitReview() {
-        if (!reviewBooking) return;
-        const headers = getAuthHeader();
-        if (!headers) {
-            setReviewError("Bạn cần đăng nhập bằng tài khoản Staff");
-            return;
-        }
-
-        try {
-            setIsSubmittingReview(true);
-            setReviewError("");
-            await axiosClient.post(
-                "/api/reviews",
-                {
-                    bookingGroupId: reviewBooking.BookingGroupID,
-                    rating: reviewRating,
-                    comment: reviewComment.trim() || undefined,
-                },
-                { headers }
-            );
-            setReviewSuccess("Đã ghi nhận đánh giá của khách hàng. Cảm ơn bạn!");
-        } catch (error) {
-            setReviewError(getErrorMessage(error));
-        } finally {
-            setIsSubmittingReview(false);
-        }
     }
 
     async function handlePayment() {
@@ -1006,9 +838,16 @@ const StaffBookings = () => {
             );
             setPaymentSuccess(
                 paymentMethod === "CASH"
-                    ? "Đã xác nhận thanh toán tiền mặt thành công."
-                    : "Đã xác nhận thanh toán chuyển khoản thành công."
+                    ? "Đã xác nhận thanh toán tiền mặt thành công. Đơn đã được chuyển vào lịch sử."
+                    : "Đã xác nhận thanh toán chuyển khoản thành công. Đơn đã được chuyển vào lịch sử."
             );
+
+            /*
+             * Làm đơn biến mất ngay sau khi Transaction chuyển thành Paid.
+             * Đây chỉ là làm mới danh sách, không xóa dữ liệu trong database.
+             */
+            await fetchBookings(true);
+
             await showInvoicePreview(paymentTransaction.TransactionID);
         } catch (error) {
             if (paymentWindow && !paymentWindow.closed) {
@@ -1136,7 +975,7 @@ const StaffBookings = () => {
                     </div>
                 ) : bookings.length === 0 ? (
                     <div className="py-8 text-center text-sm text-slate-500">
-                        Không có booking nào trong ngày {formatSelectedDate(selectedDate)}
+                        Không có booking nào đang chờ xử lý trong ngày {formatSelectedDate(selectedDate)}
                     </div>
                 ) : (
                     <div className="space-y-5">
@@ -1398,11 +1237,10 @@ const StaffBookings = () => {
                                             return (
                                                 <label
                                                     key={service.ServiceID}
-                                                    className={`flex items-center justify-between gap-3 rounded-xl border p-3 ${
-                                                        checked
+                                                    className={`flex items-center justify-between gap-3 rounded-xl border p-3 ${checked
                                                             ? "border-blue-400 bg-blue-50"
                                                             : "border-slate-200 hover:bg-slate-50"
-                                                    } ${isLastSelected ? "cursor-not-allowed" : "cursor-pointer"}`}
+                                                        } ${isLastSelected ? "cursor-not-allowed" : "cursor-pointer"}`}
                                                 >
                                                     <span className="flex items-center gap-3">
                                                         <input
@@ -1455,8 +1293,8 @@ const StaffBookings = () => {
                                 {isSavingServices
                                     ? "Đang lưu..."
                                     : serviceEditor.mode === "add"
-                                      ? "Thêm dịch vụ"
-                                      : "Lưu thay đổi"}
+                                        ? "Thêm dịch vụ"
+                                        : "Lưu thay đổi"}
                             </button>
                         </div>
                     </div>
@@ -1479,7 +1317,7 @@ const StaffBookings = () => {
                             <button
                                 type="button"
                                 onClick={closePaymentModal}
-                                disabled={isPreparingPayment || isPaying || isLoadingInvoice || isApplyingDiscount}
+                                disabled={isPreparingPayment || isPaying || isLoadingInvoice}
                                 className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
                                 aria-label="Đóng"
                             >
@@ -1513,86 +1351,6 @@ const StaffBookings = () => {
                                     </div>
 
                                     {paymentTransaction.Status !== "Paid" && !paymentSuccess && (
-                                        <div className="rounded-xl border border-slate-200 p-4">
-                                            <div className="flex items-center justify-between gap-3">
-                                                <p className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                                                    <TicketPercent size={18} className="text-emerald-600" />
-                                                    Promotion hoặc reward
-                                                </p>
-                                                {appliedDiscountLabel && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={removeSelectedDiscount}
-                                                        disabled={isApplyingDiscount}
-                                                        className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
-                                                    >
-                                                        Gỡ ưu đãi
-                                                    </button>
-                                                )}
-                                            </div>
-
-                                            {appliedDiscountLabel ? (
-                                                <div className="mt-3 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
-                                                    <Gift size={16} /> Đã áp dụng: {appliedDiscountLabel}
-                                                </div>
-                                            ) : (
-                                                <div className="mt-3 flex gap-2">
-                                                    <select
-                                                        value={selectedDiscountOption}
-                                                        onChange={(event) => setSelectedDiscountOption(event.target.value)}
-                                                        disabled={isApplyingDiscount}
-                                                        className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                                                    >
-                                                        <option value="">Không dùng thêm ưu đãi</option>
-                                                        {promotionOptions.length > 0 && (
-                                                            <optgroup label="Khuyến mãi đang chạy">
-                                                                {promotionOptions.map((promotion) => (
-                                                                    <option
-                                                                        key={promotion.PromotionID}
-                                                                        value={`promotion:${promotion.PromotionID}`}
-                                                                    >
-                                                                        {promotion.PromotionName} ({
-                                                                            promotion.DiscountType === "PERCENTAGE"
-                                                                                ? `${promotion.DiscountValue}%`
-                                                                                : formatMoney(promotion.DiscountValue)
-                                                                        })
-                                                                    </option>
-                                                                ))}
-                                                            </optgroup>
-                                                        )}
-                                                        {rewardOptions.length > 0 && (
-                                                            <optgroup label="Voucher của khách hàng">
-                                                                {rewardOptions.map((redemption) => (
-                                                                    <option
-                                                                        key={redemption.RedemptionID}
-                                                                        value={`reward:${redemption.RedemptionID}`}
-                                                                    >
-                                                                        {redemption.Rewards?.RewardName || `Voucher #${redemption.RedemptionID}`} (-{formatMoney(redemption.Rewards?.DiscountValue)})
-                                                                    </option>
-                                                                ))}
-                                                            </optgroup>
-                                                        )}
-                                                    </select>
-                                                    <button
-                                                        type="button"
-                                                        onClick={applySelectedDiscount}
-                                                        disabled={!selectedDiscountOption || isApplyingDiscount}
-                                                        className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                                    >
-                                                        {isApplyingDiscount ? "Đang áp dụng..." : "Áp dụng"}
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            {promotionOptions.length === 0 && rewardOptions.length === 0 && (
-                                                <p className="mt-2 text-xs text-slate-500">
-                                                    Hiện không có promotion hoặc voucher khả dụng cho khách hàng này.
-                                                </p>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {paymentTransaction.Status !== "Paid" && !paymentSuccess && (
                                         <div>
                                             <p className="mb-3 text-sm font-semibold text-slate-700">
                                                 Phương thức thanh toán
@@ -1607,11 +1365,10 @@ const StaffBookings = () => {
                                                         key={value}
                                                         type="button"
                                                         onClick={() => setPaymentMethod(value)}
-                                                        className={`flex flex-col items-center gap-2 rounded-xl border p-3 text-sm font-semibold transition ${
-                                                            paymentMethod === value
+                                                        className={`flex flex-col items-center gap-2 rounded-xl border p-3 text-sm font-semibold transition ${paymentMethod === value
                                                                 ? "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-100"
                                                                 : "border-slate-200 text-slate-600 hover:border-blue-300"
-                                                        }`}
+                                                            }`}
                                                     >
                                                         <Icon size={22} />
                                                         {label}
@@ -1637,7 +1394,7 @@ const StaffBookings = () => {
                                         <button
                                             type="button"
                                             onClick={closePaymentModal}
-                                            disabled={isPaying || isLoadingInvoice || isApplyingDiscount}
+                                            disabled={isPaying || isLoadingInvoice}
                                             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                                         >
                                             {paymentSuccess ? "Đóng" : "Thanh toán sau"}
@@ -1653,8 +1410,8 @@ const StaffBookings = () => {
                                                 {isLoadingInvoice
                                                     ? "Đang tải hóa đơn..."
                                                     : paymentMethod === "VNPAY"
-                                                      ? "Kiểm tra & xem hóa đơn"
-                                                      : "Xem hóa đơn"}
+                                                        ? "Kiểm tra & xem hóa đơn"
+                                                        : "Xem hóa đơn"}
                                             </button>
                                         )}
 
@@ -1662,14 +1419,14 @@ const StaffBookings = () => {
                                             <button
                                                 type="button"
                                                 onClick={handlePayment}
-                                                disabled={isPaying || isApplyingDiscount}
+                                                disabled={isPaying}
                                                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
                                             >
                                                 {isPaying
                                                     ? "Đang xử lý..."
                                                     : paymentMethod === "VNPAY"
-                                                      ? "Mở VNPay"
-                                                      : "Xác nhận đã thanh toán"}
+                                                        ? "Mở VNPay"
+                                                        : "Xác nhận đã thanh toán"}
                                             </button>
                                         )}
                                     </div>
@@ -1716,7 +1473,7 @@ const StaffBookings = () => {
                             </div>
                             <button
                                 type="button"
-                                onClick={closeInvoiceAndOpenReview}
+                                onClick={() => setInvoicePreviewHtml("")}
                                 className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                                 aria-label="Đóng bản xem hóa đơn"
                             >
@@ -1734,126 +1491,11 @@ const StaffBookings = () => {
                         <div className="flex justify-end border-t border-slate-200 px-5 py-3">
                             <button
                                 type="button"
-                                onClick={closeInvoiceAndOpenReview}
+                                onClick={() => setInvoicePreviewHtml("")}
                                 className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900"
                             >
                                 Đóng bản xem
                             </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {reviewBooking && (
-                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-4">
-                    <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
-                        <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
-                            <div>
-                                <h2 className="text-xl font-bold text-slate-900">
-                                    Đánh giá dịch vụ
-                                </h2>
-                                <p className="mt-1 text-sm text-slate-500">
-                                    Booking #{reviewBooking.BookingGroupID} · {reviewBooking.Customers?.Users?.FullName || "Khách hàng"}
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={closeReviewModal}
-                                disabled={isSubmittingReview}
-                                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
-                                aria-label="Đóng bảng đánh giá"
-                            >
-                                <X size={21} />
-                            </button>
-                        </div>
-
-                        <div className="space-y-5 px-6 py-5">
-                            {reviewSuccess ? (
-                                <div className="rounded-xl bg-emerald-50 px-4 py-4 text-center text-sm font-medium text-emerald-700">
-                                    {reviewSuccess}
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="text-center">
-                                        <p className="text-sm font-semibold text-slate-700">
-                                            Khách hàng hài lòng ở mức nào?
-                                        </p>
-                                        <div className="mt-3 flex justify-center gap-2">
-                                            {[1, 2, 3, 4, 5].map((star) => (
-                                                <button
-                                                    key={star}
-                                                    type="button"
-                                                    onClick={() => setReviewRating(star)}
-                                                    disabled={isSubmittingReview}
-                                                    className="rounded-lg p-1 transition hover:scale-110 disabled:opacity-50"
-                                                    aria-label={`${star} sao`}
-                                                >
-                                                    <Star
-                                                        size={34}
-                                                        className={
-                                                            star <= reviewRating
-                                                                ? "fill-amber-400 text-amber-400"
-                                                                : "text-slate-300"
-                                                        }
-                                                    />
-                                                </button>
-                                            ))}
-                                        </div>
-                                        <p className="mt-2 text-sm font-medium text-amber-600">
-                                            {reviewRating}/5 sao
-                                        </p>
-                                    </div>
-
-                                    <div>
-                                        <label
-                                            htmlFor="staff-review-comment"
-                                            className="mb-2 block text-sm font-semibold text-slate-700"
-                                        >
-                                            Nhận xét của khách hàng
-                                        </label>
-                                        <textarea
-                                            id="staff-review-comment"
-                                            value={reviewComment}
-                                            onChange={(event) => setReviewComment(event.target.value)}
-                                            disabled={isSubmittingReview}
-                                            rows={4}
-                                            maxLength={1000}
-                                            placeholder="Nhập cảm nhận về chất lượng phục vụ..."
-                                            className="w-full resize-none rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50"
-                                        />
-                                        <p className="mt-1 text-right text-xs text-slate-400">
-                                            {reviewComment.length}/1000
-                                        </p>
-                                    </div>
-                                </>
-                            )}
-
-                            {reviewError && (
-                                <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-                                    {reviewError}
-                                </div>
-                            )}
-
-                            <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={closeReviewModal}
-                                    disabled={isSubmittingReview}
-                                    className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                                >
-                                    {reviewSuccess ? "Hoàn tất" : "Bỏ qua"}
-                                </button>
-                                {!reviewSuccess && (
-                                    <button
-                                        type="button"
-                                        onClick={submitReview}
-                                        disabled={isSubmittingReview}
-                                        className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        {isSubmittingReview ? "Đang gửi..." : "Gửi đánh giá"}
-                                    </button>
-                                )}
-                            </div>
                         </div>
                     </div>
                 </div>
