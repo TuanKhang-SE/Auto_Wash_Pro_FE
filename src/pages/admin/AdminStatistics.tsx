@@ -99,12 +99,20 @@ const AdminStatistics = () => {
 
       setBranches(branchesData);
 
+      // Normalize revenue data (handle both PascalCase and camelCase)
+      const normalizedRevenueData = revenueData.map((item) => ({
+        branchId: item.branchId ?? item.BranchID ?? 0,
+        branchName: item.branchName ?? item.BranchName ?? "Unknown",
+        totalRevenue: item.totalRevenue ?? item.TotalRevenue ?? 0,
+        totalBookings: item.totalBookings ?? item.TotalBookings ?? 0,
+      }));
+
       const statsMap = new Map<number, BranchStats>();
       let totalRevenue = 0;
       let totalBookings = 0;
       let previousRevenue = 0;
 
-      revenueData.forEach((item) => {
+      normalizedRevenueData.forEach((item) => {
         totalRevenue += item.totalRevenue;
         totalBookings += item.totalBookings;
         statsMap.set(item.branchId, {
@@ -116,7 +124,7 @@ const AdminStatistics = () => {
       });
 
       prevRevenueData.forEach((item) => {
-        previousRevenue += item.totalRevenue;
+        previousRevenue += item.totalRevenue ?? item.TotalRevenue ?? 0;
       });
 
       const branchStatsList: BranchStats[] = branchesData.map((branch) => {

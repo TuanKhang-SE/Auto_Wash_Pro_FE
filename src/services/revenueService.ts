@@ -19,10 +19,14 @@ export interface CashflowResponse {
 }
 
 export interface RevenueByBranch {
-  branchId: number;
-  branchName: string;
-  totalRevenue: number;
-  totalBookings: number;
+  branchId?: number;
+  BranchID?: number;
+  branchName?: string;
+  BranchName?: string;
+  totalRevenue?: number;
+  TotalRevenue?: number;
+  totalBookings?: number;
+  TotalBookings?: number;
 }
 
 export interface RevenueQuery {
