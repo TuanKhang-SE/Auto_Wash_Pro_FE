@@ -88,6 +88,12 @@ type PaymentTransaction = {
     DiscountAmount: number | string | null;
     FinalAmount: number | string | null;
     Status: string | null;
+    AppliedDiscounts?: Array<{
+        DiscountType?: string | null;
+        ReferenceID?: number | null;
+        PromotionID?: number | null;
+        DiscountName?: string | null;
+    }>;
 };
 
 type PromotionOption = {
@@ -100,22 +106,14 @@ type PromotionOption = {
 
 type RewardRedemptionOption = {
     RedemptionID: number;
+    RedeemedAt?: string | null;
     Status?: string | null;
     Rewards?: {
         RewardName?: string | null;
         DiscountValue?: number | string | null;
+        ValidDays?: number | null;
+        Status?: string | null;
     } | null;
-};
-
-type BranchReviewSummary = {
-    averageRating: number;
-    totalReviews: number;
-    reviews: Array<{
-        ReviewID: number;
-        Rating: number;
-        Comment?: string | null;
-        CustomerName?: string | null;
-    }>;
 };
 
 type InvoiceRecord = {
@@ -415,7 +413,6 @@ const StaffBookings = () => {
     const [reviewError, setReviewError] = useState("");
     const [reviewSuccess, setReviewSuccess] = useState("");
     const [isSubmittingReview, setIsSubmittingReview] = useState(false);
-    const [branchReviews, setBranchReviews] = useState<BranchReviewSummary | null>(null);
 
     const [stats, setStats] = useState<StaffStats>({
         waiting: 0,
@@ -542,33 +539,21 @@ const StaffBookings = () => {
     }
 
     async function loadPaymentDiscountOptions(
-        booking: StaffBooking,
+        transactionId: number,
         headers: { Authorization: string }
     ) {
         try {
-            const [promotionResponse, rewardResponse] = await Promise.all([
-                axiosClient.get("/api/promotions/active"),
-                axiosClient.get(`/api/rewards/customer/${booking.CustomerID}`, { headers }),
-            ]);
-
-            const promotions: PromotionOption[] = promotionResponse.data?.data || [];
-            setPromotionOptions(
-                promotions.filter(
-                    (promotion) =>
-                        !promotion.BranchID || promotion.BranchID === booking.BranchID
-                )
+            const response = await axiosClient.get(
+                `/api/transactions/${transactionId}/discount-options`,
+                { headers, params: { _: Date.now() } }
             );
-            setRewardOptions(
-                (rewardResponse.data?.data || []).filter(
-                    (redemption: RewardRedemptionOption) => redemption.Status === "UNUSED"
-                )
-            );
+            const data = response.data?.data || {};
+            setPromotionOptions(Array.isArray(data.promotions) ? data.promotions : []);
+            setRewardOptions(Array.isArray(data.rewards) ? data.rewards : []);
         } catch (error) {
-            setPaymentError(
-                `Không thể tải ưu đãi của khách hàng: ${getErrorMessage(error)}`
-            );
             setPromotionOptions([]);
             setRewardOptions([]);
+            setPaymentError(`Không thể tải ưu đãi: ${getErrorMessage(error)}`);
         }
     }
 
@@ -742,7 +727,19 @@ const StaffBookings = () => {
             }
 
             setPaymentTransaction(transaction);
-            await loadPaymentDiscountOptions(booking, headers);
+            const appliedDiscount = transaction.AppliedDiscounts?.find(
+                (discount) =>
+                    discount.DiscountType === "PROMOTION" || discount.DiscountType === "REWARD"
+            );
+            setAppliedDiscountLabel(appliedDiscount?.DiscountName || "");
+            setSelectedDiscountOption(
+                appliedDiscount?.DiscountType === "PROMOTION" && appliedDiscount.PromotionID
+                    ? `promotion:${appliedDiscount.PromotionID}`
+                    : appliedDiscount?.DiscountType === "REWARD" && appliedDiscount.ReferenceID
+                      ? `reward:${appliedDiscount.ReferenceID}`
+                      : ""
+            );
+            await loadPaymentDiscountOptions(transaction.TransactionID, headers);
         } catch (error) {
             setPaymentError(getErrorMessage(error));
         } finally {
@@ -809,7 +806,7 @@ const StaffBookings = () => {
             if (updatedTransaction) setPaymentTransaction(updatedTransaction);
             setSelectedDiscountOption("");
             setAppliedDiscountLabel("");
-            if (paymentBooking) await loadPaymentDiscountOptions(paymentBooking, headers);
+            await loadPaymentDiscountOptions(paymentTransaction.TransactionID, headers);
         } catch (error) {
             setPaymentError(getErrorMessage(error));
         } finally {
@@ -904,15 +901,6 @@ const StaffBookings = () => {
         await showInvoicePreview(paymentTransaction.TransactionID);
     }
 
-    async function loadBranchReviews(branchId: number) {
-        try {
-            const response = await axiosClient.get(`/api/reviews/branch/${branchId}`);
-            setBranchReviews(response.data?.data || null);
-        } catch {
-            setBranchReviews(null);
-        }
-    }
-
     function closeInvoiceAndOpenReview() {
         const completedBooking = paymentBooking;
         setInvoicePreviewHtml("");
@@ -927,8 +915,6 @@ const StaffBookings = () => {
             setReviewComment("");
             setReviewError("");
             setReviewSuccess("");
-            setBranchReviews(null);
-            void loadBranchReviews(completedBooking.BranchID);
         }
     }
 
@@ -961,7 +947,6 @@ const StaffBookings = () => {
                 { headers }
             );
             setReviewSuccess("Đã ghi nhận đánh giá của khách hàng. Cảm ơn bạn!");
-            await loadBranchReviews(reviewBooking.BranchID);
         } catch (error) {
             setReviewError(getErrorMessage(error));
         } finally {
@@ -1846,28 +1831,6 @@ const StaffBookings = () => {
                             {reviewError && (
                                 <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
                                     {reviewError}
-                                </div>
-                            )}
-
-                            {branchReviews && (
-                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                                    <div className="flex items-center justify-between gap-3 text-sm">
-                                        <span className="font-semibold text-slate-700">
-                                            Đánh giá chi nhánh
-                                        </span>
-                                        <span className="flex items-center gap-1 font-bold text-amber-600">
-                                            <Star size={16} className="fill-amber-400 text-amber-400" />
-                                            {branchReviews.averageRating}/5
-                                            <span className="font-normal text-slate-500">
-                                                ({branchReviews.totalReviews} lượt)
-                                            </span>
-                                        </span>
-                                    </div>
-                                    {branchReviews.reviews[0]?.Comment && (
-                                        <p className="mt-2 line-clamp-2 text-xs italic text-slate-500">
-                                            “{branchReviews.reviews[0].Comment}” — {branchReviews.reviews[0].CustomerName}
-                                        </p>
-                                    )}
                                 </div>
                             )}
 
