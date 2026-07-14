@@ -29,6 +29,7 @@ import branchConfigService, {
 import userService, { type User } from "../../services/userService";
 import revenueService from "../../services/revenueService";
 import { getErrorMessage } from "../../api/axiosClient";
+import { validatePhone } from "../../utils/validation";
 
 interface BranchDetail {
   branchID: number;
@@ -156,7 +157,7 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
       console.log("[AdminBranches] revenueRes:", revenueRes);
 
       // Handle different response structures
-      let revenueList: Array<{ branchId: number; branchName: string; totalRevenue: number; totalBookings: number }> = [];
+      let revenueList: Array<{ branchId?: number; BranchID?: number; branchName?: string; BranchName?: string; totalRevenue?: number; TotalRevenue?: number; totalBookings?: number; TotalBookings?: number }> = [];
       if (Array.isArray(revenueRes)) {
         revenueList = revenueRes;
       } else if (revenueRes && typeof revenueRes === 'object' && 'data' in revenueRes) {
@@ -289,8 +290,9 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
       setCreateError("Số điện thoại không được để trống");
       return false;
     }
-    if (!/^[0-9]{9,11}$/.test(createForm.Phone)) {
-      setCreateError("Số điện thoại phải có 9-11 chữ số");
+    const phoneResult = validatePhone(createForm.Phone);
+    if (!phoneResult.success) {
+      setCreateError(phoneResult.error.issues[0].message);
       return false;
     }
     if (!createForm.OpenTime.trim()) {
@@ -561,8 +563,9 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
       setEditError("Số điện thoại không được để trống");
       return false;
     }
-    if (!/^[0-9]{9,11}$/.test(editForm.Phone)) {
-      setEditError("Số điện thoại phải có 9-11 chữ số");
+    const phoneResult = validatePhone(editForm.Phone);
+    if (!phoneResult.success) {
+      setEditError(phoneResult.error.issues[0].message);
       return false;
     }
     if (!editForm.OpenTime.trim()) {
