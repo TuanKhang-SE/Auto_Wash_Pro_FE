@@ -18,6 +18,13 @@ export interface CashflowResponse {
   };
 }
 
+export interface RevenueByBranch {
+  branchId: number;
+  branchName: string;
+  totalRevenue: number;
+  totalBookings: number;
+}
+
 export interface RevenueQuery {
   BranchID?: number;
   StartDate?: string;
@@ -46,6 +53,23 @@ const revenueService = {
     }
 
     return response.data.data as CashflowResponse;
+  },
+
+  async getRevenueByBranch(query: RevenueQuery = {}): Promise<RevenueByBranch[]> {
+    const params: Record<string, string> = {};
+    if (query.StartDate) params.StartDate = query.StartDate;
+    if (query.EndDate) params.EndDate = query.EndDate;
+
+    const response = await axiosClient.get("/api/dashboard/revenue-by-branch", {
+      headers: getAuthHeader(),
+      params,
+    });
+
+    if (!response.data?.success) {
+      throw new Error(response.data?.message || "Không lấy được dữ liệu doanh thu theo chi nhánh");
+    }
+
+    return response.data.data as RevenueByBranch[];
   },
 };
 
