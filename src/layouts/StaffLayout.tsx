@@ -1,8 +1,20 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Outlet } from "react-router-dom";
 import StaffSidebar from "../components/staff/StaffSidebar";
 
 const StaffLayout: React.FC = () => {
+  const staffName = useMemo(() => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      const user = storedUser ? JSON.parse(storedUser) : null;
+      return user?.fullName || user?.FullName || user?.email || "Nhân viên";
+    } catch {
+      return "Nhân viên";
+    }
+  }, []);
+
+  const staffInitial = staffName.trim().charAt(0).toUpperCase() || "N";
+
   return (
     <div className="flex min-h-screen bg-slate-100">
       {/* Sidebar */}
@@ -24,7 +36,7 @@ const StaffLayout: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className="text-right">
               <p className="text-sm font-semibold text-slate-700">
-                Nguyễn Văn Staff
+                {staffName}
               </p>
               <p className="text-xs text-emerald-500">
                 ● Đang làm việc
@@ -32,7 +44,7 @@ const StaffLayout: React.FC = () => {
             </div>
 
             <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold">
-              S
+              {staffInitial}
             </div>
           </div>
         </header>
