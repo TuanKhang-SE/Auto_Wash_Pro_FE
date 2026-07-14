@@ -37,10 +37,13 @@ const tierConfigService = {
     const response = await axiosClient.get("/api/tier-configs", {
       headers: getAuthHeader(),
     });
-    if (response.data?.success && Array.isArray(response.data.data)) {
-      return response.data.data as TierConfig[];
+
+    let data = response.data;
+    if (data?.data) data = data.data;
+    if (!Array.isArray(data)) {
+      return [];
     }
-    return [];
+    return data as TierConfig[];
   },
 
   async getTierConfigById(id: number): Promise<TierConfig | null> {
