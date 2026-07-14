@@ -24,32 +24,16 @@ export interface CustomerDetail {
 }
 
 const customerService = {
-  async getAllCustomers(): Promise<CustomerDetail[]> { // GET /api/users?Role=Customer lấy danh sách khách hàng
-    const response = await axiosClient.get("/api/users", {
+  async getAllCustomers(): Promise<CustomerDetail[]> {
+    const response = await axiosClient.get("/api/customers", {
       headers: getAuthHeader(),
-      params: { Role: "Customer" },
     });
 
     if (!response.data?.success || !Array.isArray(response.data.data)) {
-      return [];
+      throw new Error(response.data?.message || "Không lấy được danh sách khách hàng");
     }
 
-    return response.data.data.map((user: Record<string, unknown>) => ({
-      userId: user.UserID as number,
-      fullName: (user.FullName as string) || "Không rõ",
-      email: (user.Email as string) || "Chưa cập nhật",
-      phone: (user.Phone as string) || "Chưa cập nhật",
-      status: (user.Status as string) || "Unknown",
-      createdAt: (user.CreatedAt as string) || "",
-      loyalty: {
-        accountId: null,
-        currentPoints: 0,
-        lifetimePoints: 0,
-        tierId: null,
-        tierName: "Chưa có hạng",
-        tierConfig: null,
-      },
-    }));
+    return response.data.data as CustomerDetail[];
   },
 };
 

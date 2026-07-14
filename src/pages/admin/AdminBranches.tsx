@@ -27,6 +27,7 @@ import branchConfigService, {
   type UpsertBranchConfigPayload,
 } from "../../services/branchConfigService";
 import userService, { type User } from "../../services/userService";
+import revenueService from "../../services/revenueService";
 import { getErrorMessage } from "../../api/axiosClient";
 
 interface BranchDetail {
@@ -145,10 +146,13 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
     setIsLoading(true);
     setError(null);
     try {
-      const [branchList, userList] = await Promise.all([
+      const [branchList, userList, overviewList] = await Promise.all([
         branchService.getAllBranches(), // GET /api/branches lấy danh sách chi nhánh
         userService.getAllUsers(), // GET /api/users lấy danh sách user
+        revenueService.getBranchOverview(),
       ]); 
+
+      const overviewMap = new Map(overviewList.map((item) => [item.branchId, item]));
 
       // Map danh sách chi nhánh và danh sách user để tạo danh sách BranchDetail
       // BranchDetail là interface chứa thông tin chi nhánh và thông tin manager, staff
@@ -177,12 +181,12 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
                 phone: manager.Phone ?? "Chưa cập nhật",
               }
             : null,
-          totalStaff: staff.length,
-          todayBookings: 0,
-          monthBookings: 0,
-          revenue: 0,
-          occupancy: 0,
-          rating: 0,
+          totalStaff: overviewMap.get(b.BranchID)?.totalStaff ?? staff.length,
+          todayBookings: overviewMap.get(b.BranchID)?.todayBookings ?? 0,
+          monthBookings: overviewMap.get(b.BranchID)?.monthBookings ?? 0,
+          revenue: overviewMap.get(b.BranchID)?.revenue ?? 0,
+          occupancy: overviewMap.get(b.BranchID)?.occupancy ?? 0,
+          rating: overviewMap.get(b.BranchID)?.rating ?? 0,
         };
       });
 

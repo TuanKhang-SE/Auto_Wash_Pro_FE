@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, Gift, LoaderCircle, Sparkles, TicketPercent } from "lucide-react";
 import Navbar from "../../components/Navbar";
 import axiosClient, { getErrorMessage } from "../../api/axiosClient";
+import rewardService from "../../services/rewardService";
 
 type Reward = {
   RewardID: number;
@@ -11,14 +12,7 @@ type Reward = {
   DiscountValue: number | string | null;
   ValidDays: number | null;
   Status?: string | null;
-  isMock?: boolean;
 };
-
-const mockRewards: Reward[] = [
-  { RewardID: -1, RewardName: "Voucher giảm 20.000đ", RequiredPoints: 100, DiscountValue: 20000, ValidDays: 30, isMock: true },
-  { RewardID: -2, RewardName: "Voucher giảm 50.000đ", RequiredPoints: 220, DiscountValue: 50000, ValidDays: 30, isMock: true },
-  { RewardID: -3, RewardName: "Voucher giảm 100.000đ", RequiredPoints: 400, DiscountValue: 100000, ValidDays: 45, isMock: true },
-];
 
 function formatMoney(value: number | string | null | undefined) {
   return `${Number(value || 0).toLocaleString("vi-VN")}đ`;
@@ -32,7 +26,6 @@ const RewardExchange = () => {
   const [redeemingId, setRedeemingId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [usingMock, setUsingMock] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -48,17 +41,13 @@ const RewardExchange = () => {
         setError("");
         const [profileResponse, rewardResponse] = await Promise.all([
           axiosClient.get("/api/customers/profile", { headers }),
-          axiosClient.get("/api/rewards?status=Active"),
+          rewardService.getActive(),
         ]);
 
         setCurrentPoints(
           Number(profileResponse.data?.data?.LoyaltyAccounts?.[0]?.CurrentPoints || 0),
         );
-        const configuredRewards = Array.isArray(rewardResponse.data?.data)
-          ? rewardResponse.data.data
-          : [];
-        setUsingMock(configuredRewards.length === 0);
-        setRewards(configuredRewards.length > 0 ? configuredRewards : mockRewards);
+        setRewards(Array.isArray(rewardResponse) ? rewardResponse : []);
       } catch (requestError) {
         setError(getErrorMessage(requestError));
       } finally {
@@ -70,11 +59,6 @@ const RewardExchange = () => {
   }, [navigate]);
 
   async function redeem(reward: Reward) {
-    if (reward.isMock) {
-      setError("Đây là phần thưởng mẫu. Admin cần tạo reward thật trước khi có thể đổi.");
-      return;
-    }
-
     if (currentPoints < reward.RequiredPoints) {
       setError(`Bạn còn thiếu ${reward.RequiredPoints - currentPoints} điểm để đổi phần thưởng này.`);
       return;
@@ -87,12 +71,17 @@ const RewardExchange = () => {
       setRedeemingId(reward.RewardID);
       setError("");
       setMessage("");
-      await axiosClient.post(
+      const response = await axiosClient.post(
         "/api/rewards/redeem",
         { RewardID: reward.RewardID },
         { headers: { Authorization: `Bearer ${token}` } },
       );
-      setCurrentPoints((points) => points - reward.RequiredPoints);
+      const updatedPoints = response.data?.data?.updatedAccount?.CurrentPoints;
+      setCurrentPoints(
+        updatedPoints === undefined
+          ? (points) => Math.max(0, points - reward.RequiredPoints)
+          : Number(updatedPoints),
+      );
       setMessage("Đổi thưởng thành công. Voucher đã được thêm vào Mã giảm giá của tôi.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
@@ -125,16 +114,17 @@ const RewardExchange = () => {
         </section>
 
         <section className="mx-auto max-w-6xl px-6 py-8">
-          {usingMock && !loading && (
-            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-              Admin chưa cấu hình phần thưởng. Các voucher bên dưới là dữ liệu mẫu và chưa thể đổi thật.
-            </div>
-          )}
           {message && <div className="mb-6 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"><CheckCircle2 size={18} />{message}</div>}
           {error && <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
           {loading ? (
             <div className="flex justify-center gap-3 py-24 text-slate-500"><LoaderCircle className="animate-spin" /> Đang tải phần thưởng...</div>
+          ) : rewards.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-20 text-center">
+              <Gift className="mx-auto text-slate-300" size={54} />
+              <h2 className="mt-4 text-xl font-bold text-slate-800">Chưa có phần thưởng đang áp dụng</h2>
+              <p className="mt-2 text-slate-500">Các reward do Admin kích hoạt sẽ xuất hiện tại đây.</p>
+            </div>
           ) : (
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {rewards.map((reward) => {
@@ -152,17 +142,15 @@ const RewardExchange = () => {
                       <button
                         type="button"
                         onClick={() => redeem(reward)}
-                        disabled={redeemingId !== null || reward.isMock}
+                        disabled={redeemingId !== null || !enoughPoints}
                         className={`mt-5 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 font-bold transition ${
-                          reward.isMock
-                            ? "cursor-not-allowed bg-slate-100 text-slate-400"
-                            : enoughPoints
+                          enoughPoints
                               ? "bg-sky-600 text-white hover:bg-sky-700"
-                              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                              : "cursor-not-allowed bg-slate-100 text-slate-500"
                         }`}
                       >
                         {redeemingId === reward.RewardID ? <LoaderCircle size={18} className="animate-spin" /> : <Gift size={18} />}
-                        {reward.isMock ? "Phần thưởng mẫu" : enoughPoints ? "Đổi ngay" : "Chưa đủ điểm"}
+                        {enoughPoints ? "Đổi ngay" : "Chưa đủ điểm"}
                       </button>
                     </div>
                   </article>
