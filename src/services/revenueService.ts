@@ -88,11 +88,19 @@ const revenueService = {
       params,
     });
 
-    // Handle different response structures
+    // Handle: {success: true, data: {branches: [...]}} - extract branches array
     let data = response.data;
-    if (data?.data !== undefined) data = data.data;
+    if (data?.data) {
+      // Check if data.data has branches array
+      if (Array.isArray(data.data)) {
+        return data.data as RevenueByBranch[];
+      }
+      // Check if data.data has branches property
+      if (data.data.branches && Array.isArray(data.data.branches)) {
+        return data.data.branches as RevenueByBranch[];
+      }
+    }
     if (Array.isArray(data)) return data as RevenueByBranch[];
-    if (data?.success && Array.isArray(data?.data)) return data.data as RevenueByBranch[];
     return [];
   },
 
@@ -101,13 +109,14 @@ const revenueService = {
       headers: getAuthHeader(),
     });
 
+    // Handle: {success: true, data: {branches: [...]}} OR {success: true, data: [...]}
     let data = response.data;
-    if (data?.data !== undefined) data = data.data;
-    if (!Array.isArray(data)) {
-      if (data?.success && Array.isArray(data?.data)) return data.data as BranchOverviewItem[];
-      throw new Error(data?.message || "Không lấy được dữ liệu tổng quan chi nhánh");
+    if (data?.data) {
+      if (Array.isArray(data.data)) return data.data as BranchOverviewItem[];
+      if (data.data.branches && Array.isArray(data.data.branches)) return data.data.branches as BranchOverviewItem[];
     }
-    return data as BranchOverviewItem[];
+    if (Array.isArray(data)) return data as BranchOverviewItem[];
+    throw new Error(data?.message || "Không lấy được dữ liệu tổng quan chi nhánh");
   },
 };
 
