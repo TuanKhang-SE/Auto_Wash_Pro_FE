@@ -82,6 +82,17 @@ type StaffStats = {
     total: number;
 };
 
+type StaffSchedule = {
+    ScheduleID: number;
+    WorkDate: string;
+    Status?: string | null;
+    Shifts?: {
+        ShiftName?: string | null;
+        StartTime?: string | null;
+        EndTime?: string | null;
+    } | null;
+};
+
 type PaymentMethod = "CASH" | "BANK_TRANSFER" | "VNPAY";
 
 type PaymentTransaction = {
@@ -164,6 +175,27 @@ function getLocalDateValue(date = new Date()) {
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
+}
+
+function timeToMinutes(value: string | null | undefined) {
+    if (!value) return null;
+    const text = String(value);
+    const timePart = text.includes("T") ? text.substring(11, 16) : text.substring(0, 5);
+    const [hours, minutes] = timePart.split(":").map(Number);
+    if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return null;
+    return hours * 60 + minutes;
+}
+
+function isNowInsideShift(schedule: StaffSchedule, now = new Date()) {
+    const start = timeToMinutes(schedule.Shifts?.StartTime);
+    const end = timeToMinutes(schedule.Shifts?.EndTime);
+    if (start === null || end === null) return false;
+
+    const current = now.getHours() * 60 + now.getMinutes();
+    // Hỗ trợ cả ca qua đêm, ví dụ 22:00 - 06:00.
+    return start <= end
+        ? current >= start && current <= end
+        : current >= start || current <= end;
 }
 
 function formatSelectedDate(value: string) {
@@ -379,6 +411,22 @@ const StaffBookings = () => {
     const [isLoadingServices, setIsLoadingServices] = useState(false);
     const [isSavingServices, setIsSavingServices] = useState(false);
     const [serviceError, setServiceError] = useState("");
+    const [staffSchedules, setStaffSchedules] = useState<StaffSchedule[]>([]);
+    const [accessNow, setAccessNow] = useState(() => new Date());
+    const [isLoadingShift, setIsLoadingShift] = useState(false);
+
+    const isSelectedToday = selectedDate === getLocalDateValue(accessNow);
+    const activeShift = staffSchedules.find(
+        (schedule) =>
+            String(schedule.Status || "Active").toLowerCase() === "active" &&
+            isNowInsideShift(schedule, accessNow)
+    );
+    const canOperate = isSelectedToday && Boolean(activeShift);
+    const operationDisabledReason = !isSelectedToday
+        ? "Chỉ được thao tác booking trong ngày hiện tại"
+        : staffSchedules.length === 0
+            ? "Bạn chưa được xếp ca làm hôm nay"
+            : "Chỉ được thao tác trong đúng khung giờ ca làm được phân công";
 
     const [stats, setStats] = useState<StaffStats>({
         waiting: 0,
@@ -389,9 +437,38 @@ const StaffBookings = () => {
 
     useEffect(() => {
         fetchBookings();
+        fetchStaffSchedules(selectedDate);
         // Chỉ tải ngày mặc định một lần khi mở trang.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    useEffect(() => {
+        const timer = window.setInterval(() => setAccessNow(new Date()), 30_000);
+        return () => window.clearInterval(timer);
+    }, []);
+
+    async function fetchStaffSchedules(workDate: string) {
+        const token = localStorage.getItem("token");
+        if (!token) {
+            setStaffSchedules([]);
+            return;
+        }
+
+        try {
+            setIsLoadingShift(true);
+            const response = await axiosClient.get("/api/staff-schedules", {
+                headers: { Authorization: `Bearer ${token}` },
+                params: { from: workDate, to: workDate, Status: "Active" },
+            });
+            setStaffSchedules(response.data?.data || []);
+            setAccessNow(new Date());
+        } catch (error) {
+            setStaffSchedules([]);
+            setMessage(getErrorMessage(error));
+        } finally {
+            setIsLoadingShift(false);
+        }
+    }
 
     async function fetchBookings(silent = false, bookingDate = selectedDate) {
         try {
@@ -444,6 +521,11 @@ const StaffBookings = () => {
     }
 
     async function updateItemStatus(bookingItemId: number, status: string) {
+        if (!canOperate) {
+            setMessage(operationDisabledReason);
+            return;
+        }
+
         try {
             setMessage("");
             setUpdatingItemId(bookingItemId);
@@ -515,7 +597,11 @@ const StaffBookings = () => {
     async function handleDateChange(value: string) {
         const nextDate = value || getLocalDateValue();
         setSelectedDate(nextDate);
-        await fetchBookings(false, nextDate);
+        setAccessNow(new Date());
+        await Promise.all([
+            fetchBookings(false, nextDate),
+            fetchStaffSchedules(nextDate),
+        ]);
     }
 
     function getAuthHeader() {
@@ -528,6 +614,11 @@ const StaffBookings = () => {
         item: BookingItem,
         mode: "add" | "edit"
     ) {
+        if (!canOperate) {
+            setMessage(operationDisabledReason);
+            return;
+        }
+
         if (item.Status !== "CheckedIn") {
             setMessage("Chỉ có thể thay đổi dịch vụ khi xe đang ở bước Check-in");
             return;
@@ -581,6 +672,11 @@ const StaffBookings = () => {
     async function saveServices() {
         if (!serviceEditor) return;
 
+        if (!canOperate) {
+            setServiceError(operationDisabledReason);
+            return;
+        }
+
         if (selectedServiceIds.length === 0) {
             setServiceError(
                 serviceEditor.mode === "add"
@@ -625,6 +721,11 @@ const StaffBookings = () => {
     }
 
     async function deleteService(item: BookingItem, serviceId: number) {
+        if (!canOperate) {
+            setMessage(operationDisabledReason);
+            return;
+        }
+
         const currentServiceIds = Array.from(
             new Set(item.ServiceLineItems?.map((line) => line.ServiceID) || [])
         );
@@ -920,6 +1021,20 @@ const StaffBookings = () => {
                 </label>
             </div>
 
+            <div
+                className={`rounded-xl border px-4 py-3 text-sm ${
+                    canOperate
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-amber-200 bg-amber-50 text-amber-800"
+                }`}
+            >
+                {isLoadingShift
+                    ? "Đang kiểm tra ca làm việc..."
+                    : canOperate
+                        ? `Được phép thao tác · ${activeShift?.Shifts?.ShiftName || "Ca được phân công"} (${formatTime(activeShift?.Shifts?.StartTime)} - ${formatTime(activeShift?.Shifts?.EndTime)})`
+                        : operationDisabledReason}
+            </div>
+
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
                 <StatCard
                     title="Xe chờ xử lý"
@@ -1062,13 +1177,16 @@ const StaffBookings = () => {
                                                                                 type="button"
                                                                                 onClick={() => deleteService(item, line.ServiceID)}
                                                                                 disabled={
+                                                                                    !canOperate ||
                                                                                     (item.ServiceLineItems?.length || 0) <= 1 ||
                                                                                     isItemUpdating(item.BookingItemID)
                                                                                 }
                                                                                 title={
-                                                                                    (item.ServiceLineItems?.length || 0) <= 1
-                                                                                        ? "Xe phải còn ít nhất một dịch vụ"
-                                                                                        : "Xóa dịch vụ"
+                                                                                    !canOperate
+                                                                                        ? operationDisabledReason
+                                                                                        : (item.ServiceLineItems?.length || 0) <= 1
+                                                                                            ? "Xe phải còn ít nhất một dịch vụ"
+                                                                                            : "Xóa dịch vụ"
                                                                                 }
                                                                                 className="rounded-full p-0.5 text-sky-500 hover:bg-red-100 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30"
                                                                             >
@@ -1092,7 +1210,8 @@ const StaffBookings = () => {
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => openServiceEditor(booking, item, "add")}
-                                                                        disabled={isItemUpdating(item.BookingItemID)}
+                                                                        disabled={!canOperate || isItemUpdating(item.BookingItemID)}
+                                                                        title={!canOperate ? operationDisabledReason : "Thêm dịch vụ"}
                                                                         className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
                                                                     >
                                                                         <Plus size={14} /> Thêm dịch vụ
@@ -1100,7 +1219,8 @@ const StaffBookings = () => {
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => openServiceEditor(booking, item, "edit")}
-                                                                        disabled={isItemUpdating(item.BookingItemID)}
+                                                                        disabled={!canOperate || isItemUpdating(item.BookingItemID)}
+                                                                        title={!canOperate ? operationDisabledReason : "Sửa dịch vụ"}
                                                                         className="inline-flex items-center gap-1 rounded-lg border border-amber-300 px-3 py-1.5 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50"
                                                                     >
                                                                         <Pencil size={14} /> Sửa dịch vụ
@@ -1110,6 +1230,7 @@ const StaffBookings = () => {
                                                             <button
                                                                 type="button"
                                                                 disabled={
+                                                                    !canOperate ||
                                                                     item.Status !== "Pending" ||
                                                                     isItemUpdating(item.BookingItemID)
                                                                 }
@@ -1129,6 +1250,7 @@ const StaffBookings = () => {
                                                             <button
                                                                 type="button"
                                                                 disabled={
+                                                                    !canOperate ||
                                                                     item.Status !== "CheckedIn" ||
                                                                     isItemUpdating(item.BookingItemID)
                                                                 }
@@ -1148,6 +1270,7 @@ const StaffBookings = () => {
                                                             <button
                                                                 type="button"
                                                                 disabled={
+                                                                    !canOperate ||
                                                                     item.Status !== "InProgress" ||
                                                                     isItemUpdating(item.BookingItemID)
                                                                 }
