@@ -28,8 +28,9 @@ import branchConfigService, {
 } from "../../services/branchConfigService";
 import userService, { type User } from "../../services/userService";
 import revenueService from "../../services/revenueService";
+import reviewService from "../../services/reviewService";
 import { getErrorMessage } from "../../api/axiosClient";
-import { validatePhone } from "../../utils/validation";
+import { validatePhone, validateBranchName } from "../../utils/validation";
 
 interface BranchDetail {
   branchID: number;
@@ -47,6 +48,7 @@ interface BranchDetail {
   revenue: number;
   occupancy: number;
   rating: number;
+  totalReviews: number;
 }
 
 interface CreateBranchForm {
@@ -143,7 +145,7 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
   // Lấy song song danh sách chi nhánh, user và doanh thu từ backend, sau đó
   // tổng hợp (enrich) thành danh sách BranchDetail với thông tin Manager,
   // số Staff active cho mỗi chi nhánh để hiển thị trên trang quản lý
-  const fetchData = useCallback(async () => { 
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -151,7 +153,16 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
         branchService.getAllBranches(), // GET /api/branches lấy danh sách chi nhánh
         userService.getAllUsers(), // GET /api/users lấy danh sách user
         revenueService.getRevenueByBranch({}), // GET /api/dashboard/revenue-by-branch lấy doanh thu theo chi nhánh
-      ]); 
+      ]);
+
+      // Fetch rating stats cho tất cả chi nhánh
+      const ratingPromises = branchList.map((b) =>
+        reviewService.getBranchRatingStats(b.BranchID).catch(() => ({
+          totalRating: 0,
+          totalReviews: 0,
+        }))
+      );
+      const ratingResults = await Promise.all(ratingPromises);
 
       // Debug: log response structure
       console.log("[AdminBranches] revenueRes:", revenueRes);
@@ -175,20 +186,21 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
 
       // Map danh sách chi nhánh và danh sách user để tạo danh sách BranchDetail
       // BranchDetail là interface chứa thông tin chi nhánh và thông tin manager, staff
-      const enriched: BranchDetail[] = branchList.map((b) => { // Map danh sách chi nhánh
+      const enriched: BranchDetail[] = branchList.map((b, index) => { // Map danh sách chi nhánh
         const branchUsers = userList.filter( // Lọc danh sách user theo BranchID
           (u: User) => u.BranchID === b.BranchID
         );
         const manager = branchUsers.find((u: User) => u.Role === "Manager"); // Tìm manager theo Role
         const staff = branchUsers.filter( // Lọc danh sách staff theo Role và Status
-          (u: User) => u.Role === "Staff" && u.Status === "Active" 
+          (u: User) => u.Role === "Staff" && u.Status === "Active"
         );
 
         const branchRevenue = revenueMap.get(b.BranchID);
+        const ratingStats = ratingResults[index];
 
         return {
-          branchID: b.BranchID, 
-          branchName: b.BranchName, 
+          branchID: b.BranchID,
+          branchName: b.BranchName,
           address: b.Address ?? "Chưa cập nhật",
           phone: b.Phone ?? "Chưa cập nhật",
           openTime: parseTime(b.OpenTime),
@@ -207,7 +219,8 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
           monthBookings: branchRevenue?.totalBookings ?? 0,
           revenue: branchRevenue?.totalRevenue ?? 0,
           occupancy: 0,
-          rating: 0,
+          rating: ratingStats.totalRating,
+          totalReviews: ratingStats.totalReviews,
         };
       });
 
@@ -282,6 +295,11 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
       setCreateError("Tên chi nhánh không được để trống");
       return false;
     }
+    const branchNameResult = validateBranchName(createForm.BranchName);
+    if (!branchNameResult.success) {
+      setCreateError(branchNameResult.error?.issues[0]?.message ?? "Tên chi nhánh không hợp lệ");
+      return false;
+    }
     if (!createForm.Address.trim()) {
       setCreateError("Địa chỉ không được để trống");
       return false;
@@ -292,7 +310,7 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
     }
     const phoneResult = validatePhone(createForm.Phone);
     if (!phoneResult.success) {
-      setCreateError(phoneResult.error.issues[0].message);
+      setCreateError(phoneResult.error?.issues[0]?.message ?? "Số điện thoại không hợp lệ");
       return false;
     }
     if (!createForm.OpenTime.trim()) {
@@ -555,6 +573,11 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
       setEditError("Tên chi nhánh không được để trống");
       return false;
     }
+    const branchNameResult = validateBranchName(editForm.BranchName);
+    if (!branchNameResult.success) {
+      setEditError(branchNameResult.error?.issues[0]?.message ?? "Tên chi nhánh không hợp lệ");
+      return false;
+    }
     if (!editForm.Address.trim()) {
       setEditError("Địa chỉ không được để trống");
       return false;
@@ -565,7 +588,7 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
     }
     const phoneResult = validatePhone(editForm.Phone);
     if (!phoneResult.success) {
-      setEditError(phoneResult.error.issues[0].message);
+      setEditError(phoneResult.error?.issues[0]?.message ?? "Số điện thoại không hợp lệ");
       return false;
     }
     if (!editForm.OpenTime.trim()) {
@@ -1050,6 +1073,11 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
                           ? selectedBranch.rating.toFixed(1)
                           : "-"}
                       </p>
+                      {selectedBranch.totalReviews > 0 && (
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          ({selectedBranch.totalReviews} đánh giá)
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

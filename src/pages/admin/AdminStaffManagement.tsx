@@ -16,7 +16,7 @@ import {
 import userService, { type User } from "../../services/userService";
 import branchService, { type Branch } from "../../services/branchService";
 import { getErrorMessage } from "../../api/axiosClient";
-import { validatePhoneOptional } from "../../utils/validation";
+import { validatePhoneOptional, validateFullName } from "../../utils/validation";
 
 interface RegisterFormData {
   password: string;
@@ -186,6 +186,13 @@ const AdminStaffManagement = () => {
       return false;
     }
 
+    // Validate: họ tên không được chứa ký tự đặc biệt
+    const fullNameResult = validateFullName(formData.fullName);
+    if (!fullNameResult.success) {
+      setError(fullNameResult.error?.issues[0]?.message ?? "Họ tên không hợp lệ");
+      return false;
+    }
+
     if (trimmedEmail) {
       const duplicateEmail = allUsers.find(
         (u) => u.Email?.trim().toLowerCase() === trimmedEmail
@@ -210,7 +217,7 @@ const AdminStaffManagement = () => {
       }
       const phoneResult = validatePhoneOptional(formData.phone);
       if (!phoneResult.success) {
-        setError(phoneResult.error.issues[0].message);
+        setError(phoneResult.error?.issues[0]?.message ?? "Số điện thoại không hợp lệ");
         return false;
       }
     }
@@ -310,6 +317,13 @@ const AdminStaffManagement = () => {
       return;
     }
 
+    // Validate: họ tên không được chứa ký tự đặc biệt
+    const fullNameResult = validateFullName(editFormData.fullName);
+    if (!fullNameResult.success) {
+      setError(fullNameResult.error?.issues[0]?.message ?? "Họ tên không hợp lệ");
+      return;
+    }
+
     if (trimmedEmail) {
       const duplicateEmail = allUsers.find(
         (u) =>
@@ -338,7 +352,7 @@ const AdminStaffManagement = () => {
       }
       const phoneResult = validatePhoneOptional(editFormData.phone);
       if (!phoneResult.success) {
-        setError(phoneResult.error.issues[0].message);
+        setError(phoneResult.error?.issues[0]?.message ?? "Số điện thoại không hợp lệ");
         return;
       }
     }

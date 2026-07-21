@@ -15,7 +15,7 @@ import {
 import userService, { type User } from "../../services/userService";
 import branchService, { type Branch } from "../../services/branchService";
 import { getErrorMessage } from "../../api/axiosClient";
-import { validatePhoneOptional } from "../../utils/validation";
+import { validatePhoneOptional, validateFullName } from "../../utils/validation";
 interface RegisterFormData {
   password: string;
   confirmPassword: string;
@@ -142,6 +142,13 @@ const AdminManagerManagement = () => {
       return false;
     }
 
+    // Validate: họ tên không được chứa ký tự đặc biệt
+    const fullNameResult = validateFullName(formData.fullName);
+    if (!fullNameResult.success) {
+      setError(fullNameResult.error.issues[0].message);
+      return false;
+    }
+
     if (trimmedEmail) {
       const duplicateEmail = allUsers.find(
         (u) => u.Email?.trim().toLowerCase() === trimmedEmail
@@ -166,7 +173,7 @@ const AdminManagerManagement = () => {
       }
       const phoneResult = validatePhoneOptional(formData.phone);
       if (!phoneResult.success) {
-        setError(phoneResult.error.issues[0].message);
+        setError(phoneResult.error?.issues[0]?.message ?? "Số điện thoại không hợp lệ");
         return false;
       }
     }
@@ -265,6 +272,13 @@ const AdminManagerManagement = () => {
       return;
     }
 
+    // Validate: họ tên không được chứa ký tự đặc biệt
+    const fullNameResult = validateFullName(editFormData.fullName);
+    if (!fullNameResult.success) {
+      setError(fullNameResult.error.issues[0].message);
+      return;
+    }
+
     if (trimmedEmail) {
       const duplicateEmail = allUsers.find(
         (u) =>
@@ -293,7 +307,7 @@ const AdminManagerManagement = () => {
       }
       const phoneResult = validatePhoneOptional(editFormData.phone);
       if (!phoneResult.success) {
-        setError(phoneResult.error.issues[0].message);
+        setError(phoneResult.error?.issues[0]?.message ?? "Số điện thoại không hợp lệ");
         return;
       }
     }

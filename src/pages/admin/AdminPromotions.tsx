@@ -110,6 +110,12 @@ const AdminPromotions = () => {
       setFormError("Tên chương trình không được để trống");
       return false;
     }
+    // Validate: tên chương trình không được chứa ký tự đặc biệt
+    const specialCharPattern = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]+/;
+    if (specialCharPattern.test(form.PromotionName)) {
+      setFormError("Tên chương trình không được chứa ký tự đặc biệt (!@#$%^&*...)");
+      return false;
+    }
     if (form.DiscountValue.trim() === "") {
       setFormError("Phần trăm giảm giá không được để trống");
       return false;
