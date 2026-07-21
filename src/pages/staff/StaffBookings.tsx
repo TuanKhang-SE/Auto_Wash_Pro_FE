@@ -11,6 +11,7 @@ import {
     CreditCard,
     Pencil,
     Plus,
+    Star,
     Trash2,
     X,
 } from "lucide-react";
@@ -425,6 +426,12 @@ const StaffBookings = () => {
     const [isLoadingServices, setIsLoadingServices] = useState(false);
     const [isSavingServices, setIsSavingServices] = useState(false);
     const [serviceError, setServiceError] = useState("");
+    const [reviewBooking, setReviewBooking] = useState<StaffBooking | null>(null);
+    const [reviewRating, setReviewRating] = useState(5);
+    const [reviewComment, setReviewComment] = useState("");
+    const [reviewError, setReviewError] = useState("");
+    const [reviewSuccess, setReviewSuccess] = useState("");
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
     const [staffSchedules, setStaffSchedules] = useState<StaffSchedule[]>([]);
     const [accessNow, setAccessNow] = useState(() => new Date());
     const [isLoadingShift, setIsLoadingShift] = useState(false);
@@ -829,13 +836,29 @@ const StaffBookings = () => {
         }
     }
 
+    function openReviewModal(booking: StaffBooking) {
+        setReviewBooking(booking);
+        setReviewRating(5);
+        setReviewComment("");
+        setReviewError("");
+        setReviewSuccess("");
+    }
+
     function closePaymentModal() {
         if (isPreparingPayment || isPaying || isLoadingInvoice) return;
+
+        const paidBooking =
+            paymentTransaction?.Status === "Paid" ? paymentBooking : null;
+
         setPaymentBooking(null);
         setPaymentTransaction(null);
         setPaymentError("");
         setPaymentSuccess("");
         setInvoicePreviewHtml("");
+
+        if (paidBooking) {
+            openReviewModal(paidBooking);
+        }
     }
 
     async function showInvoicePreview(transactionId: number) {
@@ -917,6 +940,61 @@ const StaffBookings = () => {
     async function handleViewInvoice() {
         if (!paymentTransaction) return;
         await showInvoicePreview(paymentTransaction.TransactionID);
+    }
+
+    function closeInvoiceAndOpenReview() {
+        const completedBooking = paymentBooking;
+
+        setInvoicePreviewHtml("");
+        setPaymentBooking(null);
+        setPaymentTransaction(null);
+        setPaymentError("");
+        setPaymentSuccess("");
+
+        if (completedBooking) {
+            openReviewModal(completedBooking);
+        }
+    }
+
+    function closeReviewModal() {
+        if (isSubmittingReview) return;
+
+        setReviewBooking(null);
+        setReviewRating(5);
+        setReviewComment("");
+        setReviewError("");
+        setReviewSuccess("");
+    }
+
+    async function submitReview() {
+        if (!reviewBooking) return;
+
+        const headers = getAuthHeader();
+        if (!headers) {
+            setReviewError("Bạn cần đăng nhập bằng tài khoản Staff");
+            return;
+        }
+
+        try {
+            setIsSubmittingReview(true);
+            setReviewError("");
+
+            await axiosClient.post(
+                "/api/reviews",
+                {
+                    bookingGroupId: reviewBooking.BookingGroupID,
+                    rating: reviewRating,
+                    comment: reviewComment.trim() || undefined,
+                },
+                { headers }
+            );
+
+            setReviewSuccess("Đã ghi nhận đánh giá của khách hàng. Cảm ơn bạn!");
+        } catch (error) {
+            setReviewError(getErrorMessage(error));
+        } finally {
+            setIsSubmittingReview(false);
+        }
     }
 
     async function handlePayment() {
@@ -1631,7 +1709,7 @@ const StaffBookings = () => {
                             </div>
                             <button
                                 type="button"
-                                onClick={() => setInvoicePreviewHtml("")}
+                                onClick={closeInvoiceAndOpenReview}
                                 className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                                 aria-label="Đóng bản xem hóa đơn"
                             >
@@ -1649,11 +1727,126 @@ const StaffBookings = () => {
                         <div className="flex justify-end border-t border-slate-200 px-5 py-3">
                             <button
                                 type="button"
-                                onClick={() => setInvoicePreviewHtml("")}
+                                onClick={closeInvoiceAndOpenReview}
                                 className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900"
                             >
                                 Đóng bản xem
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {reviewBooking && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-4">
+                    <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+                        <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-900">
+                                    Đánh giá dịch vụ
+                                </h2>
+                                <p className="mt-1 text-sm text-slate-500">
+                                    {reviewBooking.BookingCode} · {reviewBooking.Customers?.Users?.FullName || "Khách hàng"}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={closeReviewModal}
+                                disabled={isSubmittingReview}
+                                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+                                aria-label="Đóng bảng đánh giá"
+                            >
+                                <X size={21} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-5 px-6 py-5">
+                            {reviewSuccess ? (
+                                <div className="rounded-xl bg-emerald-50 px-4 py-4 text-center text-sm font-medium text-emerald-700">
+                                    {reviewSuccess}
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="text-center">
+                                        <p className="text-sm font-semibold text-slate-700">
+                                            Khách hàng hài lòng ở mức nào?
+                                        </p>
+                                        <div className="mt-3 flex justify-center gap-2">
+                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                <button
+                                                    key={star}
+                                                    type="button"
+                                                    onClick={() => setReviewRating(star)}
+                                                    disabled={isSubmittingReview}
+                                                    className="rounded-lg p-1 transition hover:scale-110 disabled:opacity-50"
+                                                    aria-label={`${star} sao`}
+                                                >
+                                                    <Star
+                                                        size={34}
+                                                        className={
+                                                            star <= reviewRating
+                                                                ? "fill-amber-400 text-amber-400"
+                                                                : "text-slate-300"
+                                                        }
+                                                    />
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <p className="mt-2 text-sm font-medium text-amber-600">
+                                            {reviewRating}/5 sao
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <label
+                                            htmlFor="staff-review-comment"
+                                            className="mb-2 block text-sm font-semibold text-slate-700"
+                                        >
+                                            Nhận xét của khách hàng
+                                        </label>
+                                        <textarea
+                                            id="staff-review-comment"
+                                            value={reviewComment}
+                                            onChange={(event) => setReviewComment(event.target.value)}
+                                            disabled={isSubmittingReview}
+                                            rows={4}
+                                            maxLength={1000}
+                                            placeholder="Nhập cảm nhận về chất lượng phục vụ..."
+                                            className="w-full resize-none rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50"
+                                        />
+                                        <p className="mt-1 text-right text-xs text-slate-400">
+                                            {reviewComment.length}/1000
+                                        </p>
+                                    </div>
+                                </>
+                            )}
+
+                            {reviewError && (
+                                <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                                    {reviewError}
+                                </div>
+                            )}
+
+                            <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={closeReviewModal}
+                                    disabled={isSubmittingReview}
+                                    className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                                >
+                                    {reviewSuccess ? "Hoàn tất" : "Bỏ qua"}
+                                </button>
+                                {!reviewSuccess && (
+                                    <button
+                                        type="button"
+                                        onClick={submitReview}
+                                        disabled={isSubmittingReview}
+                                        className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {isSubmittingReview ? "Đang gửi..." : "Gửi đánh giá"}
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
