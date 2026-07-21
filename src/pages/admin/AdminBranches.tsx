@@ -46,7 +46,6 @@ interface BranchDetail {
   todayBookings: number;
   monthBookings: number;
   revenue: number;
-  occupancy: number;
   rating: number;
   totalReviews: number;
 }
@@ -155,14 +154,17 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
         revenueService.getRevenueByBranch({}), // GET /api/dashboard/revenue-by-branch lấy doanh thu theo chi nhánh
       ]);
 
-      // Fetch rating stats cho tất cả chi nhánh
       const ratingPromises = branchList.map((b) =>
-        reviewService.getBranchRatingStats(b.BranchID).catch(() => ({
-          totalRating: 0,
-          totalReviews: 0,
-        }))
+        reviewService.getBranchRatingStats(b.BranchID).catch((err) => {
+          console.error(`[AdminBranches] Rating stats error for branch ${b.BranchID}:`, err);
+          return {
+            totalRating: 0,
+            totalReviews: 0,
+          };
+        })
       );
       const ratingResults = await Promise.all(ratingPromises);
+      console.log("[AdminBranches] Rating results:", ratingResults);
 
       // Debug: log response structure
       console.log("[AdminBranches] revenueRes:", revenueRes);
@@ -197,9 +199,6 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
 
         const branchRevenue = revenueMap.get(b.BranchID);
         const ratingStats = ratingResults[index];
-        const averageRating = ratingStats.totalReviews > 0
-          ? ratingStats.totalRating / ratingStats.totalReviews
-          : 0;
 
         return {
           branchID: b.BranchID,
@@ -221,8 +220,7 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
           todayBookings: 0,
           monthBookings: branchRevenue?.totalBookings ?? 0,
           revenue: branchRevenue?.totalRevenue ?? 0,
-          occupancy: 0,
-          rating: averageRating,
+          rating: ratingStats.totalRating,
           totalReviews: ratingStats.totalReviews,
         };
       });
@@ -1122,18 +1120,6 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
                     <p className="text-lg font-bold text-emerald-600">
                       {selectedBranch.revenue > 0
                         ? formatCurrency(selectedBranch.revenue)
-                        : "-"}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-amber-50 to-white p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <TrendingUp size={16} className="text-amber-600" />
-                      <p className="text-xs text-slate-600">Công suất</p>
-                    </div>
-                    <p className="text-2xl font-bold text-amber-600">
-                      {selectedBranch.occupancy > 0
-                        ? `${selectedBranch.occupancy}%`
                         : "-"}
                     </p>
                   </div>

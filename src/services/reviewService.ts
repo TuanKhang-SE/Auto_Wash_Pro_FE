@@ -13,14 +13,15 @@ const getAuthHeader = () => {
 const reviewService = {
   async getBranchRatingStats(branchId: number): Promise<BranchRatingStats> {
     const response = await axiosClient.get(
-      `/api/reviews/branch/${branchId}/rating-stats`,
+      `/api/reviews/branch/${branchId}`,
       {
         headers: getAuthHeader(),
       }
     );
+    console.log(`[ReviewService] Rating stats for branch ${branchId}:`, response.data);
     if (response.data?.success) {
       return {
-        totalRating: response.data.data?.totalRating ?? 0,
+        totalRating: response.data.data?.averageRating ?? 0,
         totalReviews: response.data.data?.totalReviews ?? 0,
       };
     }
