@@ -104,7 +104,7 @@ function LoginPage() {
         {/* Nút quay lại */}
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/")}
           className="mb-4 text-sm font-medium text-gray-600 transition hover:text-blue-600"
         >
           ← Quay lại

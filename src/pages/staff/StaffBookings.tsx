@@ -9,9 +9,11 @@ import {
     Banknote,
     Landmark,
     CreditCard,
+    Gift,
     Pencil,
     Plus,
     Star,
+    TicketPercent,
     Trash2,
     X,
 } from "lucide-react";
@@ -103,6 +105,32 @@ type PaymentTransaction = {
     DiscountAmount: number | string | null;
     FinalAmount: number | string | null;
     Status: string | null;
+    AppliedDiscounts?: Array<{
+        DiscountType?: string | null;
+        ReferenceID?: number | null;
+        PromotionID?: number | null;
+        DiscountName?: string | null;
+    }>;
+};
+
+type PromotionOption = {
+    PromotionID: number;
+    PromotionName: string;
+    BranchID?: number | null;
+    DiscountType?: "PERCENTAGE" | "FIXED_AMOUNT" | string;
+    DiscountValue?: number | string | null;
+};
+
+type RewardRedemptionOption = {
+    RedemptionID: number;
+    RedeemedAt?: string | null;
+    Status?: string | null;
+    Rewards?: {
+        RewardName?: string | null;
+        DiscountValue?: number | string | null;
+        ValidDays?: number | null;
+        Status?: string | null;
+    } | null;
 };
 
 type InvoiceRecord = {
@@ -416,6 +444,11 @@ const StaffBookings = () => {
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
     const [paymentError, setPaymentError] = useState("");
     const [paymentSuccess, setPaymentSuccess] = useState("");
+    const [promotionOptions, setPromotionOptions] = useState<PromotionOption[]>([]);
+    const [rewardOptions, setRewardOptions] = useState<RewardRedemptionOption[]>([]);
+    const [selectedDiscountOption, setSelectedDiscountOption] = useState("");
+    const [appliedDiscountLabel, setAppliedDiscountLabel] = useState("");
+    const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
     const [isPreparingPayment, setIsPreparingPayment] = useState(false);
     const [isPaying, setIsPaying] = useState(false);
     const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
@@ -644,6 +677,25 @@ const StaffBookings = () => {
         return token ? { Authorization: `Bearer ${token}` } : null;
     }
 
+    async function loadPaymentDiscountOptions(
+        transactionId: number,
+        headers: { Authorization: string }
+    ) {
+        try {
+            const response = await axiosClient.get(
+                `/api/transactions/${transactionId}/discount-options`,
+                { headers, params: { _: Date.now() } }
+            );
+            const data = response.data?.data || {};
+            setPromotionOptions(Array.isArray(data.promotions) ? data.promotions : []);
+            setRewardOptions(Array.isArray(data.rewards) ? data.rewards : []);
+        } catch (error) {
+            setPromotionOptions([]);
+            setRewardOptions([]);
+            setPaymentError(`Không thể tải ưu đãi: ${getErrorMessage(error)}`);
+        }
+    }
+
     async function openServiceEditor(
         booking: StaffBooking,
         item: BookingItem,
@@ -809,6 +861,10 @@ const StaffBookings = () => {
         setPaymentMethod("CASH");
         setPaymentError("");
         setPaymentSuccess("");
+        setPromotionOptions([]);
+        setRewardOptions([]);
+        setSelectedDiscountOption("");
+        setAppliedDiscountLabel("");
         setIsPreparingPayment(true);
 
         try {
@@ -829,10 +885,98 @@ const StaffBookings = () => {
             }
 
             setPaymentTransaction(transaction);
+            const appliedDiscount = transaction.AppliedDiscounts?.find(
+                (discount) =>
+                    discount.DiscountType === "PROMOTION" || discount.DiscountType === "REWARD"
+            );
+            setAppliedDiscountLabel(appliedDiscount?.DiscountName || "");
+            setSelectedDiscountOption(
+                appliedDiscount?.DiscountType === "PROMOTION" && appliedDiscount.PromotionID
+                    ? `promotion:${appliedDiscount.PromotionID}`
+                    : appliedDiscount?.DiscountType === "REWARD" && appliedDiscount.ReferenceID
+                      ? `reward:${appliedDiscount.ReferenceID}`
+                      : ""
+            );
+            await loadPaymentDiscountOptions(transaction.TransactionID, headers);
         } catch (error) {
             setPaymentError(getErrorMessage(error));
         } finally {
             setIsPreparingPayment(false);
+        }
+    }
+
+    async function applySelectedDiscount() {
+        if (!paymentTransaction || !selectedDiscountOption) return;
+
+        const headers = getAuthHeader();
+        if (!headers) {
+            setPaymentError("Bạn cần đăng nhập bằng tài khoản Staff");
+            return;
+        }
+
+        const [kind, rawId] = selectedDiscountOption.split(":");
+        const id = Number(rawId);
+        if ((kind !== "promotion" && kind !== "reward") || !Number.isInteger(id) || id <= 0) {
+            setPaymentError("Ưu đãi đã chọn không hợp lệ");
+            return;
+        }
+
+        try {
+            setIsApplyingDiscount(true);
+            setPaymentError("");
+            const response =
+                kind === "promotion"
+                    ? await axiosClient.post(
+                          `/api/transactions/${paymentTransaction.TransactionID}/apply-discount`,
+                          { promotionId: id },
+                          { headers }
+                      )
+                    : await axiosClient.post(
+                          `/api/transactions/${paymentTransaction.TransactionID}/apply-reward`,
+                          { redemptionId: id },
+                          { headers }
+                      );
+
+            const updatedTransaction = response.data?.data as PaymentTransaction | undefined;
+            if (updatedTransaction) setPaymentTransaction(updatedTransaction);
+
+            const label =
+                kind === "promotion"
+                    ? promotionOptions.find((option) => option.PromotionID === id)?.PromotionName
+                    : rewardOptions.find((option) => option.RedemptionID === id)?.Rewards?.RewardName;
+            setAppliedDiscountLabel(label || "Ưu đãi đã chọn");
+        } catch (error) {
+            setPaymentError(getErrorMessage(error));
+        } finally {
+            setIsApplyingDiscount(false);
+        }
+    }
+
+    async function removeSelectedDiscount() {
+        if (!paymentTransaction) return;
+
+        const headers = getAuthHeader();
+        if (!headers) {
+            setPaymentError("Bạn cần đăng nhập bằng tài khoản Staff");
+            return;
+        }
+
+        try {
+            setIsApplyingDiscount(true);
+            setPaymentError("");
+            const response = await axiosClient.delete(
+                `/api/transactions/${paymentTransaction.TransactionID}/discount`,
+                { headers }
+            );
+            const updatedTransaction = response.data?.data as PaymentTransaction | undefined;
+            if (updatedTransaction) setPaymentTransaction(updatedTransaction);
+            setSelectedDiscountOption("");
+            setAppliedDiscountLabel("");
+            await loadPaymentDiscountOptions(paymentTransaction.TransactionID, headers);
+        } catch (error) {
+            setPaymentError(getErrorMessage(error));
+        } finally {
+            setIsApplyingDiscount(false);
         }
     }
 
@@ -845,7 +989,7 @@ const StaffBookings = () => {
     }
 
     function closePaymentModal() {
-        if (isPreparingPayment || isPaying || isLoadingInvoice) return;
+        if (isPreparingPayment || isPaying || isLoadingInvoice || isApplyingDiscount) return;
 
         const paidBooking =
             paymentTransaction?.Status === "Paid" ? paymentBooking : null;
@@ -855,6 +999,10 @@ const StaffBookings = () => {
         setPaymentError("");
         setPaymentSuccess("");
         setInvoicePreviewHtml("");
+        setPromotionOptions([]);
+        setRewardOptions([]);
+        setSelectedDiscountOption("");
+        setAppliedDiscountLabel("");
 
         if (paidBooking) {
             openReviewModal(paidBooking);
@@ -1553,7 +1701,7 @@ const StaffBookings = () => {
                             <button
                                 type="button"
                                 onClick={closePaymentModal}
-                                disabled={isPreparingPayment || isPaying || isLoadingInvoice}
+                                disabled={isPreparingPayment || isPaying || isLoadingInvoice || isApplyingDiscount}
                                 className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
                                 aria-label="Đóng"
                             >
@@ -1585,6 +1733,86 @@ const StaffBookings = () => {
                                             </span>
                                         </div>
                                     </div>
+
+                                    {paymentTransaction.Status !== "Paid" && !paymentSuccess && (
+                                        <div className="rounded-xl border border-slate-200 p-4">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <p className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                                    <TicketPercent size={18} className="text-emerald-600" />
+                                                    Mã giảm giá hoặc voucher
+                                                </p>
+                                                {appliedDiscountLabel && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={removeSelectedDiscount}
+                                                        disabled={isApplyingDiscount}
+                                                        className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
+                                                    >
+                                                        Gỡ ưu đãi
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {appliedDiscountLabel ? (
+                                                <div className="mt-3 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+                                                    <Gift size={16} /> Đã áp dụng: {appliedDiscountLabel}
+                                                </div>
+                                            ) : (
+                                                <div className="mt-3 flex gap-2">
+                                                    <select
+                                                        value={selectedDiscountOption}
+                                                        onChange={(event) => setSelectedDiscountOption(event.target.value)}
+                                                        disabled={isApplyingDiscount}
+                                                        className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                                                    >
+                                                        <option value="">Không dùng thêm ưu đãi</option>
+                                                        {promotionOptions.length > 0 && (
+                                                            <optgroup label="Khuyến mãi đang chạy">
+                                                                {promotionOptions.map((promotion) => (
+                                                                    <option
+                                                                        key={promotion.PromotionID}
+                                                                        value={`promotion:${promotion.PromotionID}`}
+                                                                    >
+                                                                        {promotion.PromotionName} ({
+                                                                            promotion.DiscountType === "PERCENTAGE"
+                                                                                ? `${promotion.DiscountValue}%`
+                                                                                : formatMoney(promotion.DiscountValue)
+                                                                        })
+                                                                    </option>
+                                                                ))}
+                                                            </optgroup>
+                                                        )}
+                                                        {rewardOptions.length > 0 && (
+                                                            <optgroup label="Voucher của khách hàng">
+                                                                {rewardOptions.map((redemption) => (
+                                                                    <option
+                                                                        key={redemption.RedemptionID}
+                                                                        value={`reward:${redemption.RedemptionID}`}
+                                                                    >
+                                                                        {redemption.Rewards?.RewardName || `Voucher #${redemption.RedemptionID}`} (-{formatMoney(redemption.Rewards?.DiscountValue)})
+                                                                    </option>
+                                                                ))}
+                                                            </optgroup>
+                                                        )}
+                                                    </select>
+                                                    <button
+                                                        type="button"
+                                                        onClick={applySelectedDiscount}
+                                                        disabled={!selectedDiscountOption || isApplyingDiscount}
+                                                        className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        {isApplyingDiscount ? "Đang áp dụng..." : "Áp dụng"}
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {promotionOptions.length === 0 && rewardOptions.length === 0 && (
+                                                <p className="mt-2 text-xs text-slate-500">
+                                                    Hiện không có mã giảm giá hoặc voucher khả dụng cho khách hàng này.
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
 
                                     {paymentTransaction.Status !== "Paid" && !paymentSuccess && (
                                         <div>
@@ -1630,7 +1858,7 @@ const StaffBookings = () => {
                                         <button
                                             type="button"
                                             onClick={closePaymentModal}
-                                            disabled={isPaying || isLoadingInvoice}
+                                            disabled={isPaying || isLoadingInvoice || isApplyingDiscount}
                                             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                                         >
                                             {paymentSuccess ? "Đóng" : "Thanh toán sau"}
@@ -1655,7 +1883,7 @@ const StaffBookings = () => {
                                             <button
                                                 type="button"
                                                 onClick={handlePayment}
-                                                disabled={isPaying}
+                                                disabled={isPaying || isApplyingDiscount}
                                                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
                                             >
                                                 {isPaying
