@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { DollarSign, Landmark, CreditCard, MoreHorizontal, TrendingUp } from "lucide-react";
+import { DollarSign, Landmark, CreditCard, TrendingUp } from "lucide-react";
 import revenueService, { type DailyCashflowItem } from "../../services/revenueService";
 import branchService, { type Branch } from "../../services/branchService";
 
@@ -13,7 +13,7 @@ const AdminRevenue = () => {
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [dailyData, setDailyData] = useState<DailyCashflowItem[]>([]);
-  const [summary, setSummary] = useState({ totalCash: 0, totalTransfer: 0, totalOther: 0, total: 0 });
+  const [summary, setSummary] = useState({ totalCash: 0, totalTransfer: 0, total: 0 });
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -110,7 +110,7 @@ const AdminRevenue = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -138,21 +138,6 @@ const AdminRevenue = () => {
           </div>
           <p className="mt-2 text-xs text-slate-500">
             {summary.total > 0 ? Math.round((summary.totalTransfer / summary.total) * 100) : 0}% tổng doanh thu
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500">Khác</p>
-              <p className="mt-2 text-xl font-bold text-slate-800">{formatCurrency(summary.totalOther)}</p>
-            </div>
-            <div className="rounded-lg bg-purple-100 p-3">
-              <MoreHorizontal size={24} className="text-purple-600" />
-            </div>
-          </div>
-          <p className="mt-2 text-xs text-slate-500">
-            {summary.total > 0 ? Math.round((summary.totalOther / summary.total) * 100) : 0}% tổng doanh thu
           </p>
         </div>
 
@@ -197,7 +182,6 @@ const AdminRevenue = () => {
                   <th className="px-4 py-3">Ngày</th>
                   <th className="px-4 py-3 text-right">Tiền mặt</th>
                   <th className="px-4 py-3 text-right">Chuyển khoản</th>
-                  <th className="px-4 py-3 text-right">Khác</th>
                   <th className="px-4 py-3 text-right">Tổng</th>
                 </tr>
               </thead>
@@ -207,7 +191,6 @@ const AdminRevenue = () => {
                     <td className="px-4 py-3.5 font-medium text-slate-800">{formatDate(item.date)}</td>
                     <td className="px-4 py-3.5 text-right text-emerald-600">{formatCurrency(item.cash)}</td>
                     <td className="px-4 py-3.5 text-right text-blue-600">{formatCurrency(item.transfer)}</td>
-                    <td className="px-4 py-3.5 text-right text-purple-600">{formatCurrency(item.other)}</td>
                     <td className="px-4 py-3.5 text-right font-semibold text-slate-800">{formatCurrency(item.total)}</td>
                   </tr>
                 ))}
@@ -217,7 +200,6 @@ const AdminRevenue = () => {
                   <td className="px-4 py-3 text-slate-700">Tổng cộng</td>
                   <td className="px-4 py-3 text-right text-emerald-700">{formatCurrency(summary.totalCash)}</td>
                   <td className="px-4 py-3 text-right text-blue-700">{formatCurrency(summary.totalTransfer)}</td>
-                  <td className="px-4 py-3 text-right text-purple-700">{formatCurrency(summary.totalOther)}</td>
                   <td className="px-4 py-3 text-right text-rose-700">{formatCurrency(summary.total)}</td>
                 </tr>
               </tfoot>

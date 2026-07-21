@@ -53,6 +53,7 @@ const formatDate = (dateStr: string): string => {
   });
 };
 
+// AdminCustomers là trang quản lý khách hàng
 const AdminCustomers = () => { 
   const [customers, setCustomers] = useState<CustomerDetail[]>([]); 
   const [tierConfigs, setTierConfigs] = useState<TierConfig[]>([]);
@@ -76,7 +77,7 @@ const AdminCustomers = () => {
       const tierMap = new Map<number, TierConfig>();
       tiers.forEach((t) => tierMap.set(t.TierID, t));
 
-      const enriched: CustomerDetail[] = customerList.map((c) => {
+      const enriched: CustomerDetail[] = customerList.map((c) => { // Map danh sách khách hàng
         const tc = c.loyalty?.tierId ? tierMap.get(c.loyalty.tierId) : null;
         return {
           ...c,
@@ -258,7 +259,7 @@ const AdminCustomers = () => {
                 <p className="text-xs text-slate-500">Chưa có hạng</p>
               </div>
               <p className="text-2xl font-bold text-slate-800">
-                {customers.filter((c) => c.loyalty.tierId === null).length}
+                {customers.filter((c) => c.loyalty?.tierId === null).length}
               </p>
             </div>
           </div>

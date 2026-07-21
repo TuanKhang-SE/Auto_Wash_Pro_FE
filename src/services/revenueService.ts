@@ -4,7 +4,6 @@ export interface DailyCashflowItem {
   date: string;
   cash: number;
   transfer: number;
-  other: number;
   total: number;
 }
 
@@ -13,7 +12,6 @@ export interface CashflowResponse {
   summary: {
     totalCash: number;
     totalTransfer: number;
-    totalOther: number;
     total: number;
   };
 }
