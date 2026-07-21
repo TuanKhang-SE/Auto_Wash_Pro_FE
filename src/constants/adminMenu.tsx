@@ -10,6 +10,7 @@ import {
   Sparkles,
   TicketPercent,
   Gift,
+  Clock,
 } from "lucide-react";
 
 export const adminMenu = [
@@ -62,6 +63,11 @@ export const adminMenu = [
     path: "/admin/rewards",
     name: "Quản lý Đổi điểm",
     icon: <Gift size={20} />,
+  },
+  {
+    path: "/admin/shifts",
+    name: "Quản lý Ca",
+    icon: <Clock size={20} />,
   },
   {
     path: "/admin/statistics",

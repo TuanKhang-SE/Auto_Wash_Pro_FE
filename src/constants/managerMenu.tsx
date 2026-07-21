@@ -7,6 +7,7 @@ import {
   Sparkles,
   TicketPercent,
   Gift,
+  Clock,
 } from "lucide-react";
 
 export const managerMenu = [
@@ -49,5 +50,10 @@ export const managerMenu = [
     path: "/manager/branch",
     name: "Thông tin Chi nhánh",
     icon: <Building2 size={20} />,
+  },
+  {
+    path: "/manager/shifts",
+    name: "Quản lý Ca",
+    icon: <Clock size={20} />,
   },
 ];

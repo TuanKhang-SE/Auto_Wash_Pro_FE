@@ -6,6 +6,7 @@ const getAuthHeader = () => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
+// CustomerDetail là interface để lấy dữ liệu từ API
 export interface CustomerDetail {
   userId: number;
   fullName: string;
@@ -23,6 +24,7 @@ export interface CustomerDetail {
   };
 }
 
+// RawUser là interface để lấy dữ liệu từ API
 interface RawUser {
   UserID?: number;
   userId?: number;

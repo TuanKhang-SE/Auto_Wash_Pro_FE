@@ -19,6 +19,7 @@ import ManagerBranchInfo from "../pages/manager/ManagerBranchInfo";
 import ManagerServices from "../pages/manager/ManagerServices";
 import ManagerPromotions from "../pages/manager/ManagerPromotions";
 import ManagerRewards from "../pages/manager/ManagerRewards";
+import ManagerShifts from "../pages/manager/ManagerShifts";
 
 import AdminLayout from "../layouts/AdminLayout";
 import AdminDashboard from "../pages/admin/AdminDashboard";
@@ -32,6 +33,7 @@ import AdminRevenue from "../pages/admin/AdminRevenue";
 import AdminServices from "../pages/admin/AdminServices";
 import AdminPromotions from "../pages/admin/AdminPromotions";
 import AdminRewards from "../pages/admin/AdminRewards";
+import AdminShifts from "../pages/admin/AdminShifts";
 
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
@@ -168,6 +170,7 @@ const AppRoutes = () => {
           <Route path="services" element={<ManagerServices />} />
           <Route path="promotions" element={<ManagerPromotions />} />
           <Route path="rewards" element={<ManagerRewards />} />
+          <Route path="shifts" element={<ManagerShifts />} />
         </Route>
 
         {/* Admin */}
@@ -187,10 +190,11 @@ const AppRoutes = () => {
           <Route path="customers" element={<AdminCustomers />} />
           <Route path="tier-configs" element={<AdminTierConfig />} />
           <Route path="revenue" element={<AdminRevenue />} />
-<Route path="services" element={<AdminServices />} />
-<Route path="promotions" element={<AdminPromotions />} />
-<Route path="rewards" element={<AdminRewards />} />
-</Route>
+          <Route path="services" element={<AdminServices />} />
+          <Route path="promotions" element={<AdminPromotions />} />
+          <Route path="rewards" element={<AdminRewards />} />
+          <Route path="shifts" element={<AdminShifts />} />
+        </Route>
 
         {/* Customer cần đăng nhập */}
         <Route

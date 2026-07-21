@@ -41,6 +41,7 @@ const unwrapData = <T>(response: { data?: { success?: boolean; data?: T } }): T 
   return null;
 };
 
+// branchServiceService là service để quản lý dịch vụ của chi nhánh
 const branchServiceService = {
   async getServicesByBranch(branchId: number): Promise<BranchService[]> {
     // GET /api/branch-services?BranchID=X - Lấy danh sách services đã gán cho 1 chi nhánh
