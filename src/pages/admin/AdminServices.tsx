@@ -127,6 +127,12 @@ const AdminServices = () => {
       setCreateError("Tên dịch vụ không được để trống");
       return false;
     }
+    // Validate: tên dịch vụ không được chứa ký tự đặc biệt
+    const specialCharPattern = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]+/;
+    if (specialCharPattern.test(createForm.ServiceName)) {
+      setCreateError("Tên dịch vụ không được chứa ký tự đặc biệt (!@#$%^&*...)");
+      return false;
+    }
     if (createForm.Price.trim() === "" || Number(createForm.Price) <= 0) {
       setCreateError("Giá dịch vụ phải lớn hơn 0");
       return false;
@@ -205,6 +211,12 @@ const AdminServices = () => {
   const validateEditForm = (): boolean => {
     if (!editForm.ServiceName.trim()) {
       setEditError("Tên dịch vụ không được để trống");
+      return false;
+    }
+    // Validate: tên dịch vụ không được chứa ký tự đặc biệt
+    const specialCharPattern = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]+/;
+    if (specialCharPattern.test(editForm.ServiceName)) {
+      setEditError("Tên dịch vụ không được chứa ký tự đặc biệt (!@#$%^&*...)");
       return false;
     }
     if (editForm.Price.trim() === "" || Number(editForm.Price) <= 0) {
