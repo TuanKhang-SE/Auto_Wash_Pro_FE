@@ -197,6 +197,9 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
 
         const branchRevenue = revenueMap.get(b.BranchID);
         const ratingStats = ratingResults[index];
+        const averageRating = ratingStats.totalReviews > 0
+          ? ratingStats.totalRating / ratingStats.totalReviews
+          : 0;
 
         return {
           branchID: b.BranchID,
@@ -219,7 +222,7 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
           monthBookings: branchRevenue?.totalBookings ?? 0,
           revenue: branchRevenue?.totalRevenue ?? 0,
           occupancy: 0,
-          rating: ratingStats.totalRating,
+          rating: averageRating,
           totalReviews: ratingStats.totalReviews,
         };
       });
