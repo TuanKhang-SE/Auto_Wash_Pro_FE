@@ -1,18 +1,56 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import ManagerSidebar from "../components/manager/ManagerSidebar";
+import branchService from "../services/branchService";
+
+type StoredManager = {
+  fullName?: string;
+  branchId?: number | null;
+};
+
+function getUserFromStorage(): StoredManager | null {
+  try {
+    const userStr = localStorage.getItem("user");
+    return userStr ? (JSON.parse(userStr) as StoredManager) : null;
+  } catch {
+    return null;
+  }
+}
 
 const ManagerLayout: React.FC = () => {
-
-  const getUserFromStorage = () => {
-    try {
-      const userStr = localStorage.getItem("user");
-      if (userStr) return JSON.parse(userStr);
-    } catch (e) {}
-    return null;
-  };
-
   const user = getUserFromStorage();
+  const [branchName, setBranchName] = useState("");
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const fetchBranch = async () => {
+      if (!user?.branchId) {
+        setBranchName("");
+        return;
+      }
+
+      try {
+        const branch = await branchService.getBranchById(user.branchId);
+        if (!isCancelled) {
+          setBranchName(branch?.BranchName?.trim() || "");
+        }
+      } catch {
+        if (!isCancelled) {
+          setBranchName("");
+        }
+      }
+    };
+
+    void fetchBranch();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [user?.branchId]);
+
+  const managerName = user?.fullName?.trim() || "Quản lý";
+  const managerInitial = managerName.charAt(0).toLocaleUpperCase("vi");
 
   return (
     <div className="flex min-h-screen bg-slate-100">
@@ -36,7 +74,7 @@ const ManagerLayout: React.FC = () => {
             {/* Branch Badge */}
             <div className="flex items-center gap-2 rounded-full bg-blue-500/20 border border-blue-500/30 px-4 py-1.5">
               <span className="text-sm text-blue-400 font-medium">
-                {user?.BranchName || "Chi nhánh A"}
+                {branchName || "Chưa xác định chi nhánh"}
               </span>
             </div>
 
@@ -44,7 +82,7 @@ const ManagerLayout: React.FC = () => {
             <div className="flex items-center gap-3">
               <div className="text-right">
                 <p className="text-sm font-semibold text-white">
-                  {user?.FullName || user?.username || "Quản lý"}
+                  {managerName}
                 </p>
                 <p className="text-xs text-emerald-400">
                   ● Trực tuyến
@@ -52,7 +90,7 @@ const ManagerLayout: React.FC = () => {
               </div>
 
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center font-semibold shadow-lg">
-                {user?.FullName?.[0] || user?.username?.[0] || "M"}
+                {managerInitial || "M"}
               </div>
             </div>
           </div>

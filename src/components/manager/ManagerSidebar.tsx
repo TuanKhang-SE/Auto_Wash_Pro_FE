@@ -46,9 +46,9 @@ const ManagerSidebar: React.FC = () => {
   const user = getUserFromStorage();
 
   return (
-    <aside className="fixed left-0 top-0 z-50 flex h-screen w-64 flex-col justify-between border-r border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 text-white">
+    <aside className="fixed left-0 top-0 z-50 flex h-screen w-64 flex-col overflow-hidden border-r border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 text-white">
       {/* Logo */}
-      <div>
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto pb-4 [scrollbar-color:#475569_#020617] [scrollbar-width:thin]">
         <div className="flex items-center gap-3 border-b border-slate-800 p-5">
           <div className="rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 p-2.5 shadow-lg shadow-blue-500/30">
             <Car size={24} className="text-white" />
@@ -99,7 +99,7 @@ const ManagerSidebar: React.FC = () => {
       </div>
 
       {/* User + Logout */}
-      <div className="border-t border-slate-800 bg-slate-950/40 p-4">
+      <div className="shrink-0 border-t border-slate-800 bg-slate-950/40 p-4">
         <div className="mb-4 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 border border-amber-400/50 shadow-lg shadow-amber-500/20">
             <User size={18} className="text-white" />
