@@ -21,6 +21,7 @@ import ManagerServices from "../pages/manager/ManagerServices";
 import ManagerPromotions from "../pages/manager/ManagerPromotions";
 import ManagerRewards from "../pages/manager/ManagerRewards";
 import ManagerShifts from "../pages/manager/ManagerShifts";
+import ManagerBookingHistory from "../pages/manager/ManagerBookingHistory";
 
 import AdminLayout from "../layouts/AdminLayout";
 import AdminDashboard from "../pages/admin/AdminDashboard";
@@ -35,6 +36,7 @@ import AdminServices from "../pages/admin/AdminServices";
 import AdminPromotions from "../pages/admin/AdminPromotions";
 import AdminRewards from "../pages/admin/AdminRewards";
 import AdminShifts from "../pages/admin/AdminShifts";
+import AdminBookingHistory from "../pages/admin/AdminBookingHistory";
 
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
@@ -173,6 +175,7 @@ const AppRoutes = () => {
           <Route path="promotions" element={<ManagerPromotions />} />
           <Route path="rewards" element={<ManagerRewards />} />
           <Route path="shifts" element={<ManagerShifts />} />
+          <Route path="history" element={<ManagerBookingHistory />} />
         </Route>
 
         {/* Admin */}
@@ -196,6 +199,7 @@ const AppRoutes = () => {
           <Route path="promotions" element={<AdminPromotions />} />
           <Route path="rewards" element={<AdminRewards />} />
           <Route path="shifts" element={<AdminShifts />} />
+          <Route path="history" element={<AdminBookingHistory />} />
         </Route>
 
         {/* Customer cần đăng nhập */}

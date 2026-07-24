@@ -19,7 +19,8 @@ axiosClient.interceptors.request.use((config) => {
     url.includes("/api/services") ||
     url.includes("/api/branch-services") ||
     url.includes("/api/dashboard") ||
-    url.includes("/api/dashboard")
+    url.includes("/api/bookings") ||
+    url.includes("/api/invoices")
   ) {
     console.log("[axios] →", config.method?.toUpperCase(), url, {
       data: config.data,
@@ -40,7 +41,9 @@ axiosClient.interceptors.response.use(
       url.includes("/api/customers") ||
       url.includes("/api/tier-configs") ||
       url.includes("/api/services") ||
-      url.includes("/api/branch-services")
+      url.includes("/api/branch-services") ||
+      url.includes("/api/bookings") ||
+      url.includes("/api/invoices")
     ) {
       console.log("[axios] ←", response.status, url, {
         data: response.data,
@@ -58,7 +61,9 @@ axiosClient.interceptors.response.use(
       url.includes("/api/customers") ||
       url.includes("/api/tier-configs") ||
       url.includes("/api/services") ||
-      url.includes("/api/branch-services")
+      url.includes("/api/branch-services") ||
+      url.includes("/api/bookings") ||
+      url.includes("/api/invoices")
     ) {
       console.log(
         "[axios] ✕",
