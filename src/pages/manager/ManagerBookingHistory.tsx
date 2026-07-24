@@ -33,7 +33,7 @@ const INVOICE_STATUS_OPTIONS: { value: InvoiceStatus | ""; label: string }[] = [
   { value: "", label: "Tất cả" },
   { value: "ISSUED", label: "Đã phát hành" },
   { value: "PENDING", label: "Chờ xử lý" },
-  { value: "CANCELLED", label: "Đã hủy" },
+  { value: "CANCELED", label: "Đã hủy" },
 ];
 
 const formatCurrency = (value: number | string | null | undefined) => {
@@ -98,14 +98,14 @@ const getInvoiceStatusBadge = (status: string | null | undefined) => {
   const statusConfig: Record<string, { bg: string; text: string }> = {
     ISSUED: { bg: "bg-green-100", text: "text-green-700" },
     PENDING: { bg: "bg-yellow-100", text: "text-yellow-700" },
-    CANCELLED: { bg: "bg-red-100", text: "text-red-700" },
+    CANCELED: { bg: "bg-red-100", text: "text-red-700" },
   };
   const config = statusConfig[status || ""] || { bg: "bg-gray-100", text: "text-gray-700" };
   return (
     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${config.bg} ${config.text}`}>
       {status === "ISSUED" && "Đã phát hành"}
       {status === "PENDING" && "Chờ xử lý"}
-      {status === "CANCELLED" && "Đã hủy"}
+      {status === "CANCELED" && "Đã hủy"}
     </span>
   );
 };
@@ -180,22 +180,14 @@ const ManagerBookingHistory = () => {
           Status: statusFilter as InvoiceStatus | "",
           StartDate: startDate,
           EndDate: endDate,
+          InvoiceNo: searchQuery.trim() || undefined,
           Page: currentPage,
           PageSize: pageSize,
         };
 
         const result = await invoiceService.getInvoices(query);
-        let filteredData = result.data;
-
-        if (searchQuery.trim()) {
-          filteredData = filteredData.filter((inv) =>
-            inv.InvoiceNo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            inv.BookingGroups?.BookingCode?.toLowerCase().includes(searchQuery.toLowerCase())
-          );
-        }
-
-        setInvoices(filteredData);
-        setTotalRecords(searchQuery.trim() ? filteredData.length : result.total);
+        setInvoices(result.data);
+        setTotalRecords(result.total);
       }
     } catch (err) {
       setError(getErrorMessage(err));

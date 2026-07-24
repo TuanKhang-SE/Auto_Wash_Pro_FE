@@ -84,6 +84,11 @@ type InvoiceRecord = {
   Transactions: TransactionData;
 };
 
+type InvoiceListPayload = {
+  data?: InvoiceRecord[];
+  totalPages?: number;
+};
+
 type InvoiceDetail = TransactionData & {
   CurrentInvoice?: Omit<InvoiceRecord, "Transactions">;
 };
@@ -156,9 +161,39 @@ function StaffInvoiceHistory() {
       setIsLoading(true);
       setError("");
 
-      const response = await axiosClient.get("/api/invoices", { headers });
-      const data = response.data?.data;
-      setInvoices(Array.isArray(data) ? data : []);
+      const requestPage = async (page: number) => {
+        const response = await axiosClient.get("/api/invoices", {
+          headers,
+          params: {
+            page,
+            limit: 100,
+          },
+        });
+
+        return response.data as InvoiceListPayload;
+      };
+
+      const firstPage = await requestPage(1);
+      const totalPages = Math.max(1, Number(firstPage.totalPages) || 1);
+      const remainingPages =
+        totalPages > 1
+          ? await Promise.all(
+              Array.from(
+                {
+                  length: totalPages - 1,
+                },
+                (_, index) => requestPage(index + 2)
+              )
+            )
+          : [];
+      const data = [
+        ...(Array.isArray(firstPage.data) ? firstPage.data : []),
+        ...remainingPages.flatMap((page) =>
+          Array.isArray(page.data) ? page.data : []
+        ),
+      ];
+
+      setInvoices(data);
     } catch (requestError) {
       setInvoices([]);
       setError(getErrorMessage(requestError));

@@ -1,6 +1,6 @@
 import axiosClient from "../api/axiosClient";
 
-export type InvoiceStatus = "ISSUED" | "CANCELLED" | "PENDING";
+export type InvoiceStatus = "ISSUED" | "CANCELED" | "PENDING";
 
 export type PaymentMethod = "CASH" | "BANK_TRANSFER" | "VNPAY";
 
@@ -41,6 +41,13 @@ export interface BookingItemInfo {
 }
 
 export interface BookingInfo {
+  BranchID?: number;
+  Reviews?: {
+    ReviewID: number;
+    Rating: number;
+    Comment?: string | null;
+    CreatedAt?: string | null;
+  } | null;
   BookingGroupID: number;
   BookingCode: string | null;
   BookingDate: string | null;
@@ -95,44 +102,108 @@ const getAuthHeader = () => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
+type BackendPaymentRecord = {
+  Method?: PaymentMethod | null;
+  Status?: string | null;
+  ConfirmedAt?: string | null;
+};
+
+type BackendTransaction = {
+  TransactionID?: number;
+  Status?: string | null;
+  Subtotal?: number | string | null;
+  DiscountAmount?: number | string | null;
+  FinalAmount?: number | string | null;
+  BookingGroups?: BookingInfo | null;
+  Customers?: {
+    Users?: CustomerInfo | null;
+  } | null;
+  PaymentRecords?: BackendPaymentRecord[];
+};
+
+type BackendInvoice = {
+  InvoiceID?: number;
+  InvoiceNo?: string | null;
+  IssuedAt?: string | null;
+  Status?: string | null;
+  Transactions?: BackendTransaction | null;
+};
+
+type BackendInvoiceDetail = BackendTransaction & {
+  CurrentInvoice?: {
+    InvoiceID?: number;
+    InvoiceNo?: string | null;
+    IssuedAt?: string | null;
+    Status?: string | null;
+  } | null;
+};
+
+function normalizeInvoice(
+  invoiceRecord: BackendInvoice,
+  transactionOverride?: BackendTransaction
+): Invoice {
+  const transaction = transactionOverride || invoiceRecord.Transactions;
+  const payment = transaction?.PaymentRecords?.[0];
+
+  return {
+    InvoiceID: Number(invoiceRecord.InvoiceID || 0),
+    InvoiceNo: invoiceRecord.InvoiceNo ?? null,
+    IssuedAt: invoiceRecord.IssuedAt ?? null,
+    Status: (invoiceRecord.Status as InvoiceStatus | null | undefined) ?? null,
+    Transaction: transaction
+      ? {
+          TransactionID: Number(transaction.TransactionID || 0),
+          Status: transaction.Status ?? null,
+          PaymentMethod: payment?.Method ?? null,
+          FinalAmount: transaction.FinalAmount ?? null,
+          PaidAt: payment?.ConfirmedAt ?? null,
+        }
+      : null,
+    Customers: transaction?.Customers?.Users ?? null,
+    BookingGroups: transaction?.BookingGroups ?? null,
+    Subtotal: transaction?.Subtotal ?? null,
+    DiscountAmount: transaction?.DiscountAmount ?? null,
+    FinalAmount: transaction?.FinalAmount ?? null,
+  };
+}
+
 const invoiceService = {
   async getInvoices(query: InvoiceQuery = {}): Promise<InvoiceListResponse> {
     const params: Record<string, string> = {};
-    if (query.BranchID !== undefined) params.BranchID = String(query.BranchID);
-    if (query.Status) params.Status = query.Status;
-    if (query.StartDate) params.StartDate = query.StartDate;
-    if (query.EndDate) params.EndDate = query.EndDate;
-    if (query.InvoiceNo) params.InvoiceNo = query.InvoiceNo;
-    if (query.Page !== undefined) params.Page = String(query.Page);
-    if (query.PageSize !== undefined) params.PageSize = String(query.PageSize);
+    if (query.BranchID !== undefined) params.branchId = String(query.BranchID);
+    if (query.Status) params.status = query.Status;
+    if (query.StartDate) params.startDate = query.StartDate;
+    if (query.EndDate) params.endDate = query.EndDate;
+    if (query.InvoiceNo) params.invoiceNo = query.InvoiceNo;
+    if (query.Page !== undefined) params.page = String(query.Page);
+    if (query.PageSize !== undefined) params.limit = String(query.PageSize);
 
     const response = await axiosClient.get("/api/invoices", {
       headers: getAuthHeader(),
       params,
     });
 
-    let data = response.data;
-    if (data?.data !== undefined) data = data.data;
+    const payload = response.data as {
+      data?: BackendInvoice[];
+      total?: number;
+      page?: number;
+      limit?: number;
+    };
+    const rows = Array.isArray(response.data)
+      ? (response.data as BackendInvoice[])
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : [];
+    const data = rows.map((invoice) => normalizeInvoice(invoice));
 
-    if (data?.success && data?.data) {
-      return {
-        data: data.data as Invoice[],
-        total: data.total ?? data.data.length,
-        page: data.page ?? 1,
-        pageSize: data.pageSize ?? 20,
-      };
-    }
-
-    if (Array.isArray(data)) {
-      return {
-        data: data as Invoice[],
-        total: data.length,
-        page: 1,
-        pageSize: data.length,
-      };
-    }
-
-    return { data: [], total: 0, page: 1, pageSize: 20 };
+    return {
+      data,
+      total: Number(payload?.total ?? data.length),
+      page: Number(payload?.page ?? 1),
+      pageSize: Number(
+        (payload?.limit ?? query.PageSize ?? data.length) || 20
+      ),
+    };
   },
 
   async getInvoiceById(invoiceId: number): Promise<Invoice | null> {
@@ -140,10 +211,20 @@ const invoiceService = {
       headers: getAuthHeader(),
     });
 
-    if (response.data?.success) {
-      return response.data.data as Invoice;
-    }
-    return null;
+    if (!response.data?.success || !response.data?.data) return null;
+
+    const detail = response.data.data as BackendInvoiceDetail;
+    const currentInvoice = detail.CurrentInvoice;
+
+    return normalizeInvoice(
+      {
+        InvoiceID: currentInvoice?.InvoiceID,
+        InvoiceNo: currentInvoice?.InvoiceNo,
+        IssuedAt: currentInvoice?.IssuedAt,
+        Status: currentInvoice?.Status,
+      },
+      detail
+    );
   },
 };
 

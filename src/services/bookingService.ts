@@ -80,43 +80,86 @@ const getAuthHeader = () => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
+type RawPaymentRecord = {
+  Method?: string | null;
+  ConfirmedAt?: string | null;
+};
+
+type RawTransaction = Partial<Transaction> & {
+  PaymentRecords?: RawPaymentRecord[];
+};
+
+type RawCustomer =
+  | BookingGroup["Customers"]
+  | {
+      Users?: BookingGroup["Customers"] | null;
+    };
+
+type RawBookingGroup = Omit<BookingGroup, "Customers" | "Transactions"> & {
+  Customers?: RawCustomer;
+  Transactions?: RawTransaction[];
+};
+
+function normalizeBooking(raw: RawBookingGroup): BookingGroup {
+  const customer: BookingGroup["Customers"] =
+    raw.Customers && "Users" in raw.Customers
+      ? raw.Customers.Users || undefined
+      : (raw.Customers as BookingGroup["Customers"]);
+  const transactions = (raw.Transactions || []).map((transaction) => {
+    const payment = transaction.PaymentRecords?.[0];
+
+    return {
+      TransactionID: Number(transaction.TransactionID || 0),
+      Status: transaction.Status ?? null,
+      PaymentMethod: transaction.PaymentMethod ?? payment?.Method ?? null,
+      FinalAmount: transaction.FinalAmount ?? null,
+      PaidAt: transaction.PaidAt ?? payment?.ConfirmedAt ?? null,
+    };
+  });
+
+  return {
+    ...raw,
+    Customers: customer,
+    Transactions: transactions,
+  };
+}
+
 const bookingService = {
   async getBookings(query: BookingQuery = {}): Promise<BookingListResponse> {
     const params: Record<string, string> = {};
-    if (query.BranchID !== undefined) params.BranchID = String(query.BranchID);
-    if (query.Status) params.Status = query.Status;
-    if (query.StartDate) params.StartDate = query.StartDate;
-    if (query.EndDate) params.EndDate = query.EndDate;
-    if (query.Page !== undefined) params.Page = String(query.Page);
-    if (query.PageSize !== undefined) params.PageSize = String(query.PageSize);
+    if (query.BranchID !== undefined) params.branchId = String(query.BranchID);
+    if (query.Status) params.status = query.Status;
+    if (query.StartDate) params.startDate = query.StartDate;
+    if (query.EndDate) params.endDate = query.EndDate;
+    if (query.Page !== undefined) params.page = String(query.Page);
+    if (query.PageSize !== undefined) params.limit = String(query.PageSize);
 
     const response = await axiosClient.get("/api/bookings", {
       headers: getAuthHeader(),
       params,
     });
 
-    let data = response.data;
-    if (data?.data !== undefined) data = data.data;
+    const payload = response.data as {
+      data?: RawBookingGroup[];
+      total?: number;
+      page?: number;
+      limit?: number;
+    };
+    const rows = Array.isArray(response.data)
+      ? (response.data as RawBookingGroup[])
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : [];
+    const data = rows.map(normalizeBooking);
 
-    if (data?.success && data?.data) {
-      return {
-        data: data.data as BookingGroup[],
-        total: data.total ?? data.data.length,
-        page: data.page ?? 1,
-        pageSize: data.pageSize ?? 20,
-      };
-    }
-
-    if (Array.isArray(data)) {
-      return {
-        data: data as BookingGroup[],
-        total: data.length,
-        page: 1,
-        pageSize: data.length,
-      };
-    }
-
-    return { data: [], total: 0, page: 1, pageSize: 20 };
+    return {
+      data,
+      total: Number(payload?.total ?? data.length),
+      page: Number(payload?.page ?? 1),
+      pageSize: Number(
+        (payload?.limit ?? query.PageSize ?? data.length) || 20
+      ),
+    };
   },
 };
 
