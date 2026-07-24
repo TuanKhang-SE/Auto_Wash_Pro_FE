@@ -3,6 +3,7 @@ import {
   CalendarCheck,
   Cpu,
   History,
+  FileText,
   ReceiptText,
 } from "lucide-react";
 
@@ -31,5 +32,10 @@ export const staffMenu = [
     path: "/staff/booking-history",
     name: "Lịch sử đặt lịch",
     icon: <ReceiptText size={20} />,
+  },
+  {
+    path: "/staff/invoice-history",
+    name: "Lịch sử hóa đơn",
+    icon: <FileText size={20} />,
   },
 ];

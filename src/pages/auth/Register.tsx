@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axiosClient, { getErrorMessage } from "../../api/axiosClient";
+import PasswordInput from "../../components/PasswordInput";
 
 const fullNameRegex = /^[\p{L}]+(?:[ '-][\p{L}]+)*$/u;
 const phoneRegex = /^0\d{9}$/;
@@ -259,12 +260,12 @@ function Register() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="register-password" className="block text-sm font-medium text-gray-700 mb-1">
               Mật khẩu <span className="text-red-500">*</span>
             </label>
 
-            <input
-              type="password"
+            <PasswordInput
+              id="register-password"
               placeholder="Nhập mật khẩu"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -272,7 +273,8 @@ function Register() {
               minLength={8}
               maxLength={64}
               required
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              revealLabel="mật khẩu"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 pr-12 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
 
@@ -281,12 +283,12 @@ function Register() {
 </p>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="register-confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
               Nhập lại mật khẩu <span className="text-red-500">*</span>
             </label>
 
-            <input
-              type="password"
+            <PasswordInput
+              id="register-confirm-password"
               placeholder="Nhập lại mật khẩu"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
@@ -294,7 +296,8 @@ function Register() {
               minLength={8}
               maxLength={64}
               required
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              revealLabel="mật khẩu xác nhận"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 pr-12 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
 

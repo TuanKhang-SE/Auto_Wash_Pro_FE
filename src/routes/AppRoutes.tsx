@@ -9,6 +9,7 @@ import StaffDashboard from "../pages/staff/StaffDashboard";
 import StaffBookings from "../pages/staff/StaffBookings";
 import StaffBays from "../pages/staff/StaffBays";
 import StaffBookingHistory from "../pages/staff/StaffBookingHistory";
+import StaffInvoiceHistory from "../pages/staff/StaffInvoiceHistory";
 
 import ManagerLayout from "../layouts/ManagerLayout";
 import ManagerDashboard from "../pages/manager/ManagerDashboard";
@@ -151,6 +152,7 @@ const AppRoutes = () => {
   <Route path="bays" element={<StaffBays />} />
   <Route path="history" element={<StaffShiftHistory />} />
   <Route path="booking-history" element={<StaffBookingHistory />} />
+  <Route path="invoice-history" element={<StaffInvoiceHistory />} />
 </Route>
 
         {/* Manager */}

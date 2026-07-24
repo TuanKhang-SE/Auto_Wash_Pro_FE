@@ -43,6 +43,12 @@ type BookingTransaction = {
   PaymentMethod?: string | null;
   Status?: string | null;
   PaidAt?: string | null;
+  PaymentRecords?: Array<{
+    PaymentID: number;
+    Method?: string | null;
+    Status?: string | null;
+    ConfirmedAt?: string | null;
+  }>;
 };
 
 type CustomerBooking = {
@@ -215,12 +221,27 @@ function getPaidTransaction(
   );
 }
 
+function getTransactionPaymentMethod(
+  transaction: BookingTransaction | undefined
+) {
+  return (
+    transaction?.PaymentRecords?.[0]?.Method ||
+    transaction?.PaymentMethod ||
+    null
+  );
+}
+
 function BookingHistory() {
   const navigate = useNavigate();
 
   const [bookings, setBookings] = useState<
     CustomerBooking[]
   >([]);
+
+  const [expandedBookingIds, setExpandedBookingIds] =
+    useState<Set<number>>(
+      () => new Set()
+    );
 
   const [statusFilter, setStatusFilter] =
     useState("All");
@@ -514,20 +535,42 @@ function BookingHistory() {
   function formatPaymentMethod(
     paymentMethod: string | null | undefined
   ) {
-    switch (paymentMethod) {
-      case "Cash":
+    const normalizedMethod = String(
+      paymentMethod || ""
+    )
+      .trim()
+      .toUpperCase();
+
+    switch (normalizedMethod) {
+      case "CASH":
         return "Tiền mặt";
 
-      case "BankTransfer":
+      case "BANK_TRANSFER":
+      case "BANKTRANSFER":
         return "Chuyển khoản";
 
       case "VNPAY":
-      case "VNPay":
         return "VNPay";
 
       default:
-        return paymentMethod || "";
+        return paymentMethod || "Chưa cập nhật";
     }
+  }
+
+  function toggleBookingDetails(
+    bookingId: number
+  ) {
+    setExpandedBookingIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+
+      if (nextIds.has(bookingId)) {
+        nextIds.delete(bookingId);
+      } else {
+        nextIds.add(bookingId);
+      }
+
+      return nextIds;
+    });
   }
 
   function canCancel(status: string) {
@@ -761,6 +804,18 @@ function BookingHistory() {
                       booking
                     );
 
+                  const paymentMethod =
+                    getTransactionPaymentMethod(
+                      paidTransaction
+                    );
+
+                  const isExpanded =
+                    expandedBookingIds.has(
+                      booking.BookingGroupID
+                    );
+
+                  const detailsId = `booking-details-${booking.BookingGroupID}`;
+
                   const pricing =
                     getBookingPricing(
                       booking
@@ -773,21 +828,113 @@ function BookingHistory() {
                       }
                       className="rounded-xl bg-white p-5 shadow"
                     >
-                      {/* Header booking */}
-                      <div className="mb-4">
-                        <h2 className="text-xl font-bold text-gray-800">
-                          {booking.BookingCode ||
-                            `BK-${booking.BookingGroupID}`}
-                        </h2>
+                      {/* Danh sách tóm tắt */}
+                      <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <h2 className="truncate text-xl font-bold text-gray-800">
+                              {booking.BookingCode ||
+                                `BK-${booking.BookingGroupID}`}
+                            </h2>
 
-                        <p className="mt-1 text-sm text-gray-500">
-                          Ngày đặt:{" "}
-                          {formatDate(
-                            booking.CreatedAt
-                          )}
-                        </p>
+                            <p className="mt-1 text-sm text-gray-500">
+                              Lịch hẹn:{" "}
+                              {formatDate(
+                                booking.BookingDate
+                              )}{" "}
+                              lúc{" "}
+                              {formatTime(
+                                booking.StartTime
+                              )}
+                            </p>
+
+                            <p className="mt-1 truncate text-sm text-gray-500">
+                              {booking.branches
+                                ?.BranchName ||
+                                "Chưa cập nhật chi nhánh"}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              toggleBookingDetails(
+                                booking.BookingGroupID
+                              )
+                            }
+                            aria-expanded={isExpanded}
+                            aria-controls={detailsId}
+                            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-50"
+                          >
+                            {isExpanded
+                              ? "Thu gọn ▲"
+                              : "Xem chi tiết ▼"}
+                          </button>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                          <div className="rounded-lg bg-gray-50 px-3 py-3">
+                            <p className="text-xs font-medium text-gray-500">
+                              Trạng thái đơn
+                            </p>
+                            <span
+                              className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusClass(
+                                overallStatus
+                              )}`}
+                            >
+                              {getStatusText(
+                                overallStatus
+                              )}
+                            </span>
+                          </div>
+
+                          <div className="rounded-lg bg-gray-50 px-3 py-3">
+                            <p className="text-xs font-medium text-gray-500">
+                              Trạng thái thanh toán
+                            </p>
+                            <span
+                              className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${bookingPaid
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-amber-100 text-amber-700"
+                                }`}
+                            >
+                              {bookingPaid
+                                ? "✓ Đã thanh toán"
+                                : "Chưa thanh toán"}
+                            </span>
+                          </div>
+
+                          <div className="rounded-lg bg-gray-50 px-3 py-3">
+                            <p className="text-xs font-medium text-gray-500">
+                              Phương thức thanh toán
+                            </p>
+                            <p className="mt-2 font-semibold text-gray-800">
+                              {bookingPaid
+                                ? formatPaymentMethod(
+                                  paymentMethod
+                                )
+                                : "Chưa có"}
+                            </p>
+                          </div>
+
+                          <div className="rounded-lg bg-gray-50 px-3 py-3">
+                            <p className="text-xs font-medium text-gray-500">
+                              Tổng tiền
+                            </p>
+                            <p className="mt-2 font-bold text-blue-700">
+                              {formatMoney(
+                                pricing.final
+                              )}
+                            </p>
+                          </div>
+                        </div>
                       </div>
 
+                      {isExpanded && (
+                        <div
+                          id={detailsId}
+                          className="mt-5 border-t border-gray-200 pt-5"
+                        >
                       {/* Thông tin booking */}
                       <div className="grid gap-4 md:grid-cols-2">
                         <div>
@@ -854,12 +1001,11 @@ function BookingHistory() {
                                 ✓ Đã thanh toán
                               </span>
 
-                              {paidTransaction
-                                ?.PaymentMethod && (
+                              {paymentMethod && (
                                   <p className="mt-1 text-xs text-gray-500">
                                     Phương thức:{" "}
                                     {formatPaymentMethod(
-                                      paidTransaction.PaymentMethod
+                                      paymentMethod
                                     )}
                                   </p>
                                 )}
@@ -1075,6 +1221,8 @@ function BookingHistory() {
                             </button>
                           </div>
                         )}
+                        </div>
+                      )}
                     </section>
                   );
                 }

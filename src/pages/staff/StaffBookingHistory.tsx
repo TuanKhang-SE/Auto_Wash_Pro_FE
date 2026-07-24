@@ -70,12 +70,17 @@ type StaffBooking = {
     };
     BookingItems?: BookingItem[];
     Transactions?: Array<{
-        TransactionID: number;
+        TransactionID?: number;
         Status?: string | null;
         PaymentMethod?: string | null;
         FinalAmount?: number | string | null;
         PaidAt?: string | null;
     }>;
+};
+
+type BookingListResponse = {
+    data?: StaffBooking[];
+    totalPages?: number;
 };
 
 type StaffStats = {
@@ -380,6 +385,15 @@ function isBookingCompleted(booking: StaffBooking) {
     return items.length > 0 && items.every((item) => item.Status === "Completed");
 }
 
+function isBookingPaid(booking: StaffBooking) {
+    return (
+        booking.Transactions?.some(
+            (transaction) =>
+                String(transaction.Status || "").toLowerCase() === "paid"
+        ) ?? false
+    );
+}
+
 function calculateStats(data: StaffBooking[]): StaffStats {
     let waiting = 0;
     let washing = 0;
@@ -432,7 +446,7 @@ function getUpdatedTimeFields(status: string) {
     return {};
 }
 
-const StaffBookings = () => {
+const StaffBookingHistory = () => {
     const [selectedDate, setSelectedDate] = useState(getVietnamDateValue);
     const [bookings, setBookings] = useState<StaffBooking[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -546,36 +560,52 @@ const StaffBookings = () => {
                 return;
             }
 
-            const res = await axiosClient.get(
-                "/api/staff-operations/today-bookings",
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                    params: {
-                        bookingDate,
-                        refreshTime: Date.now(),
-                    },
-                }
-            );
+            const pageSize = 100;
+            const headers = {
+                Authorization: `Bearer ${token}`,
+            };
 
-            const apiBookings: StaffBooking[] = res.data?.data || [];
+            const requestPage = async (page: number) => {
+                const response = await axiosClient.get("/api/bookings", {
+                    headers,
+                    params: {
+                        page,
+                        limit: pageSize,
+                        startDate: bookingDate,
+                        endDate: bookingDate,
+                        _: Date.now(),
+                    },
+                });
+
+                return response.data as BookingListResponse;
+            };
 
             /*
-             * Backend đã loại booking có Transaction.Status = Paid.
-             * FE lọc thêm một lần để tránh dữ liệu cũ còn nằm trên giao diện.
+             * API /api/bookings là API lịch sử mới của Backend.
+             * Staff chỉ nhận booking thuộc BranchID trong access token.
+             * Tải đủ các trang để thống kê và danh sách của ngày không bị giới hạn 10 booking.
              */
-            const unpaidBookings = apiBookings.filter(
-                (booking) =>
-                    !booking.Transactions?.some(
-                        (transaction) =>
-                            String(transaction.Status || "").toLowerCase() ===
-                            "paid"
+            const firstPage = await requestPage(1);
+            const totalPages = Math.max(1, Number(firstPage.totalPages) || 1);
+            const remainingPages =
+                totalPages > 1
+                    ? await Promise.all(
+                        Array.from(
+                            { length: totalPages - 1 },
+                            (_, index) => requestPage(index + 2)
+                        )
                     )
-            );
+                    : [];
 
-            setBookings(unpaidBookings);
-            setStats(calculateStats(unpaidBookings));
+            const apiBookings = [
+                ...(Array.isArray(firstPage.data) ? firstPage.data : []),
+                ...remainingPages.flatMap((page) =>
+                    Array.isArray(page.data) ? page.data : []
+                ),
+            ];
+
+            setBookings(apiBookings);
+            setStats(calculateStats(apiBookings));
         } catch (error) {
             console.log(error);
             setMessage(getErrorMessage(error));
@@ -1258,10 +1288,10 @@ const StaffBookings = () => {
         <div className="space-y-6">
             <div className="flex flex-col gap-5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white shadow-xl shadow-blue-500/20 md:flex-row md:items-end md:justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold">Quản lý đặt lịch</h2>
+                    <h2 className="text-2xl font-bold">Lịch sử đặt lịch</h2>
 
                     <p className="mt-1 text-blue-100">
-                        Đang xem booking ngày {formatSelectedDate(selectedDate)} tại chi nhánh của bạn.
+                        Xem tất cả booking ngày {formatSelectedDate(selectedDate)} tại chi nhánh của bạn.
                     </p>
                 </div>
 
@@ -1348,7 +1378,7 @@ const StaffBookings = () => {
                     </div>
                 ) : bookings.length === 0 ? (
                     <div className="py-8 text-center text-sm text-slate-500">
-                        Không có booking nào đang chờ xử lý trong ngày {formatSelectedDate(selectedDate)}
+                        Không có booking nào trong ngày {formatSelectedDate(selectedDate)}
                     </div>
                 ) : (
                     <div className="space-y-5">
@@ -1374,16 +1404,21 @@ const StaffBookings = () => {
                                             Giờ hẹn: {formatTime(booking.StartTime)}
                                         </div>
 
-                                        {isBookingCompleted(booking) && (
-                                            <button
-                                                type="button"
-                                                onClick={() => preparePayment(booking)}
-                                                disabled={isPreparingPayment || isPaying}
-                                                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                            >
-                                                Thanh toán
-                                            </button>
-                                        )}
+                                        {isBookingCompleted(booking) &&
+                                            (isBookingPaid(booking) ? (
+                                                <span className="rounded-lg bg-emerald-100 px-3 py-1.5 text-sm font-semibold text-emerald-700">
+                                                    Đã thanh toán
+                                                </span>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => preparePayment(booking)}
+                                                    disabled={isPreparingPayment || isPaying}
+                                                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    Thanh toán
+                                                </button>
+                                            ))}
                                     </div>
                                 </div>
 
@@ -2083,4 +2118,4 @@ const StaffBookings = () => {
     );
 };
 
-export default StaffBookings;
+export default StaffBookingHistory;

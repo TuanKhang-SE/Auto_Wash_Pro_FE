@@ -8,3 +8,14 @@ body,
   margin: 0;
   padding: 0;
 }
+
+/*
+ * Edge có thể tự chèn nút hiện mật khẩu vào input type=password.
+ * Ẩn nút mặc định để mỗi ô chỉ còn PasswordInput của ứng dụng.
+ */
+input.password-input::-ms-reveal,
+input.password-input::-ms-clear {
+  display: none;
+  width: 0;
+  height: 0;
+}
