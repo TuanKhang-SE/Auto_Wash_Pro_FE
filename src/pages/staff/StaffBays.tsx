@@ -341,7 +341,7 @@ function StaffBays() {
                   (sum, slot) => sum + Number(slot.Available || 0),
                   0
                 ),
-                maxStaffCount: slots.reduce(
+                maxStaffCount: slots.reduce(  
                   (maximum, slot) =>
                     Math.max(maximum, Number(slot.StaffCount || 0)),
                   0
