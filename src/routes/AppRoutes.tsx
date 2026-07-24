@@ -20,6 +20,7 @@ import ManagerServices from "../pages/manager/ManagerServices";
 import ManagerPromotions from "../pages/manager/ManagerPromotions";
 import ManagerRewards from "../pages/manager/ManagerRewards";
 import ManagerShifts from "../pages/manager/ManagerShifts";
+import ManagerBookingHistory from "../pages/manager/ManagerBookingHistory";
 
 import AdminLayout from "../layouts/AdminLayout";
 import AdminDashboard from "../pages/admin/AdminDashboard";
@@ -172,6 +173,7 @@ const AppRoutes = () => {
           <Route path="promotions" element={<ManagerPromotions />} />
           <Route path="rewards" element={<ManagerRewards />} />
           <Route path="shifts" element={<ManagerShifts />} />
+          <Route path="history" element={<ManagerBookingHistory />} />
         </Route>
 
         {/* Admin */}
