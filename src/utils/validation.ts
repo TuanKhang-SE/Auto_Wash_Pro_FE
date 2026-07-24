@@ -44,7 +44,7 @@ export const branchNameSchema = z
   .min(1, "Tên chi nhánh không được để trống")
   .max(100, "Tên chi nhánh không được vượt quá 100 ký tự")
   .regex(
-    /^[\w\sÀ-ỹà-ỹ\/.,-]+$/,
+    /^[\w\sÀ-ỹà-ỹ]+$/,
     "Tên chi nhánh không được chứa ký tự đặc biệt"
   );
 

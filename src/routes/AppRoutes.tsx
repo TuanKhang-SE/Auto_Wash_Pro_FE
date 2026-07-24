@@ -34,6 +34,7 @@ import AdminServices from "../pages/admin/AdminServices";
 import AdminPromotions from "../pages/admin/AdminPromotions";
 import AdminRewards from "../pages/admin/AdminRewards";
 import AdminShifts from "../pages/admin/AdminShifts";
+import AdminBookingHistory from "../pages/admin/AdminBookingHistory";
 
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
@@ -194,6 +195,7 @@ const AppRoutes = () => {
           <Route path="promotions" element={<AdminPromotions />} />
           <Route path="rewards" element={<AdminRewards />} />
           <Route path="shifts" element={<AdminShifts />} />
+          <Route path="history" element={<AdminBookingHistory />} />
         </Route>
 
         {/* Customer cần đăng nhập */}

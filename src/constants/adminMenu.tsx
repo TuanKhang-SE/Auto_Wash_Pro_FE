@@ -11,6 +11,7 @@ import {
   TicketPercent,
   Gift,
   Clock,
+  FileText,
 } from "lucide-react";
 
 export const adminMenu = [
@@ -73,5 +74,10 @@ export const adminMenu = [
     path: "/admin/statistics",
     name: "Thống kê toàn hệ thống",
     icon: <BarChart3 size={20} />,
+  },
+  {
+    path: "/admin/history",
+    name: "Lịch sử Booking & Hóa đơn",
+    icon: <FileText size={20} />,
   },
 ];

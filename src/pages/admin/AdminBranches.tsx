@@ -289,7 +289,8 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
   const resetEditConfig = () => setEditConfig({ ...emptyConfigRow });
 
   // Kiểm tra hợp lệ form tạo chi nhánh trước khi gửi API: tên chi nhánh
-  // bắt buộc, SĐT bắt buộc và đúng format (9-11 chữ số), địa chỉ bắt buộc,
+  // bắt buộc, không trùng với chi nhánh đã có, không có ký tự đặc biệt,
+  // SĐT bắt buộc và đúng format (9-11 chữ số), địa chỉ bắt buộc,
   // giờ mở/đóng cửa bắt buộc, giờ đóng cửa phải sau giờ mở cửa
   const validateCreateForm = (): boolean => {
     if (!createForm.BranchName.trim()) {
@@ -299,6 +300,14 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
     const branchNameResult = validateBranchName(createForm.BranchName);
     if (!branchNameResult.success) {
       setCreateError(branchNameResult.error?.issues[0]?.message ?? "Tên chi nhánh không hợp lệ");
+      return false;
+    }
+    // Kiểm tra trùng tên chi nhánh
+    const isDuplicate = branches.some(
+      (b) => b.branchName.toLowerCase().trim() === createForm.BranchName.toLowerCase().trim()
+    );
+    if (isDuplicate) {
+      setCreateError("Tên chi nhánh đã tồn tại, vui lòng chọn tên khác");
       return false;
     }
     if (!createForm.Address.trim()) {
@@ -567,7 +576,8 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
   };
 
   // Kiểm tra hợp lệ form chỉnh sửa chi nhánh trước khi gửi API: tên chi nhánh
-  // bắt buộc, SĐT bắt buộc và đúng format (9-11 chữ số), địa chỉ bắt buộc,
+  // bắt buộc, không trùng với chi nhánh khác (trừ chính nó), không có ký tự đặc biệt,
+  // SĐT bắt buộc và đúng format (9-11 chữ số), địa chỉ bắt buộc,
   // giờ mở/đóng cửa bắt buộc, giờ đóng cửa phải sau giờ mở cửa nếu cả hai đều được nhập
   const validateEditForm = (): boolean => {
     if (!editForm.BranchName.trim()) {
@@ -577,6 +587,16 @@ const AdminBranches = () => { // Trang quản lý chi nhánh
     const branchNameResult = validateBranchName(editForm.BranchName);
     if (!branchNameResult.success) {
       setEditError(branchNameResult.error?.issues[0]?.message ?? "Tên chi nhánh không hợp lệ");
+      return false;
+    }
+    // Kiểm tra trùng tên chi nhánh (loại trừ chi nhánh đang sửa)
+    const isDuplicate = branches.some(
+      (b) =>
+        b.branchID !== editingBranch?.branchID &&
+        b.branchName.toLowerCase().trim() === editForm.BranchName.toLowerCase().trim()
+    );
+    if (isDuplicate) {
+      setEditError("Tên chi nhánh đã tồn tại, vui lòng chọn tên khác");
       return false;
     }
     if (!editForm.Address.trim()) {
