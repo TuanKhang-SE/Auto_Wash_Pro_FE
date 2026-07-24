@@ -27,13 +27,9 @@ type TabType = "bookings" | "invoices";
 
 const BOOKING_STATUS_OPTIONS: { value: BookingStatus | ""; label: string }[] = [
   { value: "", label: "Tất cả" },
-  { value: "Pending", label: "Chờ xác nhận" },
-  { value: "Confirmed", label: "Đã xác nhận" },
   { value: "CheckedIn", label: "Đã check-in" },
   { value: "InProgress", label: "Đang rửa" },
   { value: "Completed", label: "Hoàn thành" },
-  { value: "Cancelled", label: "Đã hủy" },
-  { value: "NoShow", label: "Không đến" },
 ];
 
 const INVOICE_STATUS_OPTIONS: { value: InvoiceStatus | ""; label: string }[] = [
@@ -87,24 +83,16 @@ const formatTime = (timeStr: string | null | undefined) => {
 
 const getBookingStatusBadge = (status: string) => {
   const statusConfig: Record<string, { bg: string; text: string }> = {
-    Pending: { bg: "bg-yellow-100", text: "text-yellow-700" },
-    Confirmed: { bg: "bg-blue-100", text: "text-blue-700" },
     CheckedIn: { bg: "bg-purple-100", text: "text-purple-700" },
     InProgress: { bg: "bg-indigo-100", text: "text-indigo-700" },
     Completed: { bg: "bg-green-100", text: "text-green-700" },
-    Cancelled: { bg: "bg-red-100", text: "text-red-700" },
-    NoShow: { bg: "bg-gray-100", text: "text-gray-700" },
   };
   const config = statusConfig[status] || { bg: "bg-gray-100", text: "text-gray-700" };
   return (
     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${config.bg} ${config.text}`}>
-      {status === "Pending" && "Chờ xác nhận"}
-      {status === "Confirmed" && "Đã xác nhận"}
       {status === "CheckedIn" && "Đã check-in"}
       {status === "InProgress" && "Đang rửa"}
       {status === "Completed" && "Hoàn thành"}
-      {status === "Cancelled" && "Đã hủy"}
-      {status === "NoShow" && "Không đến"}
     </span>
   );
 };
